@@ -1,0 +1,8 @@
+{
+  "java.import.exclusions": [
+    "**/node_modules/**",
+    "**/.git/**",
+    "**/dist/**",
+    "**/.pglite-data/**"
+  ]
+}
