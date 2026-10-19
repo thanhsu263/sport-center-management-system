@@ -1,0 +1,872 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+/* Be Vietnam Pro served from the app itself (Vietnamese and Latin subsets), weights 400-800. */
+@import "@fontsource/be-vietnam-pro/400.css";
+@import "@fontsource/be-vietnam-pro/500.css";
+@import "@fontsource/be-vietnam-pro/600.css";
+@import "@fontsource/be-vietnam-pro/700.css";
+@import "@fontsource/be-vietnam-pro/800.css";
+
+@theme {
+  --font-sans: "Be Vietnam Pro", system-ui, sans-serif;
+  --font-display: "Be Vietnam Pro", system-ui, sans-serif;
+  /* Second display voice: heavy condensed block caps for the loud, athletic bits
+     (scoreboard numerals, sport names, section kickers). The serif still carries
+     the narrative headings — pairing the two is what keeps Arena3 from reading
+     like a boutique hotel while staying Arena3. */
+  --font-athletic: "Anton", "Be Vietnam Pro", system-ui, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, monospace;
+
+  --color-bg: #f4f2ea;
+  --color-fg: #1c2616;
+  --color-surface: #ffffff;
+  --color-muted: #4a5443;
+  --color-subtle: #5f6857;
+  --color-line: #e2dec9;
+  --color-line-strong: #c9c4ae;
+  --color-accent: #3f7d20;
+  --color-accent-fg: #ffffff;
+  --color-accent-2: #2f6118;
+  /* Hover fill for the primary button, and the solid fill for a court in use right now. */
+  --color-accent-hover: #2f6118;
+  --color-accent-strong: #2f6118;
+  /* A class on the court grid. */
+  --color-slot-class: #6b4423;
+  --color-hold: #b25e09;
+  --color-danger: #b4232a;
+  --color-ink: #1c2616;
+  --color-wood: #efe5d4;
+  --color-earth: #7a4a24;
+  --color-earth-fg: #ffffff;
+  --color-espresso: #2c1d11;
+  --color-espresso-fg: #fffaf0;
+  --color-disabled: #e6e2d3;
+  --color-disabled-fg: #686253;
+  --color-on-media: #ffffff;
+  --color-on-media-muted: #e6eed9;
+  --color-pass: #4a2f17;
+  --color-pass-fg: #fffaf0;
+  --color-pass-muted: #e3d2b8;
+  --color-volt: #b5e04a;
+  --color-sport-leaf: #2e7d32;
+  --color-sport-clay: #b85d19;
+  --color-sport-sun: #b26a00;
+  --color-sport-sky: #1565c0;
+  --color-sport-plum: #7b1fa2;
+  --color-sport-slate: #455a64;
+  --color-sport-moss: #558b2f;
+  --color-sport-dune: #8d6e63;
+  --color-sport-badminton: var(--color-sport-leaf);
+  --color-sport-basketball: var(--color-sport-clay);
+  --color-sport-volleyball: var(--color-sport-sun);
+  --color-chart-1: #1b4d20;
+  --color-chart-2: #559e3e;
+  --color-chart-3: #a66a38;
+  --color-chart-4: #d4a359;
+  --color-heat-0: #f7f5f0;
+  --color-heat-1: #ebd9c4;
+  --color-heat-2: #d8b998;
+  --color-heat-3: #b5895f;
+  --color-heat-4: #8a5833;
+  --color-heat-5: #563118;
+  /* The brand night in both schemes, for what sits on a photo rather than on the page: the label
+     of a white button over footage, the scrim behind the stats band. `fg` turns pale in dark,
+     which put pale text on those white buttons. */
+  --color-night: #141d0f;
+  /* The accent as small text: the same sprout in light, lifted in dark to read on dark moss. */
+  --color-accent-text: #356b1b;
+
+  /* Semantic roles. The palette above is named after what things look like
+     (wood, ink, pass); these name what they mean, so a status colour is chosen
+     by intent and re-pointed here once instead of hunted down per component. */
+  --color-primary: var(--color-accent);
+  --color-primary-fg: var(--color-accent-fg);
+  --color-error: var(--color-danger);
+  --color-warning: var(--color-hold);
+  --color-success: var(--color-accent-2);
+
+  --text-2xs: 0.75rem;
+  --text-2xs--line-height: 1rem;
+
+  /* Fluid display sizes: scale smoothly between a phone and a wide desktop
+     instead of jumping at each breakpoint. Ratio steps up by ~1.25 (major third). */
+  --text-fluid-sm: clamp(1rem, 0.95rem + 0.25vw, 1.125rem);
+  --text-fluid-md: clamp(1.25rem, 1.1rem + 0.75vw, 1.5rem);
+  --text-fluid-lg: clamp(1.5rem, 1.2rem + 1.5vw, 2rem);
+  --text-fluid-xl: clamp(1.875rem, 1.3rem + 2.9vw, 3rem);
+  --text-fluid-2xl: clamp(2.25rem, 1.4rem + 4.2vw, 4.5rem);
+
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 14px;
+  --radius-xl: 16px;
+  --radius-pill: 9999px;
+
+  --shadow-soft: 0 2px 8px -2px rgba(45, 55, 30, 0.06), 0 8px 24px -4px rgba(61, 40, 21, 0.05);
+  --shadow-border: 0 0 0 1px rgba(28, 38, 22, 0.07), 0 1px 2px rgba(28, 38, 22, 0.04);
+  /* Elevation tinted with the brand colour rather than neutral grey, so a raised
+     control reads as "lit from the accent" instead of "floating on grey". */
+  --shadow-accent: 0 1px 2px rgba(28, 38, 22, 0.12);
+  --shadow-accent-lg: 0 4px 12px -4px color-mix(in oklab, var(--color-accent) 55%, transparent);
+
+  --ease-smooth: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-out-soft: cubic-bezier(0.16, 1, 0.3, 1);
+  --animate-enter: enter 0.4s var(--ease-smooth) both;
+  --animate-float: float 7s ease-in-out infinite;
+  --animate-shimmer: shimmer 2.2s linear infinite;
+  --animate-drift: drift 22s ease-in-out infinite alternate;
+}
+
+/* Plain-CSS handles for the status roles, for code that reads custom properties
+   directly (canvas, inline styles, third-party widgets) rather than Tailwind. */
+:root {
+  color-scheme: light;
+  --primary: var(--color-primary);
+  --error: var(--color-error);
+  --success: var(--color-success);
+  --warning: var(--color-warning);
+}
+
+/* Dark: follows the device. Sprout green and earth brown tones; effects keep working. */
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --color-bg: #10150d;
+    --color-fg: #e9eee0;
+    --color-surface: #182114;
+    --color-muted: #b2bba5;
+    --color-subtle: #97a28b;
+    --color-line: #27331f;
+    --color-line-strong: #3b4a32;
+    --color-accent: #8bc34a;
+    --color-accent-text: #a5d46a;
+    --color-accent-fg: #10180a;
+    --color-accent-2: #9ccf5c;
+    --color-accent-hover: #9ccf5c;
+    --color-accent-strong: #6fa335;
+    --color-hold: #f0a24a;
+    --color-danger: #f47b74;
+    --color-ink: #e9eee0;
+    --color-wood: #231d14;
+    --color-earth: #c08a5a;
+    --color-earth-fg: #10150d;
+    --color-espresso: #e9dcc8;
+    --color-espresso-fg: #1a120a;
+    --color-disabled: #2a3324;
+    --color-disabled-fg: #95a38a;
+    --color-pass: #3d2815;
+    --color-slot-class: #a07850;
+    --color-sport-leaf: #81c784;
+    --color-sport-clay: #ff8a65;
+    --color-sport-sun: #ffd54f;
+    --color-sport-sky: #64b5f6;
+    --color-sport-plum: #ba68c8;
+    --color-sport-slate: #90a4ae;
+    --color-sport-moss: #aed581;
+    --color-sport-dune: #d7ccc8;
+    --color-sport-badminton: var(--color-sport-leaf);
+    --color-sport-basketball: var(--color-sport-clay);
+    --color-sport-volleyball: var(--color-sport-sun);
+    --color-chart-1: #6fa335;
+    --color-chart-2: #9ccf5c;
+    --color-chart-3: #c08a5a;
+    --color-chart-4: #e0b877;
+    --color-heat-0: #1c1815;
+    --color-heat-1: #33251a;
+    --color-heat-2: #573c26;
+    --color-heat-3: #835a39;
+    --color-heat-4: #b78253;
+    --color-heat-5: #e6b17c;
+    --shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.3), 0 12px 32px -14px rgba(0, 0, 0, 0.6);
+    --shadow-border: 0 0 0 1px rgba(180, 200, 160, 0.12), 0 1px 2px rgba(0, 0, 0, 0.3);
+    --shadow-accent: 0 1px 2px rgba(0, 0, 0, 0.4);
+  }
+}
+
+@keyframes enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes shimmer {
+  from {
+    background-position: -180% 0;
+  }
+  to {
+    background-position: 180% 0;
+  }
+}
+
+/* Slow ambient movement for the blurred colour washes behind hero sections. */
+@keyframes drift {
+  from {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  to {
+    transform: translate3d(4%, -6%, 0) scale(1.12);
+  }
+}
+
+@keyframes pulse-ring {
+  0% {
+    transform: scale(0.85);
+    opacity: 0.55;
+  }
+  70% {
+    transform: scale(1.5);
+    opacity: 0;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes sweep {
+  from {
+    transform: translateX(-110%) skewX(-18deg);
+  }
+  to {
+    transform: translateX(210%) skewX(-18deg);
+  }
+}
+
+/* Travelling glint for `.shiny-text`. Pans right-to-left so it reads as light
+   moving across the letters rather than the letters moving. */
+@keyframes shiny-pan {
+  from {
+    background-position: 220% 0;
+  }
+  to {
+    background-position: -60% 0;
+  }
+}
+
+/* Arc of light orbiting a `.star-border` pill. */
+@keyframes star-spin {
+  to {
+    transform: rotate(1turn);
+  }
+}
+
+/* One character (or word) of a `SplitText` heading rising into its line. */
+@keyframes split-rise {
+  from {
+    transform: translateY(var(--split-distance, 118%));
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  html,
+  body,
+  #root {
+    min-height: 100%;
+    background-color: var(--color-bg);
+    color: var(--color-fg);
+  }
+  body {
+    font-family: var(--font-sans);
+    line-height: 1.5;
+    /* The page sits on cream rather than white and Be Vietnam Pro has fairly
+       light stems; unsmoothed it renders chalky against that background. */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    /* Only 400–700 are loaded. Without this a `font-semibold` on a weight that
+       did not arrive gets faked by slanting and smearing the 400. */
+    font-synthesis-weight: none;
+  }
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+    font-weight: 600;
+    /* Newsreader carries an optical-size axis. Letting it choose means headings
+       get the display cut — open counters, finer hairlines — instead of the
+       text cut scaled up, which is what makes a serif look inflated. */
+    font-optical-sizing: auto;
+    text-wrap: balance;
+    line-height: 1.15;
+    /* Tracking is a function of size, not of tag. -0.03em was chosen for the
+       landing page's 5rem headlines and then inherited by every h3 on every
+       card, where at 1.125rem it closes the counters up and the word turns
+       into a smudge. Each level gets the tightening its own size can carry. */
+    letter-spacing: -0.012em;
+  }
+  h1 {
+    letter-spacing: -0.028em;
+  }
+  h2 {
+    letter-spacing: -0.02em;
+  }
+  p {
+    text-wrap: pretty;
+  }
+  .font-display {
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+  * {
+    border-color: var(--color-line);
+  }
+}
+
+/* One keyboard focus ring for everything that can take focus. Individual
+   components used `focus:ring` on a few inputs and nothing at all on links,
+   cards-as-buttons and menu items, so tabbing through a page lost the cursor.
+   :focus-visible keeps it off mouse clicks.
+
+   Two tones, not one: the green outline alone vanishes on the dark green photo
+   panels (login, register, landing hero), so a cream halo sits underneath it.
+   Unlayered on purpose, so it also beats the per-component ring utilities. */
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 5px color-mix(in oklab, var(--color-on-media) 90%, transparent);
+}
+/* Programmatic focus on the skip-link target should not draw a box. */
+[tabindex="-1"]:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
+/* A box the page has said is wrong gets a red edge to match the red line that says why. The line of
+   text is the real message; the edge only points at the box. Unlayered, so it beats the utility
+   border colour the field is built with. */
+input[aria-invalid="true"],
+textarea[aria-invalid="true"],
+select[aria-invalid="true"] {
+  border-color: var(--color-danger);
+}
+
+/* First focusable element on every page: hidden until a keyboard user reaches it. */
+.skip-link {
+  position: fixed;
+  top: 0.75rem;
+  left: 0.75rem;
+  z-index: 100;
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-pill);
+  background: var(--color-ink);
+  color: var(--color-bg);
+  font-size: 1rem;
+  font-weight: 500;
+  transform: translateY(-200%);
+  transition: transform 0.2s var(--ease-smooth);
+}
+.skip-link:focus {
+  transform: translateY(0);
+}
+
+/* Below 16px iOS Safari zooms the page when a field takes focus. */
+@media (max-width: 640px) {
+  input,
+  select,
+  textarea {
+    font-size: 1rem;
+  }
+}
+
+/* The device asks for reduced motion. The pseudo-elements are named on purpose:
+   the orbiting light on a StarBorder is a ::before, and a bare `*` does not reach it. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+.court-lines {
+  background-image:
+    linear-gradient(to right, color-mix(in oklab, var(--color-accent) 28%, transparent) 1px, transparent 1px),
+    linear-gradient(to right, color-mix(in oklab, var(--color-accent) 28%, transparent) 1px, transparent 1px),
+    linear-gradient(to bottom, color-mix(in oklab, var(--color-accent) 18%, transparent) 2px, transparent 2px);
+  background-size: 100% 100%;
+  background-position: 12% 0, 88% 0, 0 50%;
+  background-repeat: no-repeat;
+}
+
+.enter {
+  animation: var(--animate-enter);
+}
+.enter-2 {
+  animation: var(--animate-enter);
+  animation-delay: 60ms;
+}
+.enter-3 {
+  animation: var(--animate-enter);
+  animation-delay: 120ms;
+}
+
+.hero-scrim {
+  background:
+    linear-gradient(90deg, rgba(16, 21, 13, 0.92) 0%, rgba(16, 21, 13, 0.65) 45%, rgba(16, 21, 13, 0.15) 100%),
+    linear-gradient(to top, rgba(16, 21, 13, 0.55) 0%, transparent 42%),
+    linear-gradient(to bottom, rgba(16, 21, 13, 0.35) 0%, transparent 28%);
+}
+
+@media (max-width: 767px) {
+  .hero-scrim {
+    background:
+      linear-gradient(180deg, rgba(16, 21, 13, 0.85) 0%, rgba(16, 21, 13, 0.72) 100%);
+  }
+}
+
+.media-scrim {
+  background: linear-gradient(
+    to top,
+    rgba(20, 29, 15, 0.55) 0%,
+    rgba(20, 29, 15, 0.12) 48%,
+    rgba(20, 29, 15, 0.08) 100%
+  );
+}
+
+.caption-bar {
+  background: rgba(20, 29, 15, 0.82);
+  color: var(--color-on-media);
+}
+
+.on-media {
+  text-shadow:
+    0 1px 2px rgba(10, 15, 8, 0.7),
+    0 10px 28px rgba(10, 15, 8, 0.45);
+}
+
+.marquee {
+  overflow: hidden;
+  mask-image: linear-gradient(to right, transparent, #000 6%, #000 94%, transparent);
+}
+.marquee-track {
+  display: flex;
+  width: max-content;
+  gap: 2.5rem;
+  will-change: transform;
+  animation: marquee 38s linear infinite;
+}
+.marquee:hover .marquee-track {
+  animation-play-state: paused;
+}
+
+/* ── GSAP scenes (landing) ───────────────────────────────────────── */
+
+/* The hero's copy waits, hidden, for its timeline, so the server-rendered page never shows it for
+   a frame before GSAP hides it again. Only when motion is allowed: under reduced motion nothing
+   hides and nothing waits. The timeline sets `visibility: visible` itself. */
+@media (prefers-reduced-motion: no-preference) {
+  [data-enter] {
+    visibility: hidden;
+  }
+}
+
+/* A card lifts a little under the pointer: the CSS twin of `Lift` in motion.tsx, for GSAP scenes,
+   which must not mix in motion components on the same element. */
+.lift {
+  transition:
+    transform 0.35s var(--ease-smooth),
+    box-shadow 0.35s var(--ease-smooth);
+}
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .lift:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-soft);
+  }
+}
+
+/* ── Ambient washes ──────────────────────────────────────────────── */
+
+/* Blurred colour blob; parent must be relative + overflow-hidden. */
+.wash {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(72px);
+  opacity: 0.5;
+  pointer-events: none;
+  animation: var(--animate-drift);
+}
+.wash-accent {
+  background: radial-gradient(circle, color-mix(in oklab, var(--color-accent) 60%, transparent), transparent 70%);
+}
+.wash-hold {
+  background: radial-gradient(circle, color-mix(in oklab, var(--color-hold) 45%, transparent), transparent 70%);
+}
+
+/* Hatching for an hour nobody can buy — maintenance or a closed court. Colour
+   alone was carrying that before, and on a grid of 9px cells two muted browns
+   are the same brown. Stripes read as "crossed off" at any size, and they
+   survive a colour-blind reader and a projector. */
+.stripes {
+  background-image: repeating-linear-gradient(
+    45deg,
+    color-mix(in oklab, var(--color-fg) 12%, transparent) 0 3px,
+    transparent 3px 7px
+  );
+}
+
+/* ── Text treatments ─────────────────────────────────────────────── */
+
+/* Block-caps voice for the loud elements: scoreboard numerals, sport names,
+   step numbers. Anton ships a single weight, so size and tracking carry the
+   emphasis instead of font-weight. */
+.athletic {
+  font-family: var(--font-sans);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.08;
+}
+
+/* Numbers in stat tiles and totals: one clean bold sans, tabular so columns align. */
+.figure {
+  font-family: var(--font-sans);
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  line-height: 1.05;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Small label above a heading or a field: sentence case, semibold, no tracking. */
+.kicker {
+  font-family: var(--font-sans);
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0.005em;
+}
+
+/* A link that looks small but is easy to hit: the hit area grows by padding that an equal negative
+   margin takes back, so nothing moves (24px on a mouse layout, 44px on a phone). */
+.tap {
+  display: inline-block;
+  padding-block: 0.125rem;
+  margin-block: -0.125rem;
+}
+@media (max-width: 639.98px) {
+  .tap {
+    padding-block: 0.75rem;
+    margin-block: -0.75rem;
+  }
+}
+
+/* A stand-alone text link or text button: 44px tall on a phone, 24px with a mouse. */
+.hit {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.5rem;
+}
+@media (max-width: 639.98px) {
+  .hit {
+    min-height: 2.75rem;
+  }
+}
+
+.text-gradient {
+  background: linear-gradient(105deg, var(--color-fg) 10%, var(--color-accent) 55%, var(--color-hold) 95%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Light counterpart for headlines reversed out over footage — the dark version
+   above vanishes against video. Stays inside the cream/sand family so it still
+   reads as Arena3 and not as a stock neon gradient. */
+.text-gradient-media {
+  background: linear-gradient(105deg, var(--color-on-media) 8%, var(--color-on-media-muted) 46%, var(--color-volt) 95%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  /* A clipped background paints *under* the text shadow, so the shadow inherited
+     from `.on-media` lands on top of the letters and greys them out. */
+  text-shadow: none;
+}
+
+/* The shadow for clipped text has to live on an *ancestor*, never on the clipped
+   element itself: a `filter` on the same box that carries `background-clip: text`
+   makes Chrome drop the fill entirely once the text sits inside transformed,
+   overflow-hidden descendants — which is exactly what the word-reveal wrappers
+   are. Put this on the heading and `.text-gradient-media` on the span inside. */
+.media-glow {
+  filter: drop-shadow(0 2px 7px rgba(10, 15, 8, 0.6));
+}
+
+/* Band of light sliding across the glyphs. The two stops are variables rather
+   than `currentColor` on purpose: clipping the background needs
+   `color: transparent`, which would make `currentColor` transparent too. */
+.shiny-text {
+  --shiny-base: var(--color-fg);
+  --shiny-glint: var(--color-accent);
+  background: linear-gradient(
+    110deg,
+    var(--shiny-base) 42%,
+    var(--shiny-glint) 50%,
+    var(--shiny-base) 58%
+  );
+  background-size: 260% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  /* Same trap as `.text-gradient-media`: a clipped fill paints under any
+     inherited text-shadow. Shadow the glyph shape instead. */
+  text-shadow: none;
+  animation: shiny-pan var(--shiny-duration, 4.5s) linear infinite;
+}
+/* Reversed-out variant for headings sitting on footage or ink. */
+.shiny-on-media {
+  --shiny-base: var(--color-on-media);
+  --shiny-glint: #e6ff7a;
+  filter: drop-shadow(0 2px 7px rgba(10, 15, 8, 0.55));
+}
+/* Quiet variant for eyebrow labels on cream — reads as a muted kicker until the
+   glint passes, so it never competes with the heading under it. */
+.shiny-muted {
+  --shiny-base: var(--color-muted);
+  --shiny-glint: var(--color-accent-2);
+}
+
+/* Heavy display type drawn as outline only — the quiet half of a two-voice
+   headline, where a filled italic serif overlaps a hollow block-caps word. */
+.stroke-text {
+  color: transparent;
+  -webkit-text-stroke: 1.5px currentColor;
+  /* `-webkit-text-stroke` wins over `color`, so the fill has to be cleared with
+     the shorthand's own fill property to keep the glyph hollow in WebKit. */
+  -webkit-text-fill-color: transparent;
+}
+
+/* Film grain for dark media sections. Parent must be relative. */
+.grain::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+  opacity: 0.32;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.55'/%3E%3C/svg%3E");
+}
+
+/* ── Surfaces ────────────────────────────────────────────────────── */
+
+/* Pill whose border is an orbiting arc of light. The glow is an oversized
+   rotating conic gradient clipped by the pill; the inner element covers all of
+   it but the 1px padding ring. */
+.star-border {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+/* A control that cannot be pressed should not be advertised: no orbiting light behind a
+   disabled button (its 50% opacity let the arc show through as a dark smear). */
+.star-border:has(:disabled)::before {
+  display: none;
+}
+.star-border::before {
+  content: "";
+  position: absolute;
+  /* Square and oversized, so the rotation sweeps the full perimeter instead of
+     stalling at the corners of a wide pill. */
+  inset: -150%;
+  z-index: 0;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0 58%,
+    color-mix(in oklab, var(--color-accent) 70%, transparent) 74%,
+    var(--color-hold) 86%,
+    transparent 94% 100%
+  );
+  animation: star-spin var(--star-duration, 5s) linear infinite;
+}
+
+.glass {
+  background: color-mix(in oklab, var(--color-surface) 72%, transparent);
+  backdrop-filter: blur(14px) saturate(1.2);
+  -webkit-backdrop-filter: blur(14px) saturate(1.2);
+}
+
+/* Light sweeping across a surface on hover — used on primary CTAs. */
+.sweep {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+.sweep::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.28), transparent);
+  transform: translateX(-110%) skewX(-18deg);
+}
+.sweep:hover::after {
+  animation: sweep 0.9s var(--ease-out-soft);
+}
+
+/* A heading split into characters, each one rising out of a clipping mask.
+ *
+ * Deliberately CSS rather than a JS tween. There are thirty-odd of these across
+ * the app — every section heading is one — and a tween per character means a
+ * scroll listener and a measured trigger position per heading. More to the
+ * point, a heading's *resting* state should not depend on an animation frame
+ * ever arriving: a CSS animation is on the document timeline, so however badly
+ * the main thread is starved it still ends on the last keyframe, whereas a
+ * frame-driven tween that stops advancing leaves the title stranded half-faded.
+ *
+ * `both` fill keeps the unit hidden through its own delay and holds it visible
+ * afterwards, so the rule below is the only place the hidden state is written. */
+.split-unit {
+  display: inline-block;
+  transform: translateY(var(--split-distance, 118%));
+  opacity: 0;
+}
+[data-split-shown="true"] .split-unit {
+  animation: split-rise var(--split-duration, 0.8s) var(--ease-out-soft) both;
+  animation-delay: var(--split-delay, 0s);
+}
+
+/* The global reduce rule kills `animation`, which would otherwise freeze every
+   unit on the hidden keyframe above — an invisible heading is a worse outcome
+   than a moving one. `SplitText` also renders plain text when it can read the
+   preference in JS; this is the belt to that braces. */
+@media (prefers-reduced-motion: reduce) {
+  .split-unit {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+/* Expanding halo behind a live/now indicator. */
+.ping-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  background: currentColor;
+  animation: pulse-ring 2s var(--ease-out-soft) infinite;
+}
+
+/* Loading placeholder with a travelling highlight. */
+.shimmer {
+  background-image: linear-gradient(
+    90deg,
+    transparent 0%,
+    color-mix(in oklab, var(--color-surface) 70%, transparent) 50%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: var(--animate-shimmer);
+}
+
+.float {
+  animation: var(--animate-float);
+}
+
+/* Underline that draws in from the left on hover. */
+.link-underline {
+  position: relative;
+}
+.link-underline::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: -2px;
+  height: 1px;
+  width: 100%;
+  background: currentColor;
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.35s var(--ease-out-soft);
+}
+.link-underline:hover::after {
+  transform: scaleX(1);
+}
+
+/* Icon motion: every effect leaves the icon fully drawn when animation is off (reduced motion). */
+@keyframes ai-bounce {
+  0%, 62%, 100% { transform: translateY(0) rotate(0); }
+  18% { transform: translateY(-4px) rotate(-8deg); }
+  34% { transform: translateY(0) rotate(0) scale(1.06, 0.9); }
+  48% { transform: translateY(-2px) rotate(6deg); }
+}
+@keyframes ai-wiggle {
+  0%, 70%, 100% { transform: rotate(0); }
+  76% { transform: rotate(-14deg); }
+  84% { transform: rotate(12deg); }
+  92% { transform: rotate(-6deg); }
+}
+@keyframes ai-swing {
+  0%, 100% { transform: rotate(-9deg); }
+  50% { transform: rotate(9deg); }
+}
+@keyframes ai-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+/* The tick that confirms an attendance mark: grows in, settles once. The swell lives in the
+   keyframes, so the timing curve stays the house ease-out instead of an overshooting curve. */
+@keyframes ai-pop {
+  0% { transform: scale(0.6) rotate(-12deg); opacity: 0; }
+  65% { transform: scale(1.1) rotate(3deg); opacity: 1; }
+  100% { transform: scale(1) rotate(0); opacity: 1; }
+}
+@keyframes ai-draw {
+  from { stroke-dashoffset: 1; }
+  to { stroke-dashoffset: 0; }
+}
+@keyframes ai-scan {
+  0% { top: 6%; opacity: 0; }
+  12%, 88% { opacity: 0.5; }
+  100% { top: 94%; opacity: 0; }
+}
+.ai-bounce { animation: ai-bounce 2.6s ease-in-out infinite; transform-origin: 50% 80%; }
+.ai-wiggle { animation: ai-wiggle 3.4s ease-in-out infinite; transform-origin: 40% 60%; }
+.ai-swing { animation: ai-swing 2.8s ease-in-out infinite; transform-origin: 50% 10%; }
+.ai-float { animation: ai-float 3s ease-in-out infinite; }
+.ai-pop { animation: ai-pop 0.32s var(--ease-out-soft) both; }
+.ai-draw { stroke-dasharray: 1; animation: ai-draw 0.55s 0.1s ease-out both; }
+.ai-scan {
+  position: absolute;
+  left: 4%;
+  right: 4%;
+  height: 2px;
+  border-radius: 9999px;
+  background: var(--color-accent);
+  box-shadow: 0 0 12px 2px color-mix(in oklab, var(--color-accent) 60%, transparent);
+  animation: ai-scan 2.4s ease-in-out infinite;
+  pointer-events: none;
+}
