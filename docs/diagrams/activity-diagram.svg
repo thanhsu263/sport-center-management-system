@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1560" height="1220" viewBox="0 0 1560 1220">
+  <rect width="100%" height="100%" fill="#ffffff"/>
+  <text x="334" y="25" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="13" font-weight="700" fill="#1e293b">Activity — register and confirm the email code</text>
+<rect x="180" y="44" width="270" height="1140" rx="0" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.3"/><text x="315" y="60" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="700" fill="#1e293b">Guest</text>
+<rect x="450" y="44" width="270" height="1140" rx="0" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.3"/><text x="585" y="60" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="700" fill="#1e293b">Web client</text>
+<rect x="720" y="44" width="270" height="1140" rx="0" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.3"/><text x="855" y="60" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="700" fill="#1e293b">Arena3 API</text>
+<rect x="990" y="44" width="270" height="1140" rx="0" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.3"/><text x="1125" y="60" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="700" fill="#1e293b">Mail delivery</text>
+<rect x="1260" y="44" width="270" height="1140" rx="0" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.3"/><text x="1395" y="60" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="700" fill="#1e293b">Database</text>
+<path d="M305.0 90.0 L305.0 112.0" fill="none" stroke="#1e293b" stroke-width="1.3" /><polygon points="305,112 301,104 309,104" fill="#1e293b"/>
+<path d="M305.0 152.0 L305.0 176.0" fill="none" stroke="#1e293b" stroke-width="1.3" /><polygon points="305,176 301,168 309,168" fill="#1e293b"/>
+<path d="M410.0 199.0 L470.0 199.0" fill="none" stroke="#1e293b" stroke-width="1.3" /><polygon points="470,199 462,203 462,195" fill="#1e293b"/>
+<path d="M575.0 222.0 L575.0 260.0" fill="none" stroke="#1e293b" stroke-width="1.3" /><polygon points="575,260 571,252 579,252" fill="#1e293b"/>
+<path d="M555.0 280.0 L16.0 280.0 L16.0 132.0 L285.0 132.0" fill="none" stroke="#1e293b" stroke-width="1.3" /><polygon points="285,132 277,136 277,128" fill="#1e293b"/>
+<path d="M595.0 280.0 L740.0 280.0" fill="none" stroke="#1e293b" stroke-width="1.3" /><polygon points="740,280 732,284 732,276" fill="#1e293b"/>
+<path d="M950.0 280.0 L1280.0 280.0" fill="none" stroke="#1e293b" stroke-width="1.3" /><polygon points="1280,280 1272,284 1272,276" fill="#1e293b"/>
+<path d="M1385.0 303.0 L1385.0 350.0 L305.0 350.0 L305.0 370.0" fill="none" stroke="#1e293b" stroke-width="1.3" /><polygon points="305,370 301,362 309,362" fill="#1e293b"/>
+<path d="M305.0 410.0 L305.0 470.0" fill="none" stroke="#1e293b" stroke-width="1.3" /><polygon points="305,470 301,462 309,462" fill="#1e293b"/>
+<path d="M325.0 390.0 L430.0 390.0 L430.0 453.0 L740.0 453.0" fill="none" stroke="#1e293b" stroke-width="1.3" /><polygon points="740,453 732,457 732,449" fill="#1e293b"/>
+<path d="M950.0 453.0 L1280.0 453.0" fill="none" stroke="#1e293b" stroke-width="1.3" /><polygon points="1280,453 1272,457 1272,449" fill="#1e293b"/>
+<path d="M1385.0 476.0 L1385.0 553.0 L950.0 553.0" fill="none" stroke="#1e293b" stroke-width="1.3" /><polygon points="950,553 958,549 958,557" fill="#1e293b"/>
+<path d="M845.0 576.0 L845.0 663.0 L1010.0 663.0" fill="none" stroke="#1e293b" stroke-width="1.3" /><polygon points="1010,663 1002,667 1002,659" fill="#1e293b"/>
+<path d="M1115.0 686.0 L1115.0 730.0 L305.0 730.0 L305.0 760.0" fill="none" stroke="#1e293b" stroke-width="1.3" /><polygon points="305,760 301,752 309,752" fill="#1e293b"/>
+<path d="M305.0 800.0 L305.0 830.0" fill="none" stroke="#1e293b" stroke-width="1.3" /><polygon points="305,830 301,822 309,822" fill="#1e293b"/>
+<path d="M305.0 876.0 L305.0 910.0" fill="none" stroke="#1e293b" stroke-width="1.3" /><polygon points="305,910 301,902 309,902" fill="#1e293b"/>
+<path d="M325.0 930.0 L1280.0 930.0" fill="none" stroke="#1e293b" stroke-width="1.3" /><polygon points="1280,930 1272,934 1272,926" fill="#1e293b"/>
+<path d="M285.0 930.0 L16.0 930.0 L16.0 780.0 L285.0 780.0" fill="none" stroke="#1e293b" stroke-width="1.3" /><polygon points="285,780 277,784 277,776" fill="#1e293b"/>
+<path d="M305.0 950.0 L305.0 980.0 L48.0 980.0 L48.0 1096.0 L305.0 1096.0 L305.0 1110.0" fill="none" stroke="#1e293b" stroke-width="1.3" /><polygon points="305,1110 301,1102 309,1102" fill="#1e293b"/>
+<path d="M1385.0 953.0 L1385.0 1043.0 L950.0 1043.0" fill="none" stroke="#1e293b" stroke-width="1.3" /><polygon points="950,1043 958,1039 958,1047" fill="#1e293b"/>
+<path d="M740.0 1043.0 L680.0 1043.0" fill="none" stroke="#1e293b" stroke-width="1.3" /><polygon points="680,1043 688,1039 688,1047" fill="#1e293b"/>
+<path d="M575.0 1066.0 L575.0 1110.0" fill="none" stroke="#1e293b" stroke-width="1.3" /><polygon points="575,1110 571,1102 579,1102" fill="#1e293b"/>
+<ellipse cx="305" cy="81" rx="9" ry="9" fill="#111"/>
+<polygon points="305,112 325,132 305,152 285,132" fill="#fff" stroke="#1e293b" stroke-width="1.4"/>
+<rect x="200" y="176" width="210" height="46" rx="8" fill="#ffffff" stroke="#1e293b" stroke-width="1.3"/><text x="305" y="203.5" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#1e293b">Fill in the form</text>
+<rect x="470" y="176" width="210" height="46" rx="8" fill="#ffffff" stroke="#1e293b" stroke-width="1.3"/><text x="575" y="203.5" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#1e293b">Check the form</text>
+<polygon points="575,260 595,280 575,300 555,280" fill="#fff" stroke="#1e293b" stroke-width="1.4"/>
+<rect x="740" y="257" width="210" height="46" rx="8" fill="#ffffff" stroke="#1e293b" stroke-width="1.3"/><text x="845" y="284.5" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#1e293b">Check the phone</text>
+<rect x="1280" y="257" width="210" height="46" rx="8" fill="#ffffff" stroke="#1e293b" stroke-width="1.3"/><text x="1385" y="284.5" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#1e293b">Look up the phone</text>
+<polygon points="305,370 325,390 305,410 285,390" fill="#fff" stroke="#1e293b" stroke-width="1.4"/>
+<circle cx="305" cy="479" r="9" fill="#fff" stroke="#111" stroke-width="1.6"/><circle cx="305" cy="479" r="4.95" fill="#111"/>
+<rect x="740" y="430" width="210" height="46" rx="8" fill="#ffffff" stroke="#1e293b" stroke-width="1.3"/><text x="845" y="457.5" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#1e293b">Create the one-time code</text>
+<rect x="1280" y="430" width="210" height="46" rx="8" fill="#ffffff" stroke="#1e293b" stroke-width="1.3"/><text x="1385" y="457.5" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#1e293b">Store the pending account</text>
+<polygon points="740,530 934,530 950,553 934,576 740,576" fill="#fff" stroke="#1e293b" stroke-width="1.4"/><text x="839" y="557" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="11" font-weight="400" fill="#1e293b">Send the one-time code</text>
+<rect x="1010" y="640" width="210" height="46" rx="8" fill="#ffffff" stroke="#1e293b" stroke-width="1.3"/><text x="1115" y="667.5" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#1e293b">Deliver the one-time code</text>
+<polygon points="305,760 325,780 305,800 285,780" fill="#fff" stroke="#1e293b" stroke-width="1.4"/>
+<rect x="200" y="830" width="210" height="46" rx="8" fill="#ffffff" stroke="#1e293b" stroke-width="1.3"/><text x="305" y="857.5" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#1e293b">Type the one-time code</text>
+<polygon points="305,910 325,930 305,950 285,930" fill="#fff" stroke="#1e293b" stroke-width="1.4"/>
+<rect x="1280" y="907" width="210" height="46" rx="8" fill="#ffffff" stroke="#1e293b" stroke-width="1.3"/><text x="1385" y="934.5" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#1e293b">Store the member</text>
+<rect x="740" y="1020" width="210" height="46" rx="8" fill="#ffffff" stroke="#1e293b" stroke-width="1.3"/><text x="845" y="1047.5" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#1e293b">Issue the session</text>
+<rect x="470" y="1020" width="210" height="46" rx="8" fill="#ffffff" stroke="#1e293b" stroke-width="1.3"/><text x="575" y="1047.5" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#1e293b">Open the home page</text>
+<circle cx="575" cy="1119" r="9" fill="#fff" stroke="#111" stroke-width="1.6"/><circle cx="575" cy="1119" r="4.95" fill="#111"/>
+<circle cx="305" cy="1119" r="9" fill="#fff" stroke="#111" stroke-width="1.6"/><circle cx="305" cy="1119" r="4.95" fill="#111"/>
+<rect x="372.35999999999996" y="260" width="63.440000000000005" height="17" fill="#ffffff"/><text x="404.08" y="274" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#1e293b">[Invalid]</text>
+<rect x="641.94" y="260" width="51.120000000000005" height="17" fill="#ffffff"/><text x="667.5" y="274" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#1e293b">[Valid]</text>
+<rect x="309" y="431.5" width="75.76" height="17" fill="#ffffff"/><text x="346.88" y="445.5" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#1e293b">[Duplicate]</text>
+<rect x="488.15999999999997" y="433" width="57.28" height="17" fill="#ffffff"/><text x="516.8" y="447" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#1e293b">[Unique]</text>
+<rect x="557.6000000000001" y="910" width="69.60000000000001" height="17" fill="#ffffff"/><text x="592.4000000000001" y="924" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#1e293b">[Verified]</text>
+<rect x="84.89999999999999" y="910" width="131.20000000000002" height="17" fill="#ffffff"/><text x="150.5" y="924" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#1e293b">[Mismatch / Expired]</text>
+<rect x="117.06" y="960" width="118.88000000000001" height="17" fill="#ffffff"/><text x="176.5" y="974" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#1e293b">[no attempts left]</text>
+</svg>

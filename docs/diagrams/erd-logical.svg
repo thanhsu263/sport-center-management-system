@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="920" height="660" viewBox="0 0 920 660">
+  <rect width="100%" height="100%" fill="#ffffff"/>
+  <text x="254" y="25" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="13" font-weight="700" fill="#1e293b">Logical ERD — Arena3 sports complex</text>
+<path d="M110.0 68.0 L279.0 68.0" fill="none" stroke="#1e293b" stroke-width="1.3" />
+<path d="M279.0 68.0 L450.0 68.0" fill="none" stroke="#1e293b" stroke-width="1.3" />
+<path d="M450.0 68.0 L619.0 68.0" fill="none" stroke="#1e293b" stroke-width="1.3" />
+<path d="M619.0 68.0 L790.0 68.0" fill="none" stroke="#1e293b" stroke-width="1.3" />
+<path d="M110.0 68.0 L110.0 162.0" fill="none" stroke="#1e293b" stroke-width="1.3" />
+<path d="M110.0 162.0 L110.0 250.0" fill="none" stroke="#1e293b" stroke-width="1.3" />
+<path d="M110.0 250.0 L289.0 250.0" fill="none" stroke="#1e293b" stroke-width="1.3" />
+<path d="M289.0 250.0 L460.0 250.0" fill="none" stroke="#1e293b" stroke-width="1.3" />
+<path d="M110.0 250.0 L110.0 342.0" fill="none" stroke="#1e293b" stroke-width="1.3" />
+<path d="M110.0 342.0 L110.0 430.0" fill="none" stroke="#1e293b" stroke-width="1.3" />
+<path d="M460.0 430.0 L629.0 430.0" fill="none" stroke="#1e293b" stroke-width="1.3" />
+<path d="M629.0 430.0 L800.0 430.0" fill="none" stroke="#1e293b" stroke-width="1.3" />
+<path d="M460.0 430.0 L460.0 522.0" fill="none" stroke="#1e293b" stroke-width="1.3" />
+<path d="M460.0 522.0 L460.0 610.0" fill="none" stroke="#1e293b" stroke-width="1.3" />
+<rect x="40" y="48" width="140" height="40" rx="0" fill="#ffffff" stroke="#1e293b" stroke-width="1.3"/><text x="110" y="72.5" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#1e293b">User</text>
+<polygon points="279,46 318,68 279,90 240,68" fill="#fff" stroke="#1e293b" stroke-width="1.4"/><text x="279" y="72" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="11" font-weight="400" fill="#1e293b">holds</text>
+<rect x="380" y="48" width="140" height="40" rx="0" fill="#ffffff" stroke="#1e293b" stroke-width="1.3"/><text x="450" y="72.5" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#1e293b">Subscription</text>
+<polygon points="619,46 658,68 619,90 580,68" fill="#fff" stroke="#1e293b" stroke-width="1.4"/><text x="619" y="72" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="11" font-weight="400" fill="#1e293b">of</text>
+<rect x="720" y="48" width="140" height="40" rx="0" fill="#ffffff" stroke="#1e293b" stroke-width="1.3"/><text x="790" y="72.5" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#1e293b">Plan</text>
+<polygon points="110,140 149,162 110,184 71,162" fill="#fff" stroke="#1e293b" stroke-width="1.4"/><text x="110" y="166" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="11" font-weight="400" fill="#1e293b">books</text>
+<rect x="40" y="230" width="140" height="40" rx="0" fill="#ffffff" stroke="#1e293b" stroke-width="1.3"/><text x="110" y="254.5" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#1e293b">CourtBooking</text>
+<polygon points="289,228 328,250 289,272 250,250" fill="#fff" stroke="#1e293b" stroke-width="1.4"/><text x="289" y="254" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="11" font-weight="400" fill="#1e293b">on</text>
+<rect x="390" y="230" width="140" height="40" rx="0" fill="#ffffff" stroke="#1e293b" stroke-width="1.3"/><text x="460" y="254.5" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#1e293b">Court</text>
+<polygon points="110,320 149,342 110,364 71,342" fill="#fff" stroke="#1e293b" stroke-width="1.4"/><text x="110" y="346" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="11" font-weight="400" fill="#1e293b">settles</text>
+<rect x="40" y="410" width="140" height="40" rx="0" fill="#ffffff" stroke="#1e293b" stroke-width="1.3"/><text x="110" y="434.5" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#1e293b">Payment</text>
+<rect x="390" y="410" width="140" height="40" rx="0" fill="#ffffff" stroke="#1e293b" stroke-width="1.3"/><text x="460" y="434.5" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#1e293b">Class</text>
+<polygon points="629,408 668,430 629,452 590,430" fill="#fff" stroke="#1e293b" stroke-width="1.4"/><text x="629" y="434" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="11" font-weight="400" fill="#1e293b">runs</text>
+<rect x="730" y="410" width="140" height="40" rx="0" fill="#ffffff" stroke="#1e293b" stroke-width="1.3"/><text x="800" y="434.5" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#1e293b">Session</text>
+<polygon points="460,500 499,522 460,544 421,522" fill="#fff" stroke="#1e293b" stroke-width="1.4"/><text x="460" y="526" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="11" font-weight="400" fill="#1e293b">lists</text>
+<rect x="390" y="590" width="140" height="40" rx="0" fill="#ffffff" stroke="#1e293b" stroke-width="1.3"/><text x="460" y="614.5" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#1e293b">Enrollment</text>
+<rect x="196" y="30" width="36" height="16" rx="0" fill="#ffffff" stroke="none" stroke-width="1.3"/><text x="202" y="42.5" text-anchor="start" font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="700" fill="#1e293b">1</text>
+<rect x="348" y="30" width="36" height="16" rx="0" fill="#ffffff" stroke="none" stroke-width="1.3"/><text x="354" y="42.5" text-anchor="start" font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="700" fill="#1e293b">N</text>
+<rect x="540" y="30" width="36" height="16" rx="0" fill="#ffffff" stroke="none" stroke-width="1.3"/><text x="546" y="42.5" text-anchor="start" font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="700" fill="#1e293b">N</text>
+<rect x="688" y="30" width="36" height="16" rx="0" fill="#ffffff" stroke="none" stroke-width="1.3"/><text x="694" y="42.5" text-anchor="start" font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="700" fill="#1e293b">1</text>
+<rect x="124" y="106" width="36" height="16" rx="0" fill="#ffffff" stroke="none" stroke-width="1.3"/><text x="130" y="118.5" text-anchor="start" font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="700" fill="#1e293b">1</text>
+<rect x="124" y="198" width="36" height="16" rx="0" fill="#ffffff" stroke="none" stroke-width="1.3"/><text x="130" y="210.5" text-anchor="start" font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="700" fill="#1e293b">N</text>
+<rect x="210" y="210" width="36" height="16" rx="0" fill="#ffffff" stroke="none" stroke-width="1.3"/><text x="216" y="222.5" text-anchor="start" font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="700" fill="#1e293b">N</text>
+<rect x="360" y="210" width="36" height="16" rx="0" fill="#ffffff" stroke="none" stroke-width="1.3"/><text x="366" y="222.5" text-anchor="start" font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="700" fill="#1e293b">1</text>
+<rect x="124" y="286" width="36" height="16" rx="0" fill="#ffffff" stroke="none" stroke-width="1.3"/><text x="130" y="298.5" text-anchor="start" font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="700" fill="#1e293b">1</text>
+<rect x="124" y="378" width="36" height="16" rx="0" fill="#ffffff" stroke="none" stroke-width="1.3"/><text x="130" y="390.5" text-anchor="start" font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="700" fill="#1e293b">N</text>
+<rect x="548" y="392" width="36" height="16" rx="0" fill="#ffffff" stroke="none" stroke-width="1.3"/><text x="554" y="404.5" text-anchor="start" font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="700" fill="#1e293b">1</text>
+<rect x="700" y="392" width="36" height="16" rx="0" fill="#ffffff" stroke="none" stroke-width="1.3"/><text x="706" y="404.5" text-anchor="start" font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="700" fill="#1e293b">N</text>
+<rect x="400" y="478" width="36" height="16" rx="0" fill="#ffffff" stroke="none" stroke-width="1.3"/><text x="406" y="490.5" text-anchor="start" font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="700" fill="#1e293b">1</text>
+<rect x="400" y="568" width="36" height="16" rx="0" fill="#ffffff" stroke="none" stroke-width="1.3"/><text x="406" y="580.5" text-anchor="start" font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="700" fill="#1e293b">N</text>
+</svg>

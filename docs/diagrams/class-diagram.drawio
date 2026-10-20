@@ -1,0 +1,75 @@
+<mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1182" pageHeight="718" background="#ffffff">
+  <root>
+    <mxCell id="0"/>
+    <mxCell id="1" parent="0"/>
+    <mxCell id="title" value="Class diagram — booking and membership" style="text;html=1;strokeColor=none;fillColor=none;align=left;fontSize=14;fontStyle=1;fontFamily=Helvetica;fontColor=#1e293b;" vertex="1" parent="1">
+      <mxGeometry x="24" y="8" width="440" height="22" as="geometry"></mxGeometry>
+    </mxCell>
+    <mxCell id="user" value="&lt;div style=&quot;text-align:center&quot;&gt;&lt;b&gt;User&lt;/b&gt;&lt;/div&gt;&lt;hr/&gt;- memberCode : String&lt;br&gt;- fullName : String&lt;br&gt;- phone : String&lt;br&gt;- role : UserRole&lt;br&gt;- status : AccountStatus&lt;hr/&gt;+ register(phone : String, name : String) : void&lt;br&gt;+ signIn(phone : String, password : String) : void" style="verticalAlign=top;align=left;overflow=fill;fontSize=12;fontFamily=Helvetica;html=1;whiteSpace=wrap;fillColor=#f8fafc;strokeColor=#475569;" vertex="1" parent="1">
+      <mxGeometry x="24" y="44" width="396" height="162" as="geometry"></mxGeometry>
+    </mxCell>
+    <mxCell id="plan" value="&lt;div style=&quot;text-align:center&quot;&gt;&lt;b&gt;MembershipPlan&lt;/b&gt;&lt;/div&gt;&lt;hr/&gt;- name : String&lt;br&gt;- sportScope : SportKind&lt;br&gt;- durationDays : Integer&lt;br&gt;- priceVnd : Integer&lt;br&gt;- onSale : Boolean&lt;hr/&gt;" style="verticalAlign=top;align=left;overflow=fill;fontSize=12;fontFamily=Helvetica;html=1;whiteSpace=wrap;fillColor=#f8fafc;strokeColor=#475569;" vertex="1" parent="1">
+      <mxGeometry x="468" y="44" width="213" height="146" as="geometry"></mxGeometry>
+    </mxCell>
+    <mxCell id="court" value="&lt;div style=&quot;text-align:center&quot;&gt;&lt;b&gt;Court&lt;/b&gt;&lt;/div&gt;&lt;hr/&gt;- courtCode : String&lt;br&gt;- sport : SportKind&lt;br&gt;- status : CourtStatus&lt;hr/&gt;+ holds(start : DateTime, end : DateTime) : Boolean" style="verticalAlign=top;align=left;overflow=fill;fontSize=12;fontFamily=Helvetica;html=1;whiteSpace=wrap;fillColor=#f8fafc;strokeColor=#475569;" vertex="1" parent="1">
+      <mxGeometry x="729" y="44" width="404" height="114" as="geometry"></mxGeometry>
+    </mxCell>
+    <mxCell id="sub" value="&lt;div style=&quot;text-align:center&quot;&gt;&lt;b&gt;Subscription&lt;/b&gt;&lt;/div&gt;&lt;hr/&gt;- startOn : Date&lt;br&gt;- endOn : Date&lt;br&gt;- status : SubStatus&lt;br&gt;- courtHoursLeft : Decimal&lt;br&gt;- sessionLeft : Integer&lt;hr/&gt;+ activate() : void" style="verticalAlign=top;align=left;overflow=fill;fontSize=12;fontFamily=Helvetica;html=1;whiteSpace=wrap;fillColor=#f8fafc;strokeColor=#475569;" vertex="1" parent="1">
+      <mxGeometry x="24" y="278" width="228" height="146" as="geometry"></mxGeometry>
+    </mxCell>
+    <mxCell id="book" value="&lt;div style=&quot;text-align:center&quot;&gt;&lt;b&gt;CourtBooking&lt;/b&gt;&lt;/div&gt;&lt;hr/&gt;- code : String&lt;br&gt;- member : User [0..1]&lt;br&gt;- startAt : DateTime&lt;br&gt;- endAt : DateTime&lt;br&gt;- status : BookingStatus&lt;br&gt;- priceVnd : Integer&lt;hr/&gt;+ confirm() : void&lt;br&gt;+ cancel() : Integer" style="verticalAlign=top;align=left;overflow=fill;fontSize=12;fontFamily=Helvetica;html=1;whiteSpace=wrap;fillColor=#f8fafc;strokeColor=#475569;" vertex="1" parent="1">
+      <mxGeometry x="729" y="278" width="404" height="178" as="geometry"></mxGeometry>
+    </mxCell>
+    <mxCell id="promo" value="&lt;div style=&quot;text-align:center&quot;&gt;&lt;b&gt;Promotion&lt;/b&gt;&lt;/div&gt;&lt;hr/&gt;- code : String&lt;br&gt;- kind : PromoKind&lt;br&gt;- value : Integer&lt;br&gt;- maxUses : Integer&lt;hr/&gt;+ discountFor(orderVnd : Integer) : Integer" style="verticalAlign=top;align=left;overflow=fill;fontSize=12;fontFamily=Helvetica;html=1;whiteSpace=wrap;fillColor=#f8fafc;strokeColor=#475569;" vertex="1" parent="1">
+      <mxGeometry x="24" y="528" width="347" height="130" as="geometry"></mxGeometry>
+    </mxCell>
+    <mxCell id="pay" value="&lt;div style=&quot;text-align:center&quot;&gt;&lt;b&gt;Payment&lt;/b&gt;&lt;/div&gt;&lt;hr/&gt;- code : String&lt;br&gt;- method : PayMethod&lt;br&gt;- amountVnd : Integer&lt;br&gt;- status : PayStatus&lt;br&gt;- shift : CashierShift [0..1]&lt;hr/&gt;+ post(amountVnd : Integer, method : PayMethod) : void&lt;br&gt;+ refund(reason : String) : void" style="verticalAlign=top;align=left;overflow=fill;fontSize=12;fontFamily=Helvetica;html=1;whiteSpace=wrap;fillColor=#f8fafc;strokeColor=#475569;" vertex="1" parent="1">
+      <mxGeometry x="729" y="528" width="425" height="162" as="geometry"></mxGeometry>
+    </mxCell>
+    <mxCell id="e_user_sub" value="" style="endArrow=none;html=1;strokeColor=#1e293b;fontSize=11;fontFamily=Helvetica;fontColor=#1e293b;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="user" target="sub">
+      <mxGeometry relative="1" as="geometry"></mxGeometry>
+    </mxCell>
+    <mxCell id="e_user_sub_src" value="1" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;fontSize=11;fontFamily=Helvetica;fontColor=#1e293b;" vertex="1" parent="e_user_sub">
+      <mxGeometry x="-0.75" y="0" relative="1" as="geometry"><mxPoint y="-12" as="offset"/></mxGeometry>
+    </mxCell>
+    <mxCell id="e_user_sub_dst" value="0..*" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;fontSize=11;fontFamily=Helvetica;fontColor=#1e293b;" vertex="1" parent="e_user_sub">
+      <mxGeometry x="0.75" y="0" relative="1" as="geometry"><mxPoint y="-12" as="offset"/></mxGeometry>
+    </mxCell>
+    <mxCell id="e_plan_sub" value="" style="endArrow=none;html=1;strokeColor=#1e293b;fontSize=11;fontFamily=Helvetica;fontColor=#1e293b;exitX=0.5;exitY=1;entryX=0.82;entryY=0;" edge="1" parent="1" source="plan" target="sub">
+      <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="574.5" y="250"/></Array></mxGeometry>
+    </mxCell>
+    <mxCell id="e_plan_sub_src" value="1" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;fontSize=11;fontFamily=Helvetica;fontColor=#1e293b;" vertex="1" parent="e_plan_sub">
+      <mxGeometry x="-0.75" y="0" relative="1" as="geometry"><mxPoint y="-12" as="offset"/></mxGeometry>
+    </mxCell>
+    <mxCell id="e_plan_sub_dst" value="0..*" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;fontSize=11;fontFamily=Helvetica;fontColor=#1e293b;" vertex="1" parent="e_plan_sub">
+      <mxGeometry x="0.75" y="0" relative="1" as="geometry"><mxPoint y="-12" as="offset"/></mxGeometry>
+    </mxCell>
+    <mxCell id="e_court_book" value="" style="endArrow=none;html=1;strokeColor=#1e293b;fontSize=11;fontFamily=Helvetica;fontColor=#1e293b;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="court" target="book">
+      <mxGeometry relative="1" as="geometry"></mxGeometry>
+    </mxCell>
+    <mxCell id="e_court_book_src" value="1" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;fontSize=11;fontFamily=Helvetica;fontColor=#1e293b;" vertex="1" parent="e_court_book">
+      <mxGeometry x="-0.75" y="0" relative="1" as="geometry"><mxPoint y="-12" as="offset"/></mxGeometry>
+    </mxCell>
+    <mxCell id="e_court_book_dst" value="0..*" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;fontSize=11;fontFamily=Helvetica;fontColor=#1e293b;" vertex="1" parent="e_court_book">
+      <mxGeometry x="0.75" y="0" relative="1" as="geometry"><mxPoint y="-12" as="offset"/></mxGeometry>
+    </mxCell>
+    <mxCell id="e_book_pay" value="settles" style="endArrow=none;html=1;strokeColor=#1e293b;fontSize=11;fontFamily=Helvetica;fontColor=#1e293b;exitX=0.42;exitY=1;entryX=0.42;entryY=0;" edge="1" parent="1" source="book" target="pay">
+      <mxGeometry relative="1" as="geometry"></mxGeometry>
+    </mxCell>
+    <mxCell id="e_book_pay_src" value="0..1" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;fontSize=11;fontFamily=Helvetica;fontColor=#1e293b;" vertex="1" parent="e_book_pay">
+      <mxGeometry x="-0.75" y="0" relative="1" as="geometry"><mxPoint y="-12" as="offset"/></mxGeometry>
+    </mxCell>
+    <mxCell id="e_book_pay_dst" value="0..*" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;fontSize=11;fontFamily=Helvetica;fontColor=#1e293b;" vertex="1" parent="e_book_pay">
+      <mxGeometry x="0.75" y="0" relative="1" as="geometry"><mxPoint y="-12" as="offset"/></mxGeometry>
+    </mxCell>
+    <mxCell id="e_promo_pay" value="" style="endArrow=none;html=1;strokeColor=#1e293b;fontSize=11;fontFamily=Helvetica;fontColor=#1e293b;exitX=1;exitY=0.27692307692307694;entryX=0;entryY=0.2222222222222222;" edge="1" parent="1" source="promo" target="pay">
+      <mxGeometry relative="1" as="geometry"></mxGeometry>
+    </mxCell>
+    <mxCell id="e_promo_pay_src" value="0..1" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;fontSize=11;fontFamily=Helvetica;fontColor=#1e293b;" vertex="1" parent="e_promo_pay">
+      <mxGeometry x="-0.75" y="0" relative="1" as="geometry"><mxPoint y="-12" as="offset"/></mxGeometry>
+    </mxCell>
+    <mxCell id="e_promo_pay_dst" value="0..*" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;fontSize=11;fontFamily=Helvetica;fontColor=#1e293b;" vertex="1" parent="e_promo_pay">
+      <mxGeometry x="0.75" y="0" relative="1" as="geometry"><mxPoint y="-12" as="offset"/></mxGeometry>
+    </mxCell>
+  </root>
+</mxGraphModel>

@@ -1,0 +1,81 @@
+<mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="940" pageHeight="540" background="#ffffff">
+  <root>
+    <mxCell id="0"/>
+    <mxCell id="1" parent="0"/>
+    <mxCell id="title" value="Physical ERD — Arena3 sports complex" style="text;html=1;strokeColor=none;fillColor=none;align=left;fontSize=14;fontStyle=1;fontFamily=Helvetica;fontColor=#1e293b;" vertex="1" parent="1">
+      <mxGeometry x="24" y="8" width="480" height="22" as="geometry"></mxGeometry>
+    </mxCell>
+    <mxCell id="user_h" value="User" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e2e8f0;strokeColor=#1e293b;fontStyle=1;align=center;fontSize=12;fontFamily=Helvetica;" vertex="1" parent="1">
+      <mxGeometry x="36" y="48" width="200" height="24" as="geometry"></mxGeometry>
+    </mxCell>
+    <mxCell id="user" value="PK id&lt;br&gt;phone&lt;br&gt;role&lt;br&gt;status" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#1e293b;align=left;verticalAlign=top;spacingLeft=8;spacingTop=4;fontSize=12;fontFamily=Helvetica;" vertex="1" parent="1">
+      <mxGeometry x="36" y="72" width="200" height="72" as="geometry"></mxGeometry>
+    </mxCell>
+    <mxCell id="sub_h" value="Subscription" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e2e8f0;strokeColor=#1e293b;fontStyle=1;align=center;fontSize=12;fontFamily=Helvetica;" vertex="1" parent="1">
+      <mxGeometry x="360" y="48" width="200" height="24" as="geometry"></mxGeometry>
+    </mxCell>
+    <mxCell id="sub" value="PK id&lt;br&gt;FK user_id&lt;br&gt;FK plan_id&lt;br&gt;status" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#1e293b;align=left;verticalAlign=top;spacingLeft=8;spacingTop=4;fontSize=12;fontFamily=Helvetica;" vertex="1" parent="1">
+      <mxGeometry x="360" y="72" width="200" height="72" as="geometry"></mxGeometry>
+    </mxCell>
+    <mxCell id="plan_h" value="MembershipPlan" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e2e8f0;strokeColor=#1e293b;fontStyle=1;align=center;fontSize=12;fontFamily=Helvetica;" vertex="1" parent="1">
+      <mxGeometry x="684" y="48" width="200" height="24" as="geometry"></mxGeometry>
+    </mxCell>
+    <mxCell id="plan" value="PK id&lt;br&gt;name&lt;br&gt;price_vnd" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#1e293b;align=left;verticalAlign=top;spacingLeft=8;spacingTop=4;fontSize=12;fontFamily=Helvetica;" vertex="1" parent="1">
+      <mxGeometry x="684" y="72" width="200" height="56" as="geometry"></mxGeometry>
+    </mxCell>
+    <mxCell id="book_h" value="CourtBooking" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e2e8f0;strokeColor=#1e293b;fontStyle=1;align=center;fontSize=12;fontFamily=Helvetica;" vertex="1" parent="1">
+      <mxGeometry x="36" y="230" width="200" height="24" as="geometry"></mxGeometry>
+    </mxCell>
+    <mxCell id="book" value="PK id&lt;br&gt;FK court_id&lt;br&gt;FK user_id&lt;br&gt;status" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#1e293b;align=left;verticalAlign=top;spacingLeft=8;spacingTop=4;fontSize=12;fontFamily=Helvetica;" vertex="1" parent="1">
+      <mxGeometry x="36" y="254" width="200" height="72" as="geometry"></mxGeometry>
+    </mxCell>
+    <mxCell id="court_h" value="Court" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e2e8f0;strokeColor=#1e293b;fontStyle=1;align=center;fontSize=12;fontFamily=Helvetica;" vertex="1" parent="1">
+      <mxGeometry x="360" y="230" width="200" height="24" as="geometry"></mxGeometry>
+    </mxCell>
+    <mxCell id="court" value="PK id&lt;br&gt;court_code&lt;br&gt;sport" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#1e293b;align=left;verticalAlign=top;spacingLeft=8;spacingTop=4;fontSize=12;fontFamily=Helvetica;" vertex="1" parent="1">
+      <mxGeometry x="360" y="254" width="200" height="56" as="geometry"></mxGeometry>
+    </mxCell>
+    <mxCell id="pay_h" value="Payment" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e2e8f0;strokeColor=#1e293b;fontStyle=1;align=center;fontSize=12;fontFamily=Helvetica;" vertex="1" parent="1">
+      <mxGeometry x="684" y="230" width="200" height="24" as="geometry"></mxGeometry>
+    </mxCell>
+    <mxCell id="pay" value="PK id&lt;br&gt;FK user_id&lt;br&gt;amount_vnd&lt;br&gt;status" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#1e293b;align=left;verticalAlign=top;spacingLeft=8;spacingTop=4;fontSize=12;fontFamily=Helvetica;" vertex="1" parent="1">
+      <mxGeometry x="684" y="254" width="200" height="72" as="geometry"></mxGeometry>
+    </mxCell>
+    <mxCell id="klass_h" value="Class" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e2e8f0;strokeColor=#1e293b;fontStyle=1;align=center;fontSize=12;fontFamily=Helvetica;" vertex="1" parent="1">
+      <mxGeometry x="36" y="400" width="200" height="24" as="geometry"></mxGeometry>
+    </mxCell>
+    <mxCell id="klass" value="PK id&lt;br&gt;FK coach_id&lt;br&gt;FK court_id" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#1e293b;align=left;verticalAlign=top;spacingLeft=8;spacingTop=4;fontSize=12;fontFamily=Helvetica;" vertex="1" parent="1">
+      <mxGeometry x="36" y="424" width="200" height="56" as="geometry"></mxGeometry>
+    </mxCell>
+    <mxCell id="sess_h" value="Session" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e2e8f0;strokeColor=#1e293b;fontStyle=1;align=center;fontSize=12;fontFamily=Helvetica;" vertex="1" parent="1">
+      <mxGeometry x="360" y="400" width="200" height="24" as="geometry"></mxGeometry>
+    </mxCell>
+    <mxCell id="sess" value="PK id&lt;br&gt;FK class_id&lt;br&gt;start_at" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#1e293b;align=left;verticalAlign=top;spacingLeft=8;spacingTop=4;fontSize=12;fontFamily=Helvetica;" vertex="1" parent="1">
+      <mxGeometry x="360" y="424" width="200" height="56" as="geometry"></mxGeometry>
+    </mxCell>
+    <mxCell id="enr_h" value="Enrollment" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e2e8f0;strokeColor=#1e293b;fontStyle=1;align=center;fontSize=12;fontFamily=Helvetica;" vertex="1" parent="1">
+      <mxGeometry x="684" y="400" width="200" height="24" as="geometry"></mxGeometry>
+    </mxCell>
+    <mxCell id="enr" value="PK id&lt;br&gt;FK class_id&lt;br&gt;FK user_id" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#1e293b;align=left;verticalAlign=top;spacingLeft=8;spacingTop=4;fontSize=12;fontFamily=Helvetica;" vertex="1" parent="1">
+      <mxGeometry x="684" y="424" width="200" height="56" as="geometry"></mxGeometry>
+    </mxCell>
+    <mxCell id="p1" value="" style="endArrow=none;html=1;strokeColor=#1e293b;fontFamily=Helvetica;exitX=1;exitY=0.389;entryX=0;entryY=0.389;" edge="1" parent="1" source="user" target="sub">
+      <mxGeometry relative="1" as="geometry"></mxGeometry>
+    </mxCell>
+    <mxCell id="p2" value="" style="endArrow=none;html=1;strokeColor=#1e293b;fontFamily=Helvetica;exitX=1;exitY=0.389;entryX=0;entryY=0.500;" edge="1" parent="1" source="sub" target="plan">
+      <mxGeometry relative="1" as="geometry"></mxGeometry>
+    </mxCell>
+    <mxCell id="p3" value="" style="endArrow=none;html=1;strokeColor=#1e293b;fontFamily=Helvetica;exitX=1;exitY=0.389;entryX=0;entryY=0.500;" edge="1" parent="1" source="book" target="court">
+      <mxGeometry relative="1" as="geometry"></mxGeometry>
+    </mxCell>
+    <mxCell id="p5" value="" style="endArrow=none;html=1;strokeColor=#1e293b;fontFamily=Helvetica;exitX=1;exitY=0.500;entryX=0;entryY=0.500;" edge="1" parent="1" source="klass" target="sess">
+      <mxGeometry relative="1" as="geometry"></mxGeometry>
+    </mxCell>
+    <mxCell id="p6" value="" style="endArrow=none;html=1;strokeColor=#1e293b;fontFamily=Helvetica;exitX=1;exitY=0.500;entryX=0;entryY=0.500;" edge="1" parent="1" source="sess" target="enr">
+      <mxGeometry relative="1" as="geometry"></mxGeometry>
+    </mxCell>
+    <mxCell id="p7" value="" style="endArrow=none;html=1;strokeColor=#1e293b;fontFamily=Helvetica;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="user" target="book_h">
+      <mxGeometry relative="1" as="geometry"></mxGeometry>
+    </mxCell>
+  </root>
+</mxGraphModel>
