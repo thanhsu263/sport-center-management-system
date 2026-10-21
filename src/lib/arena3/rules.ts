@@ -114,3 +114,31 @@ export function validatePriceRules(
   }
   return { ok: true, rules };
 }
+
+// ---- promotions (FR-PAY-03, BR-42) ---------------------------------------------
+
+/** What a code takes off an order, never leaving less than this to pay. */
+export const MIN_PAYABLE_VND = 1000;
+
+export function normalizeCode(raw: unknown): string {
+  return typeof raw === "string" ? raw.trim().toUpperCase().replace(/\s+/g, "") : "";
+}
+
+/**
+ * The discount in whole đồng. A percentage is worked out once on the order total
+ * and rounded once to the nearest 1,000đ (BR-42); a fixed amount is already a
+ * multiple of 1,000. Capped by `max_discount_vnd`, and never so large that the
+ * order drops under {@link MIN_PAYABLE_VND}.
+ */
+export function computeDiscount(
+  promo: { kind: "percent" | "amount"; value: number; max_discount_vnd: number | null },
+  orderVnd: number,
+  round = 1000,
+): number {
+  let d =
+    promo.kind === "percent" ? Math.round((orderVnd * promo.value) / 100 / round) * round : promo.value;
+  if (promo.max_discount_vnd != null) d = Math.min(d, promo.max_discount_vnd);
+  d = Math.min(d, Math.max(0, orderVnd - MIN_PAYABLE_VND));
+  // Stay on the 1,000đ grid whichever cap bit (BR-42: rounded once).
+  return Math.max(0, Math.floor(d / round) * round);
+}
