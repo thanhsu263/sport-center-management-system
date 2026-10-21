@@ -1,0 +1,601 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>Arena3 – Quy chuẩn Phân công Trách nhiệm & Kịch bản Nghiệm thu Kỹ thuật</title>
+<style>
+  @page { size: A4; margin: 10mm 12mm 12mm 12mm; }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    color: #0f172a;
+    font-size: 8.5pt;
+    line-height: 1.4;
+    margin: 0;
+    background: #fff;
+  }
+  
+  .page {
+    page-break-after: always;
+    height: 275mm;
+    max-height: 275mm;
+    overflow: hidden;
+    position: relative;
+    padding-bottom: 5mm;
+  }
+  .page:last-child { page-break-after: auto; }
+  
+  .header-bar {
+    border-bottom: 1.5px solid #0f172a;
+    padding-bottom: 2pt;
+    margin-bottom: 6pt;
+    display: flex;
+    justify-content: space-between;
+    font-size: 7.5pt;
+    color: #475569;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.3pt;
+  }
+  
+  .footer-bar {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    border-top: 1px solid #cbd5e1;
+    padding-top: 2pt;
+    display: flex;
+    justify-content: space-between;
+    font-size: 7pt;
+    color: #64748b;
+  }
+
+  h1 { font-size: 15pt; color: #0f172a; margin: 0 0 2pt; font-weight: 800; letter-spacing: -0.3pt; }
+  h2 { font-size: 10.5pt; color: #0f172a; margin: 6pt 0 2.5pt; font-weight: 700; border-left: 3px solid #0284c7; padding-left: 4pt; text-transform: uppercase; }
+  h3 { font-size: 9pt; color: #0369a1; margin: 4pt 0 1.5pt; font-weight: 700; }
+  p { margin: 0 0 3.5pt; }
+
+  .doc-meta {
+    font-size: 8pt;
+    color: #475569;
+    margin-bottom: 4pt;
+    display: flex;
+    gap: 12pt;
+    border-bottom: 1px solid #e2e8f0;
+    padding-bottom: 3pt;
+  }
+
+  .callout {
+    background: #f8fafc;
+    border: 1px solid #cbd5e1;
+    border-left: 3px solid #334155;
+    border-radius: 2.5pt;
+    padding: 3.5pt 5pt;
+    margin: 3.5pt 0;
+    font-size: 8pt;
+  }
+  .callout-blue {
+    background: #f0f9ff;
+    border-color: #bae6fd;
+    border-left-color: #0284c7;
+  }
+
+  table { width: 100%; border-collapse: collapse; margin: 3pt 0; font-size: 7.8pt; }
+  th, td { border: 1px solid #cbd5e1; padding: 2.5pt 4pt; text-align: left; vertical-align: top; }
+  th { background: #f1f5f9; color: #0f172a; font-weight: 700; }
+  tr:nth-child(even) td { background: #f8fafc; }
+
+  .code-text {
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 7.5pt;
+    color: #0f172a;
+    background: #f1f5f9;
+    padding: 0.5pt 2pt;
+    border-radius: 2pt;
+  }
+
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 6pt; align-items: start; }
+  .grid-img-txt { display: grid; grid-template-columns: 0.9fr 1.1fr; gap: 8pt; align-items: start; }
+  
+  figure { margin: 0; text-align: center; }
+  figure img {
+    width: 100%;
+    max-height: 52mm;
+    object-fit: contain;
+    border: 1px solid #cbd5e1;
+    border-radius: 3pt;
+    background: #f8fafc;
+  }
+  figure.mobile-fig img {
+    max-height: 50mm;
+    width: auto;
+    max-width: 100%;
+  }
+  figcaption {
+    font-size: 7pt;
+    color: #64748b;
+    margin-top: 1.5pt;
+    font-weight: 600;
+  }
+</style>
+</head>
+<body>
+
+<!-- ==================== TRANG 1: KIẾN TRÚC PHÂN QUYỀN & BẤT BIẾN DỮ LIỆU ==================== -->
+<section class="page">
+  <div class="header-bar">
+    <span>Tài liệu Kỹ thuật Arena3 · Quy trình Vận hành Tiêu chuẩn</span>
+    <span>Mã: A3-SOP-001 · Phiên bản 3.0</span>
+  </div>
+
+  <h1>Quy chuẩn Phân công Trách nhiệm & Kịch bản Nghiệm thu Kỹ thuật</h1>
+  <div class="doc-meta">
+    <span><strong>Ngày hiệu lực:</strong> 10/10/2026</span>
+    <span><strong>Hệ thống:</strong> Arena3 Single-Site Center</span>
+    <span><strong>Phạm vi:</strong> Đặc tả phân quyền & Kịch bản kiểm thử độc lập</span>
+  </div>
+
+  <p>
+    Tài liệu này xác lập cấu trúc phân rã trách nhiệm (Work Breakdown Structure) và các kịch bản kiểm thử nghiệm thu (Acceptance Test Procedures) cho hệ thống Arena3. Mọi kịch bản đều được trình bày bằng ngôn ngữ kỹ thuật trung lập, bám sát các ràng buộc nghiệp vụ (Business Rules - BR) và cơ chế xử lý cơ sở dữ liệu thực tế.
+  </p>
+
+  <h2>1. Ma trận phân chia trách nhiệm 5 phân hệ (Separation of Concerns)</h2>
+  <table>
+    <thead>
+      <tr>
+        <th style="width: 18%;">Thành viên</th>
+        <th style="width: 25%;">Phân hệ phụ trách</th>
+        <th style="width: 20%;">Mã nguồn cốt lõi</th>
+        <th>Ranh giới trách nhiệm & Phạm vi dữ liệu</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>1. Hiếu (Trưởng nhóm)</strong></td>
+        <td><strong>F1:</strong> Xác thực, phân quyền, gói tập.<br><strong>F7:</strong> Lịch chiếm sân (<span class="code-text">occupancies</span>).</td>
+        <td><span class="code-text">auth.ts</span>, <span class="code-text">staff.ts</span>, <span class="code-text">plans.ts</span>, <span class="code-text">bookings.ts</span></td>
+        <td>Quản lý bảng định danh người dùng, phiên làm việc SHA-256, bảng <span class="code-text">occupancies</span>, cơ chế khóa chống bán trùng. Không ghi nhận phiếu thu, không điểm danh lớp.</td>
+      </tr>
+      <tr>
+        <td><strong>2. Sử</strong></td>
+        <td><strong>F3:</strong> Dòng tiền, ca thu ngân, hóa đơn, báo cáo.</td>
+        <td><span class="code-text">desk.ts</span>, <span class="code-text">online.ts</span>, <span class="code-text">reports.ts</span>, <span class="code-text">payos.ts</span></td>
+        <td>Chủ sở hữu duy nhất của sổ cái <span class="code-text">payments</span>, quản lý ca làm việc <span class="code-text">till_shifts</span>, đối soát chuyển khoản, tích hợp cổng payOS, kết xuất hóa đơn PDF/Excel. Không chiếm dụng sân, không tạo lớp.</td>
+      </tr>
+      <tr>
+        <td><strong>3. Toàn</strong></td>
+        <td><strong>F2:</strong> Lớp học, lịch định kỳ, ghi danh, danh sách chờ.</td>
+        <td><span class="code-text">classes.ts</span>, <span class="code-text">rrule.ts</span>, <span class="code-text">ops.ts</span></td>
+        <td>Sinh lịch học theo chuẩn <span class="code-text">rrule</span>, kiểm tra điều kiện gói tập qua Hiếu, chiếm dụng sân qua hàm của Hiếu, quản lý hàng đợi Waitlist. Không thu tiền, không sửa sổ điểm danh.</td>
+      </tr>
+      <tr>
+        <td><strong>4. Tân</strong></td>
+        <td><strong>F4:</strong> Điểm danh, cổng, giám sát nguy cơ.<br><strong>F5:</strong> Hỗ trợ soạn giáo án (tích hợp).</td>
+        <td><span class="code-text">training.ts</span>, <span class="code-text">attendance.ts</span>, <span class="code-text">checkin.ts</span></td>
+        <td>Ghi nhận lượt qua cổng <span class="code-text">gate_visits</span> (độc lập với lớp), quản lý sổ điểm danh (khóa sau 2h theo BR-53), cảnh báo học viên vắng liên tiếp. Không can thiệp sổ tiền, không cấp sân.</td>
+      </tr>
+      <tr>
+        <td><strong>5. Phúc</strong></td>
+        <td><strong>F6:</strong> Trợ lý số hỗ trợ hội viên & Quản lý Ticket yêu cầu quầy.</td>
+        <td><span class="code-text">ops.ts</span> (chat/tickets), <span class="code-text">gemini.ts</span></td>
+        <td>Trợ lý số tra cứu thông tin có rào chắn bảo mật (Guardrails), từ chối can thiệp giao dịch tiền và tư vấn y tế. Chuyển tiếp yêu cầu phức tạp thành Ticket quầy. Không điểm danh, không cấp sân.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>2. Ba vùng dữ liệu áp dụng nguyên tắc Thẩm quyền Ghi Đơn lẻ (Single-Writer Invariants)</h2>
+  <div class="grid2">
+    <div class="callout">
+      <strong>Vùng 1: Phiên đăng nhập & Gói tập (Hiếu):</strong> Các module khác chỉ đọc để thẩm định quyền hạn. Tuyệt đối không tự cấp phát token hoặc hiệu chỉnh bảng <span class="code-text">users</span>, <span class="code-text">subscriptions</span>.
+    </div>
+    <div class="callout">
+      <strong>Vùng 2: Lịch chiếm dụng mặt sân `occupancies` (Hiếu):</strong> Mọi hành vi cần mặt sân (đặt lẻ, lớp học của Toàn, bảo trì) đều phải kiểm tra và đăng ký qua hàm của Hiếu. Trùng giờ sẽ nhận lỗi từ chối, không được ghi đè.
+    </div>
+  </div>
+  <div class="callout callout-blue">
+    <strong>Vùng 3: Sổ cái thanh toán `payments` & Hóa đơn (Sử):</strong> Mọi giao dịch phát sinh dòng tiền đều phải thông qua hàm <span class="code-text">settleHeldBooking</span> hoặc endpoint của Sử. Tuyệt đối không sinh dòng tiền ảo ngoài luồng.
+  </div>
+
+  <h2>3. Danh mục tài khoản thử nghiệm tiêu chuẩn</h2>
+  <table>
+    <thead>
+      <tr>
+        <th style="width: 15%;">Vai trò</th>
+        <th style="width: 18%;">Số điện thoại</th>
+        <th style="width: 14%;">Mật khẩu</th>
+        <th style="width: 15%;">URL đích</th>
+        <th>Phạm vi nghiệp vụ kiểm thử</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td><strong>Quản lý</strong></td><td><code>0900000001</code></td><td>ChangeMe!a3</td><td><code>/manager</code></td><td>Quản trị nhân sự, giá, xuất bản lớp, xem báo cáo tài chính, đối soát audit log.</td></tr>
+      <tr><td><strong>Lễ tân</strong></td><td><code>0900000002</code></td><td>ChangeMe!a3</td><td><code>/desk</code></td><td>Mở/đóng ca, thu tiền mặt, đối soát chuyển khoản, quét mã vào cổng, xử lý ticket.</td></tr>
+      <tr><td><strong>HLV Khoa</strong></td><td><code>0901110011</code></td><td>ChangeMe!a3</td><td><code>/coach</code></td><td>Xem lịch dạy, thực hiện điểm danh lớp học, biên soạn và phê duyệt giáo án.</td></tr>
+      <tr><td><strong>Hội viên Nam</strong></td><td><code>0901230101</code></td><td>ChangeMe!a3</td><td><code>/app</code></td><td>Tài khoản chính: Giữ chỗ Sân H, mua gói tập, ghi danh lớp, mã QR cổng, chat bot.</td></tr>
+      <tr><td><strong>Hội viên Linh</strong></td><td><code>0901230102</code></td><td>ChangeMe!a3</td><td><code>/app</code></td><td>Tài khoản phụ (Trình duyệt ẩn danh): Tranh chấp Sân H đồng thời với Nam, đăng ký lớp.</td></tr>
+      <tr><td><strong>Hội viên Hà</strong></td><td><code>0901230106</code></td><td>ChangeMe!a3</td><td><code>/app</code></td><td>Tài khoản có gói tập đã hết hạn: Dùng để kiểm thử các ràng buộc từ chối quyền lợi.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="footer-bar">
+    <span>Arena3 Technical Runbook · Confidential</span>
+    <span>Trang 1 / 7</span>
+  </div>
+</section>
+
+<!-- ==================== TRANG 2: PHÂN HỆ HIẾU (F1 & F7) ==================== -->
+<section class="page">
+  <div class="header-bar">
+    <span>Kịch bản Kiểm thử Từng Phân hệ</span>
+    <span>Phân hệ F1 & F7 — Hiếu (Xác thực, Phân quyền & Quản lý Chiếm sân)</span>
+  </div>
+
+  <h2>Phân hệ F1 & F7 — Hiếu: Kiểm thử Cổng vào, Phân quyền & Xử lý Tranh chấp Sân</h2>
+
+  <div class="grid-img-txt">
+    <div>
+      <figure>
+        <img src="demo-screenshots/01_login_roles.png" alt="Giao diện đăng nhập">
+        <figcaption>Hình 1: Giao diện /login với các thẻ tài khoản mẫu phân định 4 nhóm vai trò</figcaption>
+      </figure>
+      <figure style="margin-top:4pt;">
+        <img src="demo-screenshots/12_member_book_court.png" alt="Sơ đồ sân">
+        <figcaption>Hình 2: Giao diện /app/book — Ô sân ở trạng thái hold kèm bộ đếm thời gian 5:00</figcaption>
+      </figure>
+    </div>
+
+    <div>
+      <h3>Kịch bản F1-A: Ràng buộc đăng ký tài khoản & Xác thực OTP</h3>
+      <p><strong>Mục tiêu:</strong> Kiểm chứng validation mật khẩu, chấp thuận điều khoản (BR-08) và tính duy nhất của số điện thoại (BR-01).</p>
+      <p><strong>Thao tác:</strong> Tại <code>/register</code>, nhập SĐT mới <code>0988111222</code>, mật khẩu ngắn <code>123</code>, không tích Điều khoản -> Bị từ chối. Nhập mật khẩu <code>MatKhau123!</code> và tích Điều khoản -> Chuyển sang bước OTP. Nhập OTP đúng -> Tạo tài khoản thành công. Đăng ký lại số này -> Bị từ chối (BR-01).</p>
+      <div class="callout">
+        <strong>Cơ chế DB:</strong> Unique index trên cột <code>phone</code> của bảng <code>users</code>. Phiên lưu băm SHA-256 tại <code>sessions_auth</code>.
+      </div>
+
+      <h3>Kịch bản F1-B: Định tuyến độc quyền theo vai trò (RBAC)</h3>
+      <p><strong>Mục tiêu:</strong> Xác minh cơ chế điều hướng và ngăn chặn vượt quyền ở tầng máy chủ.</p>
+      <p><strong>Thao tác:</strong> Đăng nhập lần lượt 4 vai trò -> Quản lý vào <code>/manager</code>, Lễ tân vào <code>/desk</code> (không có báo cáo tài chính), HLV vào <code>/coach</code>, Hội viên vào <code>/app</code>. Middleware <code>requireRole</code> trả về HTTP 403 nếu cố truy cập trái phép.</p>
+
+      <h3>Kịch bản F7-F: Kiểm thử tranh chấp đồng thời trên Sân H (Concurrency Test)</h3>
+      <p><strong>Mục tiêu:</strong> Chứng minh hệ thống ngăn chặn triệt để tình trạng bán trùng sân (Double-booking).</p>
+      <p><strong>Thao tác:</strong> Nam (Trình duyệt A) và Linh (Trình duyệt B ẩn danh) cùng mở Sân H lúc 19:00 ngày mai. Nam bấm "Giữ chỗ" trước 1 giây -> Nam nhận ô giữ chỗ kèm đếm ngược 5:00. Linh bấm ngay sau đó -> Bị từ chối với thông báo slot đã được giữ chỗ. Linh không có booking mới, giữ chỗ của Nam bảo toàn.</p>
+      <div class="callout callout-blue">
+        <strong>Cơ chế DB:</strong> Hàm <code>booking_replace_hold</code> gọi <code>SELECT ... FOR UPDATE</code> trên bảng <code>courts</code>. Transaction của Nam tạo dòng <code>occupancies</code>. Transaction của Linh phát hiện xung đột và bị trigger <code>CONFLICT_SLOT (SQLSTATE 23P01)</code> từ chối.
+      </div>
+
+      <h3>Kịch bản F7-H: Tính nguyên tử trong hoán đổi khung giờ đặt sân (Atomic Reschedule)</h3>
+      <p><strong>Mục tiêu:</strong> Xác minh nếu thao tác đổi sang vị trí mới thất bại thì vị trí cũ của khách vẫn được bảo toàn.</p>
+      <p><strong>Thao tác:</strong> Nam đang giữ Sân X, Linh đang giữ Sân Y. Nam đổi sang Sân Y của Linh -> Hệ thống từ chối. Sân X của Nam và Sân Y của Linh đều được bảo toàn. Toàn bộ transaction được rollback.</p>
+    </div>
+  </div>
+
+  <div class="footer-bar">
+    <span>Arena3 Technical Runbook · Confidential</span>
+    <span>Trang 2 / 7</span>
+  </div>
+</section>
+
+<!-- ==================== TRANG 3: PHÂN HỆ SỬ (F3) ==================== -->
+<section class="page">
+  <div class="header-bar">
+    <span>Kịch bản Kiểm thử Từng Phân hệ</span>
+    <span>Phân hệ F3 — Sử (Dòng tiền, Ca Thu ngân, Hóa đơn & Báo cáo)</span>
+  </div>
+
+  <h2>Phân hệ F3 — Sử: Dòng tiền, Ca thu ngân, Hóa đơn & Báo cáo tài chính</h2>
+  <div class="grid-img-txt">
+    <div>
+      <figure>
+        <img src="demo-screenshots/06_desk_payments.png" alt="Quầy thu ngân">
+        <figcaption>Hình 3: Giao diện /desk/payments — Danh sách khoản chờ thu và đối soát</figcaption>
+      </figure>
+      <figure style="margin-top:4pt;">
+        <img src="demo-screenshots/16_member_account_receipts.png" alt="Biên lai hóa đơn">
+        <figcaption>Hình 4: Giao diện /account — Biên lai hóa đơn PDF tiếng Việt chuẩn UTF-8</figcaption>
+      </figure>
+    </div>
+
+    <div>
+      <h3>Kịch bản F3-A: Ràng buộc mở ca thu ngân (Till Shift Dependency)</h3>
+      <p>Tại <code>/desk</code>, khi ca trực đang đóng, mọi thao tác thu tiền đều bị chặn. Lễ tân bấm "Mở ca", khai báo tiền mặt đầu ca -> Phiên làm việc được xác lập, gắn với ID nhân viên.</p>
+
+      <h3>Kịch bản F3-B: Thanh toán tiền mặt nguyên tử & Cơ chế Idempotency</h3>
+      <p>Lễ tân chọn giữ chỗ của Nam, bấm thu Tiền mặt -> Hàm <code>settleHeldBooking</code> tạo đúng 1 bản ghi <code>payments (posted)</code>, chuyển sân sang <code>confirmed</code>, và cấp hóa đơn. Bấm thu lần 2 -> Cơ chế <code>withIdempotency</code> chặn lại, không sinh thêm phiếu thứ 2. Nam mở tab Biên lai trên <code>/account</code> xem hóa đơn PDF tiếng Việt.</p>
+
+      <h3>Kịch bản F3-C: Xử lý chuyển khoản ngân hàng (Transfer as a Promise)</h3>
+      <p>Nam đặt sân chọn "Chuyển khoản" -> Hệ thống cấp mã nội dung, sân ở trạng thái <code>hold</code>, bảng <code>payments</code> <strong>chưa tạo bản ghi nào</strong> (không tạo row pending gây sai lệch sổ cái). Lễ tân đối soát trên <code>/desk/payments</code> bấm xác nhận -> Lúc này mới ghi nhận <code>payments (posted)</code>.</p>
+
+      <h3>Kịch bản F3-E: Quy trình hoàn tiền theo hạn mức & Quản lý khuyến mãi</h3>
+      <p>Hoàn tiền dưới 1.000.000đ được thực thi ngay. Hoàn tiền từ 1.000.000đ trở lên chuyển vào hàng chờ Quản lý phê duyệt. Mã khuyến mãi sử dụng 1 lần được hoàn trả lượt nếu đơn hàng bị hủy trước khi thu tiền.</p>
+
+      <h3>Kịch bản F3-F: Đối soát số liệu báo cáo doanh thu & Kết xuất</h3>
+      <p>Tại <code>/manager</code>, kiểm tra: Doanh thu thực = Tổng thu - Tổng hoàn trên các phiếu <code>posted</code> trong ngày. Xuất file Excel: Ô số tiền có kiểu dữ liệu Number tính được hàm <code>=SUM()</code>.</p>
+    </div>
+  </div>
+
+  <div class="footer-bar">
+    <span>Arena3 Technical Runbook · Confidential</span>
+    <span>Trang 3 / 7</span>
+  </div>
+</section>
+
+<!-- ==================== TRANG 4: PHÂN HỆ TOÀN (F2) ==================== -->
+<section class="page">
+  <div class="header-bar">
+    <span>Kịch bản Kiểm thử Từng Phân hệ</span>
+    <span>Phân hệ F2 — Toàn (Quản lý Lớp học, Lịch định kỳ & Danh sách chờ)</span>
+  </div>
+
+  <h2>Phân hệ F2 — Toàn: Quản lý Lớp học, Lịch định kỳ & Danh sách chờ (Waitlist)</h2>
+  <div class="grid-img-txt">
+    <div>
+      <figure>
+        <img src="demo-screenshots/04_manager_classes.png" alt="Quản lý lớp học">
+        <figcaption>Hình 5: Giao diện /manager/classes — Lịch lặp và phân bổ HLV phụ trách</figcaption>
+      </figure>
+      <figure style="margin-top:4pt;">
+        <img src="demo-screenshots/13_member_classes.png" alt="Ghi danh lớp">
+        <figcaption>Hình 6: Giao diện /app/classes — Học viên theo dõi và ghi danh</figcaption>
+      </figure>
+    </div>
+
+    <div>
+      <h3>Kịch bản F2-A: Kiểm soát xung đột lịch giữa lớp học và đặt sân tự do</h3>
+      <p><strong>Mục tiêu:</strong> Chứng minh lớp học và đặt sân tự do dùng chung không gian lịch <code>occupancies</code>.</p>
+      <p><strong>Thao tác:</strong> Quản lý tạo lớp mới, cố tình chọn Sân H lúc 19:00 ngày mai (giờ Nam đã đặt ở F7) -> Bấm "Xuất bản" -> Bị từ chối: <em>"Sân đã có người đặt trong khung giờ này"</em>. Booking của Nam được bảo toàn. Chọn Sân T còn trống -> Lớp mở thành công, sinh các buổi học tương lai trên lịch HLV Khoa.</p>
+
+      <h3>Kịch bản F2-B: Ràng buộc điều kiện ghi danh theo gói tập</h3>
+      <p>Nam (còn hạn gói) bấm ghi danh -> Thành công, sĩ số lớp tăng 1/2. Bấm ghi danh lần 2 -> Bị từ chối. Tài khoản Hà (gói hết hạn) bấm ghi danh -> Bị từ chối do không đủ điều kiện gói.</p>
+
+      <h3>Kịch bản F2-C: Thuật toán quản lý hàng đợi Waitlist tự động</h3>
+      <p>Linh ghi danh -> Sĩ số đạt 2/2. Người thứ ba ghi danh -> Vào hàng đợi Waitlist vị trí #1. Khi Nam hủy ghi danh (trước giờ học trên 4h) -> Hàm <code>inviteWaitlist</code> tự động gửi lời mời cho người chờ #1 trong 2 giờ, ngăn chặn người ngoài chen ngang.</p>
+
+      <h3>Kịch bản F2-D: Vòng đời buổi học (Hủy buổi, Dời lịch, Đổi HLV)</h3>
+      <p>Hủy buổi học có lý do hoàn trả 1 buổi cho học viên dùng gói theo buổi. Dời lịch dưới 12 giờ bắt buộc nhập giải trình. Dời vào giờ HLV đang dạy lớp khác bị từ chối do xung đột lịch dạy.</p>
+    </div>
+  </div>
+
+  <div class="footer-bar">
+    <span>Arena3 Technical Runbook · Confidential</span>
+    <span>Trang 4 / 7</span>
+  </div>
+</section>
+
+<!-- ==================== TRANG 5: PHÂN HỆ TÂN (F4) & PHÚC (F6) ==================== -->
+<section class="page">
+  <div class="header-bar">
+    <span>Kịch bản Kiểm thử Từng Phân hệ</span>
+    <span>Phân hệ F4 — Tân (Điểm danh/Cổng) & Phân hệ F6 — Phúc (Trợ lý số)</span>
+  </div>
+
+  <h2>Phân hệ F4 & F5 — Tân: Điểm danh, Cổng kiểm soát & Tích hợp Giáo án</h2>
+  <div class="grid-img-txt">
+    <div>
+      <div style="display:flex; gap:4pt;">
+        <figure class="mobile-fig" style="flex:1;">
+          <img src="demo-screenshots/14_member_gate_pass.png" alt="Mã QR cổng">
+          <figcaption>Hình 7: Mã QR cổng (/app/pass)</figcaption>
+        </figure>
+        <figure style="flex:1.4;">
+          <img src="demo-screenshots/10_coach_attendance.png" alt="Sổ điểm danh HLV">
+          <figcaption>Hình 8: Sổ điểm danh (/coach/attendance)</figcaption>
+        </figure>
+      </div>
+    </div>
+
+    <div>
+      <h3>Kịch bản F4-A: Tách bạch giữa Cổng kiểm soát và Sổ điểm danh lớp</h3>
+      <p>Nam mở <code>/app/pass</code>, đưa mã QR TOTP xoay 60s cho lễ tân quét tại <code>/desk/gate</code> -> Hệ thống ghi nhận 1 lượt vào cơ sở (bảng <code>gate_visits</code>). HLV Khoa mở sổ lớp trên <code>/coach/attendance</code> -> Trạng thái của Nam <strong>vẫn là Chưa điểm danh</strong>. Cổng không tự động tích điểm danh sổ lớp. HLV đích thân đánh dấu "Có mặt" và lưu sổ.</p>
+
+      <h3>Kịch bản F4-C: Khóa sổ điểm danh sau 2 giờ (BR-53) & Hiệu chỉnh có kiểm toán</h3>
+      <p>HLV mở sổ của một buổi học đã kết thúc quá 2 giờ -> Hệ thống khóa giao diện chỉnh sửa theo quy tắc BR-53 (tránh gian lận thù lao HLV). Quản lý vào <code>/manager/attendance</code> có quyền điều chỉnh nhưng bắt buộc phải nhập lý do giải trình và lưu vào <code>audit_logs</code>.</p>
+
+      <h3>Kịch bản F4-E: Quy trình phê duyệt giáo án tích hợp F5 (Draft to Published)</h3>
+      <p>HLV bấm "Gợi ý bài tập" trong form giáo án -> Sinh bản nháp nội bộ. Học viên mở <code>/app/train</code> chưa nhìn thấy. HLV chỉnh sửa và bấm "Phê duyệt" -> Giáo án chính thức phát hành, học viên mới thấy bài tập.</p>
+    </div>
+  </div>
+
+  <hr style="border:0; border-top:1px solid #cbd5e1; margin:5pt 0;">
+
+  <h2>Phân hệ F6 — Phúc: Trợ lý số hỗ trợ hội viên & Quản lý Ticket quầy</h2>
+  <div class="grid-img-txt">
+    <div>
+      <figure class="mobile-fig">
+        <img src="demo-screenshots/15_member_assistant.png" alt="Trợ lý AI">
+        <figcaption>Hình 9: Trợ lý AI (/app/assistant) áp dụng rào chắn bảo mật</figcaption>
+      </figure>
+    </div>
+
+    <div>
+      <h3>Kịch bản F6-A: Kiểm soát phạm vi ngữ cảnh & Rào chắn an toàn (Guardrails)</h3>
+      <p>Nam hỏi hạn gói cá nhân -> Bot tra cứu chính xác hạn gói của Nam, không đọc dữ liệu của người khác. Nam yêu cầu: <em>"Đặt hộ tôi Sân 1 và trừ tiền luôn"</em> -> Bot từ chối thực hiện giao dịch và cung cấp đường dẫn tự thao tác. Nam hỏi về điều trị chấn thương khớp -> Bot từ chối tư vấn y tế và hướng dẫn liên hệ bác sĩ hoặc HLV.</p>
+
+      <h3>Kịch bản F6-B: Chuyển tiếp yêu cầu hỗ trợ phức tạp thành Ticket quầy</h3>
+      <p>Nam gửi yêu cầu nằm ngoài phạm vi tự động (xin xuất hóa đơn VAT công ty) -> Bot đề xuất tạo Ticket -> Nam đồng ý -> Hệ thống tạo bản ghi <code>support_tickets</code>. Lễ tân tại <code>/desk</code> mở ticket, nhập câu trả lời và đóng ticket -> Nam nhận thông báo đẩy và đọc phản hồi trên <code>/account</code>.</p>
+    </div>
+  </div>
+
+  <div class="footer-bar">
+    <span>Arena3 Technical Runbook · Confidential</span>
+    <span>Trang 5 / 7</span>
+  </div>
+</section>
+
+<!-- ==================== TRANG 6: KỊCH BẢN TÍCH HỢP LIÊN HOÀN (B1 - B7) ==================== -->
+<section class="page">
+  <div class="header-bar">
+    <span>Kịch bản Tích hợp Toàn diện</span>
+    <span>Quy trình Kiểm thử Tích hợp 7 Bước (End-to-End Integration Runbook)</span>
+  </div>
+
+  <h2>Quy trình Tích hợp Liên hoàn 7 Bước (Master Sequential Flow)</h2>
+  <p>
+    Kịch bản này kiểm chứng tính toàn vẹn của chuỗi dữ liệu xuyên suốt 5 phân hệ theo đúng trình tự nghiệp vụ phát sinh trong thực tế, không sử dụng mốc thời gian nhân tạo.
+  </p>
+
+  <div class="grid-img-txt">
+    <div>
+      <figure>
+        <img src="demo-screenshots/03_manager_audit.png" alt="Nhật ký kiểm toán">
+        <figcaption>Hình 10: Giao diện /manager/audit — Dấu vết kiểm toán bất biến của toàn bộ chuỗi sự kiện B1–B6</figcaption>
+      </figure>
+    </div>
+
+    <div>
+      <table>
+        <thead>
+          <tr>
+            <th style="width: 10%;">Bước</th>
+            <th style="width: 22%;">Phân hệ & Thực hiện</th>
+            <th>Nội dung thao tác & Tiêu chí nghiệm thu cốt lõi</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>B1</strong></td>
+            <td><strong>Hiếu (F1)</strong></td>
+            <td>Đăng nhập lần lượt 4 vai trò. Mỗi vai trò điều hướng đúng trang chủ độc quyền, chức năng vượt quyền bị chặn tại máy chủ.</td>
+          </tr>
+          <tr>
+            <td><strong>B2</strong></td>
+            <td><strong>Hiếu (F7)</strong></td>
+            <td>Nam và Linh cùng gửi request giữ chỗ Sân H. Khóa <code>FOR UPDATE</code> cấp giữ chỗ 5:00 cho Nam, kích hoạt trigger <code>23P01</code> từ chối Linh.</td>
+          </tr>
+          <tr>
+            <td><strong>B3</strong></td>
+            <td><strong>Sử (F3)</strong></td>
+            <td>Lễ tân mở ca, thu tiền mặt Sân H. Hàm <code>settleHeldBooking</code> sinh 1 phiếu thu posted, chuyển sân sang confirmed, cấp hóa đơn PDF.</td>
+          </tr>
+          <tr>
+            <td><strong>B4</strong></td>
+            <td><strong>Toàn (F2)</strong></td>
+            <td>Tạo lớp đè Sân H (bị từ chối do trùng `occupancies`). Mở lớp trên Sân T còn trống, Nam dùng gói tập ghi danh thành công (sĩ số 1/2).</td>
+          </tr>
+          <tr>
+            <td><strong>B5</strong></td>
+            <td><strong>Tân (F4)</strong></td>
+            <td>Nam quét mã QR qua cổng ghi nhận vào `gate_visits`. HLV mở sổ lớp: Nam vẫn Chưa điểm danh; HLV đích thân tích Có mặt.</td>
+          </tr>
+          <tr>
+            <td><strong>B6</strong></td>
+            <td><strong>Phúc (F6)</strong></td>
+            <td>Nam tra cứu hạn gói qua Trợ lý số, gửi yêu cầu xuất hóa đơn công ty -> Chuyển thành Ticket quầy -> Lễ tân phản hồi và đóng ticket.</td>
+          </tr>
+          <tr>
+            <td><strong>B7</strong></td>
+            <td><strong>Hiếu (Audit)</strong></td>
+            <td>Quản lý mở <code>/manager/audit</code>: Toàn bộ chuỗi thao tác từ B1 đến B6 đều được lưu vết bất biến với đầy đủ định danh và mốc thời gian.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="callout callout-blue" style="margin-top:4pt;">
+        <strong>Bất biến Kiểm toán:</strong> Bảng <code>audit_logs</code> được thiết kế theo mô hình Append-only. Hệ thống không cung cấp bất kỳ API nào cho phép sửa đổi hoặc xóa bản ghi log, đảm bảo giá trị chứng minh pháp lý và đối soát kỹ thuật.
+      </div>
+    </div>
+  </div>
+
+  <div class="footer-bar">
+    <span>Arena3 Technical Runbook · Confidential</span>
+    <span>Trang 6 / 7</span>
+  </div>
+</section>
+
+<!-- ==================== TRANG 7: MA TRẬN BÀN GIAO, NGHIỆM THU & PHẢN BIỆN ==================== -->
+<section class="page">
+  <div class="header-bar">
+    <span>Quản trị Nghiệm thu & Phản biện Kiến trúc</span>
+    <span>Ma trận Hợp đồng Dữ liệu, Tiêu chí Đạt & Hỏi đáp Chuyên sâu</span>
+  </div>
+
+  <h2>1. Ma trận Hợp đồng Dữ liệu giữa các phân hệ (Data Contracts)</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Luồng dữ liệu</th>
+        <th>Phân hệ Cấp (Chủ)</th>
+        <th>Phân hệ Nhận</th>
+        <th>Hàm kết nối / Giao thức</th>
+        <th>Ràng buộc bảo toàn dữ liệu</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Gói chờ thu</strong></td>
+        <td>F1 (Hiếu)</td>
+        <td>F3 (Sử)</td>
+        <td>F1 tạo đơn chờ -> F3 gọi <span class="code-text">activateSubscription</span></td>
+        <td>F1 không tự kích hoạt gói; F3 không tự sửa giá gói.</td>
+      </tr>
+      <tr>
+        <td><strong>Giữ sân chờ thu</strong></td>
+        <td>F7 (Hiếu)</td>
+        <td>F3 (Sử)</td>
+        <td>F7 giữ chỗ -> F3 gọi <span class="code-text">settleHeldBooking</span></td>
+        <td>F3 không tự đổi giờ sân; F7 không tự sinh payment.</td>
+      </tr>
+      <tr>
+        <td><strong>Chiếm sân cho lớp</strong></td>
+        <td>F7 (Hiếu)</td>
+        <td>F2 (Toàn)</td>
+        <td>F2 gọi kiểm tra và gắn bản ghi <span class="code-text">occupancies</span></td>
+        <td>Trùng giờ sân bị từ chối; không được phép ghi đè.</td>
+      </tr>
+      <tr>
+        <td><strong>Buổi học phục vụ điểm danh</strong></td>
+        <td>F2 (Toàn)</td>
+        <td>F4 (Tân)</td>
+        <td>F2 sinh buổi học -> F4 mở sổ điểm danh tương ứng</td>
+        <td>F4 không tự đổi sĩ số; F2 không sửa sổ điểm danh.</td>
+      </tr>
+      <tr>
+        <td><strong>Chuyển tiếp Ticket</strong></td>
+        <td>F6 (Phúc)</td>
+        <td>F3 (Sử - Quầy)</td>
+        <td>F6 tạo ticket -> Hiển thị trên danh sách ticket quầy</td>
+        <td>Thông báo phản hồi đi qua hàng đợi trung tâm của F1.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>2. Giải trình các câu hỏi phản biện kiến trúc trọng tâm</h2>
+  <table>
+    <thead>
+      <tr>
+        <th style="width: 25%;">Phân hệ & Câu hỏi</th>
+        <th>Cơ sở lý luận & Giải trình kỹ thuật chuẩn xác</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Hiếu (F1/F7)</strong><br><em>Tại sao không lưu trực tiếp lịch vào `court_bookings` mà dùng bảng trung gian `occupancies`?</em></td>
+        <td>Thực tế vận hành có 4 thực thể cùng chiếm mặt sân: Thuê sân lẻ, Lớp học định kỳ, Lịch bảo trì kỹ thuật, và Giữ chỗ chờ thanh toán. Nếu lưu 4 bảng riêng, truy vấn kiểm tra sân trống phải JOIN 4 bảng, gây chậm và dễ lọt lịch khi mở rộng. Quy về bảng trung gian duy nhất <code>occupancies</code> giúp kiểm tra sân trống chỉ tốn 1 query <code>SELECT</code>, đảm bảo toàn vẹn tuyệt đối.</td>
+      </tr>
+      <tr>
+        <td><strong>Sử (F3)</strong><br><em>Tại sao khi khách chuyển khoản, hệ thống không tạo payment trạng thái `pending`?</em></td>
+        <td>Nguyên tắc kế toán: Tiền chưa về tài khoản thì chưa phải tài sản. Nếu tạo bản ghi pending trong <code>payments</code>, các báo cáo doanh thu và công nợ sẽ rất dễ bị tính sai nếu lập trình viên quên mệnh đề lọc <code>WHERE status = 'posted'</code>. Chuyển khoản chưa duyệt chỉ là một "lời hứa" gắn trên booking. Bảng <code>payments</code> là sổ cái sạch, chỉ lưu tiền thật đã đối soát.</td>
+      </tr>
+      <tr>
+        <td><strong>Toàn (F2)</strong><br><em>Cơ chế nào giúp sinh lịch học cả tháng mà không gây quá tải DB?</em></td>
+        <td>Hệ thống kết hợp chuẩn lặp <code>rrule</code> với background job <code>generateSessions</code>. Khi xuất bản lớp, hệ thống chỉ sinh lịch trước 4 tuần. Định kỳ hàng tuần job scheduler sẽ tự động quét sinh gối đầu các tuần tiếp theo, giúp phân bổ đều tài nguyên và bảng dữ liệu luôn nhẹ nhàng.</td>
+      </tr>
+      <tr>
+        <td><strong>Tân (F4)</strong><br><em>Tại sao phải khóa sổ điểm danh sau 2 giờ kết thúc lớp (BR-53)?</em></td>
+        <td>Dữ liệu điểm danh liên quan trực tiếp đến trừ buổi tập của khách và tính hoa hồng thù lao cho HLV. Cho phép HLV tự do sửa điểm danh hồi tố dễ sinh gian lận thông đồng lấy hoa hồng. Sau 2 giờ hệ thống tự động khóa sổ; mọi điều chỉnh sau đó bắt buộc phải do Quản lý thực hiện kèm lý do và ghi audit log.</td>
+      </tr>
+      <tr>
+        <td><strong>Phúc (F6)</strong><br><em>Làm sao bảo vệ Trợ lý số khỏi tấn công Prompt Injection?</em></td>
+        <td>Áp dụng nguyên tắc Architectural Privilege Limitation: Backend của Trợ lý số hoàn toàn <strong>không được cấp các function calling nguy hiểm</strong> như <code>createPayment</code> hay <code>cancelBooking</code>. Dù người dùng có dùng kỹ thuật jailbreak lừa được câu chữ thì bot cũng không có công cụ phần mềm nào để thao túng cơ sở dữ liệu.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="footer-bar">
+    <span>Arena3 Technical Runbook · Confidential</span>
+    <span>Trang 7 / 7</span>
+  </div>
+</section>
+
+</body>
+</html>
