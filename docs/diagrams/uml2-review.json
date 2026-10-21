@@ -1,0 +1,49 @@
+{
+  "at": "2026-10-11T15:02:58.048Z",
+  "book": "Learning UML 2.0, Miles & Hamilton, O'Reilly 2006",
+  "failed": 0,
+  "report": [
+    {
+      "kind": "use-case",
+      "path": "docs/diagrams/use-case-diagram.drawio",
+      "png": "docs/diagrams/use-case-diagram.png",
+      "fails": []
+    },
+    {
+      "kind": "context",
+      "path": "docs/diagrams/context-diagram.drawio",
+      "png": "docs/diagrams/context-diagram.png",
+      "fails": []
+    },
+    {
+      "kind": "activity",
+      "path": "docs/diagrams/activity-diagram.drawio",
+      "png": "docs/diagrams/activity-diagram.png",
+      "fails": []
+    },
+    {
+      "kind": "class",
+      "path": "docs/diagrams/class-diagram.drawio",
+      "png": "docs/diagrams/class-diagram.png",
+      "fails": []
+    },
+    {
+      "kind": "sequence",
+      "path": "docs/diagrams/sequence-diagram.drawio",
+      "png": "docs/diagrams/sequence-diagram.png",
+      "fails": []
+    },
+    {
+      "kind": "erd-logical",
+      "path": "docs/diagrams/erd-logical.drawio",
+      "png": "docs/diagrams/erd-logical.png",
+      "fails": []
+    },
+    {
+      "kind": "erd-physical",
+      "path": "docs/diagrams/erd-physical.drawio",
+      "png": "docs/diagrams/erd-physical.png",
+      "fails": []
+    }
+  ]
+}

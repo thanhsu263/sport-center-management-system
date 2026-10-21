@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="780" viewBox="0 0 1100 780">
+  <rect width="100%" height="100%" fill="#ffffff"/>
+  <text x="174" y="23" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="13" font-weight="700" fill="#1e293b">Sequence — Book a court</text>
+<rect x="500" y="444" width="570" height="156" fill="none" stroke="#1e293b" stroke-width="1.4"/><text x="785" y="461" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="13" font-weight="700" fill="#1e293b">alt</text>
+<path d="M99.0 72.0 L100.0 740.0" fill="none" stroke="#1e293b" stroke-width="1.3" stroke-dasharray="5 4"/>
+<path d="M315.0 72.0 L316.0 740.0" fill="none" stroke="#1e293b" stroke-width="1.3" stroke-dasharray="5 4"/>
+<path d="M550.0 72.0 L551.0 740.0" fill="none" stroke="#1e293b" stroke-width="1.3" stroke-dasharray="5 4"/>
+<path d="M770.0 196.0 L771.0 740.0" fill="none" stroke="#1e293b" stroke-width="1.3" stroke-dasharray="5 4"/>
+<path d="M975.0 72.0 L976.0 740.0" fill="none" stroke="#1e293b" stroke-width="1.3" stroke-dasharray="5 4"/>
+<path d="M106.0 112.0 L308.0 112.0" fill="none" stroke="#1e293b" stroke-width="1.3" /><polygon points="308,112 300,116 300,108" fill="#1e293b"/>
+<path d="M322.0 156.0 L543.0 156.0" fill="none" stroke="#1e293b" stroke-width="1.3" /><polygon points="543,156.04 534.999276149149,160.03855197070408 535.000724112926,152.03855210174152" fill="#1e293b"/>
+<path d="M557.0 178.0 L680.0 178.0" fill="none" stroke="#1e293b" stroke-width="1.3" stroke-dasharray="5 4"/><polyline points="671,182 680,178 671,174" fill="none" stroke="#1e293b" stroke-width="1.3"/>
+<path d="M543.0 228.0 L322.0 228.0" fill="none" stroke="#1e293b" stroke-width="1.3" stroke-dasharray="5 4"/><polyline points="331.00072383447144,224.00162902476805 322,228 330.99927587069425,232.0016288937306" fill="none" stroke="#1e293b" stroke-width="1.3"/>
+<path d="M308.0 268.0 L106.0 268.0" fill="none" stroke="#1e293b" stroke-width="1.3" stroke-dasharray="5 4"/><polyline points="115,264 106,268 115,272" fill="none" stroke="#1e293b" stroke-width="1.3"/>
+<path d="M106.0 364.1 L308.0 364.1" fill="none" stroke="#1e293b" stroke-width="1.3" /><polygon points="308,364.09 300,368.09 300,360.09" fill="#1e293b"/>
+<path d="M322.0 411.9 L543.0 411.9" fill="none" stroke="#1e293b" stroke-width="1.3" /><polygon points="543,411.87 535.0012673695644,415.8725337358734 534.9987334330399,407.87253413717553" fill="#1e293b"/>
+<path d="M557.0 492.1 L968.0 492.0" fill="none" stroke="#1e293b" stroke-width="1.3" /><polygon points="968,492.032 960.000272524647,496.0325450028817 959.9997275124829,488.03254502144665" fill="#1e293b"/>
+<path d="M968.0 524.0 L557.0 523.9" fill="none" stroke="#1e293b" stroke-width="1.3" stroke-dasharray="5 4"/><polyline points="566.0010896901224,519.9224527031726 557,523.92 565.9989096415416,527.9224524061343" fill="none" stroke="#1e293b" stroke-width="1.3"/>
+<path d="M557.0 577.9 L660.0 578.0 L660.0 594.0 L557.0 594.1" fill="none" stroke="#1e293b" stroke-width="1.3" /><polygon points="557,594.12 564.9953343796411,590.1106823326494 565.0046547616652,598.1106769033025" fill="#1e293b"/>
+<path d="M557.0 620.0 L763.0 620.0" fill="none" stroke="#1e293b" stroke-width="1.3" /><polygon points="763,620 755.0007768498299,624.0015533226212 754.9992234518008,616.0015534734366" fill="#1e293b"/>
+<path d="M308.0 656.1 L106.0 656.1" fill="none" stroke="#1e293b" stroke-width="1.3" stroke-dasharray="5 4"/><polyline points="115,652.14 106,656.14 115,660.14" fill="none" stroke="#1e293b" stroke-width="1.3"/>
+<rect x="24" y="36" width="150" height="36" rx="0" fill="#ffffff" stroke="#1e293b" stroke-width="1.3"/><text x="99" y="58.5" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#1e293b">member : Member</text>
+<rect x="230" y="36" width="170" height="36" rx="0" fill="#ffffff" stroke="#1e293b" stroke-width="1.3"/><text x="315" y="58.5" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#1e293b">page : BookingPage</text>
+<rect x="460" y="36" width="180" height="36" rx="0" fill="#ffffff" stroke="#1e293b" stroke-width="1.3"/><text x="550" y="58.5" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#1e293b">api : BookingService</text>
+<rect x="900" y="36" width="150" height="36" rx="0" fill="#ffffff" stroke="#1e293b" stroke-width="1.3"/><text x="975" y="58.5" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#1e293b">payos : PayOS</text>
+<rect x="680" y="160" width="180" height="36" rx="0" fill="#ffffff" stroke="#1e293b" stroke-width="1.3"/><text x="770" y="182.5" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#1e293b">booking : CourtBooking</text>
+
+
+
+
+
+<rect x="92" y="88" width="14" height="200" fill="#e2e8f0" stroke="#1e293b" stroke-width="1"/>
+<rect x="308" y="88" width="14" height="200" fill="#e2e8f0" stroke="#1e293b" stroke-width="1"/>
+<rect x="543" y="130" width="14" height="120" fill="#e2e8f0" stroke="#1e293b" stroke-width="1"/>
+<rect x="92" y="340" width="14" height="330" fill="#e2e8f0" stroke="#1e293b" stroke-width="1"/>
+<rect x="308" y="340" width="14" height="330" fill="#e2e8f0" stroke="#1e293b" stroke-width="1"/>
+<rect x="543" y="390" width="14" height="270" fill="#e2e8f0" stroke="#1e293b" stroke-width="1"/>
+<rect x="968" y="456" width="14" height="64" fill="#e2e8f0" stroke="#1e293b" stroke-width="1"/>
+<rect x="763" y="600" width="14" height="40" fill="#e2e8f0" stroke="#1e293b" stroke-width="1"/>
+<rect x="620" y="450" width="150" height="18" rx="0" fill="#ffffff" stroke="none" stroke-width="1.3"/><text x="626" y="463.5" text-anchor="start" font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="700" fill="#1e293b">[method = payOS]</text>
+<rect x="620" y="552" width="110" height="16" rx="0" fill="#ffffff" stroke="none" stroke-width="1.3"/><text x="626" y="564.5" text-anchor="start" font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="700" fill="#1e293b">[otherwise]</text>
+<rect x="500" y="544" width="570" height="1" fill="#1e293b"/>
+<rect x="129.07999999999998" y="92" width="155.84" height="17" fill="#ffffff"/><text x="207" y="106" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#1e293b">selectSlot(court, start)</text>
+<rect x="357.65999999999997" y="136.01999999999998" width="149.68" height="17" fill="#ffffff"/><text x="432.5" y="150.01999999999998" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#1e293b">hold(court, start, end)</text>
+<rect x="589.86" y="158" width="57.28" height="17" fill="#ffffff"/><text x="618.5" y="172" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#1e293b">«create»</text>
+<rect x="416.18" y="208.01999999999998" width="32.64" height="17" fill="#ffffff"/><text x="432.5" y="222.01999999999998" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#1e293b">held</text>
+<rect x="187.6" y="248" width="38.800000000000004" height="17" fill="#ffffff"/><text x="207" y="262" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#1e293b">total</text>
+<rect x="150.64" y="344.09" width="112.72000000000001" height="17" fill="#ffffff"/><text x="207" y="358.09" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#1e293b">pay(method, code)</text>
+<rect x="376.14" y="391.905" width="112.72000000000001" height="17" fill="#ffffff"/><text x="432.5" y="405.905" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#1e293b">pay(code, method)</text>
+<rect x="612.64" y="472.05216" width="118.88000000000001" height="17" fill="#ffffff"/><text x="672.08" y="486.05216" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#1e293b">createLink(amount)</text>
+<rect x="839.68" y="504.00064" width="26.48" height="17" fill="#ffffff"/><text x="852.92" y="518.00064" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#1e293b">url</text>
+<rect x="668" y="569.5" width="57.28" height="17" fill="#ffffff"/><text x="696.64" y="583.5" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#1e293b">postCash</text>
+<rect x="628.28" y="600.02" width="63.440000000000005" height="17" fill="#ffffff"/><text x="660" y="614.02" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#1e293b">confirm()</text>
+<rect x="181.44" y="636.14" width="51.120000000000005" height="17" fill="#ffffff"/><text x="207" y="650.14" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#1e293b">receipt</text>
+</svg>
