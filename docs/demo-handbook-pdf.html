@@ -1,0 +1,506 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>Arena3 — Phân công và kịch bản demo</title>
+<style>
+  @page {
+    size: A4;
+    margin: 16mm 16mm 18mm 16mm;
+    @bottom-left {
+      content: "Arena3  ·  Phân công và kịch bản demo";
+      font-family: "Segoe UI", sans-serif;
+      font-size: 8.5pt;
+      color: #5c564c;
+    }
+    @bottom-right {
+      content: counter(page);
+      font-family: "Segoe UI", sans-serif;
+      font-size: 8.5pt;
+      color: #5c564c;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    background: #fff;
+    color: #1c1915;
+    font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    font-size: 10.5pt;
+    line-height: 1.36;
+  }
+  h1, h2, h3, .mast {
+    font-family: Palatino, "Palatino Linotype", "Iowan Old Style", Georgia, serif;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+  h1 { font-size: 26pt; line-height: 1.05; margin: 0 0 6pt; color: #1c1915; }
+  h2 {
+    font-size: 15pt;
+    line-height: 1.2;
+    margin: 10pt 0 4pt;
+    padding-top: 5pt;
+    border-top: 1.5pt solid #1c1915;
+    break-after: avoid;
+  }
+  h3 { font-size: 12pt; margin: 8pt 0 2pt; break-after: avoid; }
+  p { margin: 0 0 4pt; }
+  .kicker {
+    font-family: "Segoe UI", sans-serif;
+    font-size: 8.5pt;
+    font-weight: 650;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #1e4d38;
+    margin: 0 0 6pt;
+  }
+  .lede { font-size: 11.5pt; line-height: 1.35; color: #3a342c; max-width: 46em; margin: 0 0 8pt; }
+  .who { color: #1e4d38; font-weight: 650; }
+  table { width: 100%; border-collapse: collapse; margin: 2pt 0 7pt; font-size: 9.4pt; line-height: 1.32; }
+  th, td { text-align: left; vertical-align: top; padding: 3.5pt 6pt; border-bottom: 0.6pt solid #e6dfd4; }
+  th {
+    font-size: 8pt;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #5c564c;
+    font-weight: 650;
+    border-bottom: 1pt solid #1c1915;
+    padding-bottom: 4pt;
+  }
+  tr { break-inside: avoid; }
+  code, .path {
+    font-family: Consolas, "Cascadia Mono", monospace;
+    font-size: 0.92em;
+    color: #1c1915;
+  }
+  figure {
+    margin: 0 0 8pt;
+    break-inside: avoid;
+  }
+  figure img {
+    display: block;
+    width: auto;
+    max-width: 100%;
+    max-height: 58mm;
+    margin: 0 auto;
+    object-fit: contain;
+    object-position: top center;
+    background: #f6f3ec;
+    border: 0.6pt solid #e0d8cc;
+    border-radius: 2pt;
+  }
+  figcaption { margin-top: 3pt; font-size: 8.5pt; color: #5c564c; }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 10pt; margin: 0 0 6pt; }
+  .pair figure img { width: 100%; max-height: 58mm; }
+  ol.steps { margin: 1pt 0 6pt; padding: 0 0 0 16pt; }
+  ol.steps li { margin: 0 0 1.5pt; padding-left: 2pt; }
+  ol.steps li::marker { color: #1e4d38; font-weight: 650; }
+  .note {
+    font-size: 9.5pt;
+    color: #3a342c;
+    background: #f6f3ec;
+    padding: 7pt 9pt;
+    margin: 0 0 8pt;
+    break-inside: avoid;
+  }
+  .person { break-before: page; }
+  .keep { break-inside: avoid; }
+  p { orphans: 3; widows: 3; }
+</style>
+</head>
+<body>
+
+<p class="kicker">Arena3 · nội bộ nhóm · 10/10/2026</p>
+<h1>Phân công và kịch bản demo</h1>
+<p class="lede">Hiếu giữ hai việc: cửa vào và lịch sân. Sử, Toàn, Tân, Phúc mỗi người một việc. Dưới đây là cách bấm để người chấm thấy đúng kết quả.</p>
+
+<h2>Ai giữ gì</h2>
+<table>
+  <thead>
+    <tr><th>Hạng</th><th>Người</th><th>Việc</th><th>Không đụng</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>1</td>
+      <td><strong>Hiếu</strong><br>trưởng nhóm</td>
+      <td>F1 đăng nhập, quyền, gói.<br>F7 thuê sân, giữ chỗ, sơ đồ sân.</td>
+      <td>Không ghi phiếu thu. Không tạo lớp. Không điểm danh. Không làm trợ lý.</td>
+    </tr>
+    <tr>
+      <td>2</td>
+      <td><strong>Sử</strong></td>
+      <td>F3 ca, thu tiền, hóa đơn, hoàn, mã giảm, báo cáo.</td>
+      <td>Không chiếm sân. Không tạo lớp.</td>
+    </tr>
+    <tr>
+      <td>3</td>
+      <td><strong>Toàn</strong></td>
+      <td>F2 lớp, ghi danh, danh sách chờ, dời buổi, đổi huấn luyện viên.</td>
+      <td>Không thu tiền. Không sửa sổ điểm danh.</td>
+    </tr>
+    <tr>
+      <td>4</td>
+      <td><strong>Tân</strong></td>
+      <td>F4 cổng, điểm danh, giáo án. Gợi ý bài là một nút trong giáo án.</td>
+      <td>Không làm trợ lý. Không đổi sĩ số. Không trả buổi.</td>
+    </tr>
+    <tr>
+      <td>5</td>
+      <td><strong>Phúc</strong></td>
+      <td>F6 trợ lý và phiếu gửi quầy.</td>
+      <td>Không điểm danh. Không giáo án. Không sân. Không tiền.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>Ba chỗ chỉ một người được ghi</h2>
+<table>
+  <thead><tr><th>Chỗ ghi</th><th>Chủ</th><th>Người khác</th></tr></thead>
+  <tbody>
+    <tr><td>Phiên, gói, nhật ký</td><td>Hiếu</td><td>Chỉ đọc để biết ai đang vào và gói còn hạn không.</td></tr>
+    <tr><td>Lịch sân</td><td>Hiếu</td><td>Toàn gọi khi xuất bản, dời, hủy buổi. Trùng giờ thì bị từ chối, giờ cũ giữ nguyên.</td></tr>
+    <tr><td>Phiếu thu và hóa đơn</td><td>Sử</td><td>Hiếu gọi một hàm khi sân hoặc gói cần thu. Không tự thêm dòng tiền.</td></tr>
+  </tbody>
+</table>
+<p>Tranh chấp lịch sân hoặc đăng nhập thì Hiếu chốt. Sổ tiền thì Sử chốt. Hiếu dẫn buổi demo chung.</p>
+
+<h2>Tài khoản để demo</h2>
+<p>Mật khẩu mọi tài khoản: <strong>ChangeMe!a3</strong>. Hai máy nghĩa là hai trình duyệt, máy thứ hai để cửa sổ ẩn danh. Nói kết quả trước, rồi mới bấm.</p>
+<table>
+  <thead><tr><th>Vai</th><th>Số</th><th>Vào</th><th>Dùng khi</th></tr></thead>
+  <tbody>
+    <tr><td>Quản lý</td><td>0900000001</td><td class="path">/manager</td><td>Nhân sự, giá, lớp, báo cáo, nhật ký</td></tr>
+    <tr><td>Lễ tân</td><td>0900000002</td><td class="path">/desk</td><td>Ca, thu tiền, sơ đồ sân, cổng, phiếu</td></tr>
+    <tr><td>HLV Khoa</td><td>0901110011</td><td class="path">/coach</td><td>Lịch dạy, điểm danh, giáo án</td></tr>
+    <tr><td>Nam</td><td>0901230101</td><td class="path">/app</td><td>Gói đang dùng, đặt sân, lớp, mã cổng, trợ lý</td></tr>
+    <tr><td>Linh</td><td>0901230102</td><td class="path">/app</td><td>Máy thứ hai, đấu một giờ sân với Nam</td></tr>
+    <tr><td>Hà</td><td>0901230106</td><td class="path">/app</td><td>Gói đã hết hạn</td></tr>
+  </tbody>
+</table>
+<p class="note">Chuẩn bị một ngày trong tuần tới. Một sân còn trống cả ngày, gọi là sân T. Một sân để Nam và Linh cùng bấm, gọi là sân H. Ghi mã sân ra giấy trước khi vào phòng.</p>
+
+<section class="person">
+<p class="kicker">Hạng 1 · Hiếu</p>
+<h2>F1 — Đăng nhập, quyền, gói</h2>
+<figure>
+  <img src="demo-screenshots/01_login_roles.png" alt="Màn đăng nhập và các tài khoản mẫu">
+  <figcaption>Đăng nhập. Bốn thẻ mẫu đưa thẳng vào đúng trang của từng vai.</figcaption>
+</figure>
+
+<h3>Đăng ký chỉ xong khi mã đúng</h3>
+<p>Dùng số chưa có trong hệ thống, ví dụ 0988111222. Đừng dùng số của Nam.</p>
+<ol class="steps">
+  <li>Vào đăng ký. Mật khẩu ngắn, hoặc không tích điều khoản. Gửi. Tài khoản không được tạo.</li>
+  <li>Mật khẩu đủ chữ và số, tích điều khoản, gửi. Sang bước nhập mã. Mã hiện trên màn vì chưa có tin nhắn. Nói rõ điều này.</li>
+  <li>Nhập đúng mã. Vào trang hội viên.</li>
+  <li>Đăng ký lại đúng số vừa tạo. Bị từ chối. Một số, một tài khoản.</li>
+</ol>
+
+<h3>Mỗi vai một trang</h3>
+<ol class="steps">
+  <li>Quản lý 0900000001 vào trang báo cáo.</li>
+  <li>Lễ tân 0900000002 vào quầy, không thấy xuất báo cáo doanh thu.</li>
+  <li>HLV Khoa vào lịch dạy. Nam vào trang hội viên.</li>
+</ol>
+
+<h3>Quên mật khẩu không tiết lộ số có tồn tại hay không</h3>
+<p>Gửi quên mật khẩu cho 0901230101 và cho một số chắc chắn không có. Hai lần cùng một kiểu trả lời. Không có câu “số này chưa đăng ký”.</p>
+
+<h3>Nhân sự mới phải đổi mật khẩu</h3>
+<ol class="steps">
+  <li>Quản lý tạo lễ tân thử, nhận mật khẩu tạm. Xong demo thì khóa tài khoản đó.</li>
+  <li>Lễ tân mới đăng nhập. Phải đổi mật khẩu trước khi vào quầy.</li>
+  <li>Quản lý thử khóa chính mình. Bị từ chối. Nhật ký có dòng tạo nhân sự, không có nút xóa.</li>
+</ol>
+
+<h3>Gói chờ thu thì chưa dùng được</h3>
+<ol class="steps">
+  <li>Nam đặt một gói đang bán. Đơn ở trạng thái chờ thu. Chưa có quyền của gói mới.</li>
+  <li>Sử thu đủ. Gói chuyển sang đang dùng. Hiếu không tự ghi phiếu.</li>
+  <li>Quản lý ngừng bán gói. Khách mới không mua được. Người đang giữ gói cũ dùng đến hết hạn.</li>
+  <li>Đóng băng gói đang dùng. Người đó không mua gói khác khi còn đóng băng.</li>
+</ol>
+</section>
+
+<section class="person">
+<p class="kicker">Hạng 1 · Hiếu</p>
+<h2>F7 — Thuê sân</h2>
+<figure>
+  <img src="demo-screenshots/12_member_book_court.png" alt="Sơ đồ đặt sân của hội viên">
+  <figcaption>Đặt sân. Ô đang giữ có đồng hồ khoảng 5 phút.</figcaption>
+</figure>
+
+<h3>Hai máy, một giờ sân</h3>
+<p>Nam và Linh, hai trình duyệt, cùng sân H, cùng giờ còn trống.</p>
+<ol class="steps">
+  <li>Cả hai mở đặt sân, cùng môn, cùng ngày, cùng ô.</li>
+  <li>Nam bấm giữ trước. Ô thành đang giữ, có đồng hồ.</li>
+  <li>Linh bấm đúng ô đó. Bị từ chối. Linh không có lượt mới. Giữ chỗ của Nam còn.</li>
+</ol>
+
+<h3>Hết giờ giữ thì sân mở lại</h3>
+<p>Bắt đầu kịch bản này trước, làm việc khác trong lúc chờ. Giữ chỗ mặc định 5 phút.</p>
+<ol class="steps">
+  <li>Nam giữ một ô khác, không thanh toán.</li>
+  <li>Hết phút, tải lại. Ô trống, chưa thành đã đặt.</li>
+  <li>Linh giữ đúng ô vừa hết hạn. Linh giữ được.</li>
+</ol>
+
+<h3>Đổi chỗ bị từ chối thì chỗ cũ còn</h3>
+<p>Nam đang giữ sân X, Linh đang giữ sân Y. Nam đổi từ X sang đúng Y. Bị từ chối. X vẫn của Nam, Y vẫn của Linh.</p>
+
+<h3>Khách vãng lai, hủy, đổi giờ</h3>
+<p>Khách vãng lai cần ca đang mở. Chưa có ca thì Sử mở, và nói rõ đó là phần của Sử.</p>
+<ol class="steps">
+  <li>Lễ tân chọn ô trống còn hơn 20 phút, nhập tên và số lạ, thu tiền mặt. Ô thành đã đặt. Khách không cần tài khoản.</li>
+  <li>Ô đã bắt đầu, còn dưới 20 phút. Từ chối bán.</li>
+  <li>Nam hủy một lượt còn xa hơn 2 giờ. Sân trống. Phiếu hoàn do Sử ghi.</li>
+  <li>Đổi một lượt đã trả sang giờ có giá khác. Bị từ chối. Lượt đứng ở giờ cũ. Thấy số đã trả và số giá mới.</li>
+</ol>
+
+<h3>Dụng cụ, đặt cố định, thiếu giá</h3>
+<ol class="steps">
+  <li>Cho Nam mượn một vợt. Tồn giảm một. Trả lại thì tồn tăng. Trả lần nữa thì bị từ chối.</li>
+  <li>Đặt cố định 4 tuần, một sân, một thứ, một giờ, trong đó một tuần đã kín. Tuần trống thành lượt. Tuần kín bị bỏ, không nhảy sang sân khác, không thu tuần bỏ.</li>
+  <li>Bỏ giá một khung giờ. Nam đặt đúng khung đó thì không giữ được, không có giá bịa. Điền lại giá thì giữ được. Xong demo thì trả đơn giá cũ.</li>
+</ol>
+</section>
+
+<section class="person">
+<p class="kicker">Hạng 2 · Sử</p>
+<h2>F3 — Tiền, ca, hóa đơn, báo cáo</h2>
+<div class="pair">
+  <figure>
+    <img src="demo-screenshots/06_desk_payments.png" alt="Màn thu tiền tại quầy">
+    <figcaption>Quầy. Khoản chờ thu và đối soát chuyển khoản.</figcaption>
+  </figure>
+  <figure>
+    <img src="demo-screenshots/16_member_account_receipts.png" alt="Biên lai của hội viên">
+    <figcaption>Hội viên mở biên lai trên tài khoản của mình.</figcaption>
+  </figure>
+</div>
+
+<h3>Chưa mở ca thì không thu</h3>
+<p>Nếu ca đang mở sẵn thì chốt ca trước. Lễ tân thử thu khi ca đóng: bị từ chối. Mở ca: ca gắn đúng lễ tân này, lễ tân khác không dùng ca này.</p>
+
+<h3>Một lần bấm, một phiếu, một hóa đơn</h3>
+<ol class="steps">
+  <li>Thu tiền mặt cho một giữ chỗ của Nam. Một phiếu. Sân thành đã đặt. Có hóa đơn.</li>
+  <li>Bấm thu lại đúng khoản. Không có phiếu thứ hai.</li>
+  <li>Nam mở tab biên lai. PDF có số tiền, mã phiếu, đủ dấu tiếng Việt.</li>
+</ol>
+
+<h3>Chuyển khoản chưa phải tiền</h3>
+<ol class="steps">
+  <li>Nam chọn chuyển khoản. Sân vẫn đang giữ. Chưa có phiếu thu.</li>
+  <li>Lễ tân đối soát đúng khoản. Bây giờ mới có phiếu và sân đã đặt.</li>
+  <li>Khoản mà giữ chỗ đã hết hạn thì không đối soát được.</li>
+</ol>
+
+<h3>Trang quay về không chứng minh đã trả</h3>
+<p>Chưa nối cổng thanh toán thì nói thẳng: quầy vẫn thu tiền mặt, và không demo mã QR. Nếu đã nối: tạo link, bấm lần hai vẫn link cũ. Mở trang quay về khi chưa trả thì không có phiếu. Chỉ khi cổng báo đủ tiền thì có đúng một phiếu.</p>
+
+<h3>Hoàn tiền và mã giảm</h3>
+<ol class="steps">
+  <li>Hoàn dưới 1.000.000 đồng thì xong ngay. Hoàn lại lần nữa thì bị từ chối.</li>
+  <li>Hoàn từ 1.000.000 đồng thì vào hàng chờ. Quản lý duyệt thì mới xong, có dòng nhật ký.</li>
+  <li>Mã một lượt: hủy trước khi thu thì lượt còn. Thu xong thì lượt về không. Người sau nhập lại thì bị từ chối.</li>
+</ol>
+
+<h3>Báo cáo khớp sổ</h3>
+<p>Cùng ngày vừa thu, mở báo cáo. Tổng thu trừ hoàn bằng các phiếu đã ghi. Xuất Excel thì ô tiền là số, cộng được. Xuất PDF đủ dấu. HLV thử xuất thì bị từ chối.</p>
+</section>
+
+<section class="person">
+<p class="kicker">Hạng 3 · Toàn</p>
+<h2>F2 — Lớp học</h2>
+<div class="pair">
+  <figure>
+    <img src="demo-screenshots/04_manager_classes.png" alt="Quản lý tạo lớp">
+    <figcaption>Quản lý tạo lớp, gán sân và huấn luyện viên.</figcaption>
+  </figure>
+  <figure>
+    <img src="demo-screenshots/13_member_classes.png" alt="Hội viên xem lớp">
+    <figcaption>Nam thấy lớp và ghi danh.</figcaption>
+  </figure>
+</div>
+<p>Cần sân T trống cả khung lớp, và sân H mà Hiếu đã cho Nam đặt. HLV Khoa dạy cầu lông. Sĩ số để 2 cho dễ đầy.</p>
+
+<h3>Trùng sân thì không có lớp</h3>
+<ol class="steps">
+  <li>Tạo lớp đè đúng giờ sân H, rồi xuất bản. Bị từ chối. Lượt của Nam còn nguyên.</li>
+  <li>Tạo lớp trên sân T, sĩ số 2, gán HLV Khoa, xuất bản. Lớp mở. Khoa thấy buổi trên lịch dạy. Nam thấy lớp.</li>
+</ol>
+
+<h3>Ghi danh đúng gói</h3>
+<ol class="steps">
+  <li>Nam ghi danh. Có tên. Sĩ số tăng một.</li>
+  <li>Nam bấm lần nữa. Bị từ chối. Sĩ số không tăng.</li>
+  <li>Hà, gói hết hạn, ghi danh. Bị từ chối.</li>
+</ol>
+
+<h3>Đầy chỗ thì chờ</h3>
+<ol class="steps">
+  <li>Linh lấy chỗ cuối. Lớp đầy.</li>
+  <li>Người thứ ba ghi danh. Vào danh sách chờ, thấy vị trí.</li>
+  <li>Nam hủy khi còn hơn 4 giờ trước buổi. Người chờ đầu được mời. Nhận suất khi lớp vừa đầy thì bị từ chối, không nhét thêm.</li>
+</ol>
+
+<h3>Hủy buổi, dời buổi, đổi huấn luyện viên</h3>
+<ol class="steps">
+  <li>Hủy một buổi, có lý do. Buổi mất. Nam và HLV có thông báo. Suất được trả một lần. Hủy lại đúng buổi thì bị từ chối.</li>
+  <li>Dời buổi khi còn dưới 12 giờ mà bỏ trống lý do. Bị từ chối.</li>
+  <li>Dời vào giờ Khoa đang dạy chỗ khác, hoặc đổi sang người không dạy cầu lông. Bị từ chối. Giờ cũ và Khoa giữ nguyên.</li>
+</ol>
+</section>
+
+<section class="person">
+<p class="kicker">Hạng 4 · Tân</p>
+<h2>F4 — Cổng, điểm danh, giáo án</h2>
+<div class="pair">
+  <figure>
+    <img src="demo-screenshots/14_member_gate_pass.png" alt="Mã vào cổng của hội viên">
+    <figcaption>Nam mở mã vào cổng. Mã đổi khoảng mỗi phút.</figcaption>
+  </figure>
+  <figure>
+    <img src="demo-screenshots/10_coach_attendance.png" alt="Sổ điểm danh của huấn luyện viên">
+    <figcaption>Sổ buổi. Qua cổng chưa có nghĩa là có mặt trên lớp.</figcaption>
+  </figure>
+</div>
+<p>Cần một buổi Toàn đã xuất bản, Khoa dạy, Nam đã ghi danh.</p>
+
+<h3>Cổng không phải điểm danh lớp</h3>
+<ol class="steps">
+  <li>Nam mở mã. Lễ tân quét hoặc nhập. Thấy tên, hạn gói, lịch hôm nay. Có một lượt đến.</li>
+  <li>Dùng lại đúng mã. Bị từ chối.</li>
+  <li>Khoa mở sổ buổi. Nam vẫn chưa điểm danh. Khoa tự đánh Có mặt thì mới lưu.</li>
+</ol>
+
+<h3>Hết điện thoại thì ghi tay</h3>
+<p>Lễ tân tìm 0901230101, ghi tay, có lý do. Có lượt đến. Ghi Hà khi gói hết hạn và không có lý do ngoại lệ thì bị từ chối.</p>
+
+<h3>Quá giờ thì khóa sổ</h3>
+<ol class="steps">
+  <li>Khoa đánh Nam: Có mặt, Muộn, Vắng hoặc Có phép. Nam thấy trạng thái của mình, không thấy bạn khác.</li>
+  <li>Buổi đã quá 2 giờ sau khi tan. Khoa sửa không được.</li>
+  <li>Quản lý sửa được nếu gõ lý do. Bỏ trống lý do thì không sửa. Có dòng nhật ký.</li>
+</ol>
+
+<h3>Vắng ba buổi thì lên danh sách</h3>
+<p>Khoa đánh Vắng ba buổi liên tiếp. Học viên vẫn còn trong lớp, và xuất hiện ở danh sách lễ tân cần gọi. Một buổi Có phép ở giữa thì chuỗi vắng bị đứt.</p>
+
+<h3>Gợi ý bài chỉ là nháp</h3>
+<p>Không có khóa trợ lý thì dùng mẫu và nói rõ nguồn. Không mở thêm một sản phẩm riêng.</p>
+<ol class="steps">
+  <li>Trong lúc soạn giáo án, xin gợi ý. Ra bản nháp. Giáo án chính thức chưa đổi. Nam chưa thấy.</li>
+  <li>Sửa vài dòng rồi duyệt. Bây giờ Nam thấy trên tiến độ tập.</li>
+  <li>Không duyệt thì học viên không thấy bản nháp.</li>
+</ol>
+</section>
+
+<section class="person">
+<p class="kicker">Hạng 5 · Phúc</p>
+<h2>F6 — Trợ lý và phiếu gửi quầy</h2>
+<figure>
+  <img src="demo-screenshots/15_member_assistant.png" alt="Trợ lý trên điện thoại hội viên">
+  <figcaption>Nam hỏi trợ lý. Trả lời đúng hạn của Nam, không đặt sân, không thu tiền.</figcaption>
+</figure>
+<p>Không có khóa thì trợ lý vẫn trả lời theo mẫu và ghi nguồn. Phiếu gửi quầy làm được dù chưa có khóa.</p>
+
+<h3>Đúng người đang hỏi</h3>
+<ol class="steps">
+  <li>Nam hỏi hạn gói của mình. Đúng hạn của Nam. Không đọc hạn của Linh.</li>
+  <li>Nhờ đặt sân hoặc trừ tiền. Trợ lý không làm. Chỉ nói cách tự làm.</li>
+  <li>Hỏi cách trị chấn thương. Không tư vấn. Hướng về huấn luyện viên.</li>
+</ol>
+
+<h3>Không giải được thì thành phiếu</h3>
+<ol class="steps">
+  <li>Nam hỏi một việc ngoài phạm vi, ví dụ xin hóa đơn công ty, và đồng ý gửi quầy. Có một phiếu. Không có phiếu trống.</li>
+  <li>Lễ tân trả lời và đóng. Nam có thông báo và thấy câu trả lời.</li>
+  <li>Đóng một phiếu trùng, không cần trả lời. Đóng được. Không gửi thêm thông báo.</li>
+</ol>
+</section>
+
+<section class="person">
+<p class="kicker">Cả nhóm · Hiếu dẫn</p>
+<h2>Bảy bước trong một buổi</h2>
+<p>Khoảng 15 phút. Mỗi người chỉ bấm phần mình. Ca lễ tân đang mở. Sân T trống. Sân H để đấu. Khoa rảnh đúng giờ lớp.</p>
+<figure>
+  <img src="demo-screenshots/03_manager_audit.png" alt="Nhật ký các thao tác">
+  <figcaption>Bước cuối mở nhật ký. Các việc vừa làm còn dòng, không xóa được.</figcaption>
+</figure>
+<table>
+  <thead><tr><th>#</th><th>Ai</th><th>Làm</th><th>Cả phòng phải thấy</th></tr></thead>
+  <tbody>
+    <tr><td>1</td><td>Hiếu</td><td>Bốn vai đăng nhập.</td><td>Mỗi vai một trang.</td></tr>
+    <tr><td>2</td><td>Hiếu</td><td>Nam và Linh cùng bấm sân H.</td><td>Một người giữ được. Người kia bị từ chối.</td></tr>
+    <tr><td>3</td><td>Sử</td><td>Thu tiền mặt chỗ giữ đó.</td><td>Một phiếu, một hóa đơn, sân thành đã đặt.</td></tr>
+    <tr><td>4</td><td>Toàn</td><td>Lớp đè sân H, rồi lớp trên sân T, Nam ghi danh.</td><td>Lớp đè bị từ chối. Lớp sân T mở, Nam có tên.</td></tr>
+    <tr><td>5</td><td>Tân</td><td>Quét mã cổng, rồi mở sổ buổi.</td><td>Có lượt cổng. Sổ lớp vẫn chưa Có mặt cho đến khi Khoa đánh.</td></tr>
+    <tr><td>6</td><td>Phúc</td><td>Nam hỏi hạn gói, gửi một phiếu. Lễ tân trả lời.</td><td>Đúng hạn của Nam. Phiếu đóng. Nam có thông báo.</td></tr>
+    <tr><td>7</td><td>Hiếu</td><td>Mở nhật ký.</td><td>Các việc vừa rồi có dòng.</td></tr>
+  </tbody>
+</table>
+<p>Đủ bảy bước là xong phần bắt buộc. Kịch bản riêng dùng khi bị hỏi sâu.</p>
+
+<h2>Bàn giao</h2>
+<table>
+  <thead><tr><th>Việc</th><th>Chủ ghi</th><th>Người gọi</th><th>Cách đưa</th></tr></thead>
+  <tbody>
+    <tr><td>Gói chờ thu</td><td>Sử</td><td>Hiếu</td><td>Hiếu tạo đơn chờ. Sử thu rồi mở gói.</td></tr>
+    <tr><td>Gói đang dùng</td><td>Hiếu</td><td>Toàn</td><td>Toàn chỉ đọc khi ghi danh.</td></tr>
+    <tr><td>Giữ sân chờ trả</td><td>Sử</td><td>Hiếu</td><td>Hiếu giữ ô. Thu thì qua một hàm của Sử.</td></tr>
+    <tr><td>Buổi lớp chiếm sân</td><td>Hiếu</td><td>Toàn</td><td>Toàn gọi lúc xuất bản, dời, hủy. Bị từ chối thì không ghi đè.</td></tr>
+    <tr><td>Buổi để điểm danh</td><td>Toàn</td><td>Tân</td><td>Buổi đã sinh. Tân không đổi sĩ số.</td></tr>
+    <tr><td>Phiếu gửi quầy</td><td>Phúc</td><td>Hiếu</td><td>Phúc làm hai đầu. Thông báo trả lời đi qua hàng của Hiếu.</td></tr>
+  </tbody>
+</table>
+
+<div class="keep">
+<h2>Ai ký</h2>
+<table>
+  <thead><tr><th>#</th><th>Việc</th><th>Ký</th><th>Ngồi cùng</th></tr></thead>
+  <tbody>
+    <tr><td>1</td><td>Bốn vai vào đúng trang. Gói chờ thu chưa dùng được.</td><td>Hiếu</td><td>Sử</td></tr>
+    <tr><td>2</td><td>Hai máy một giờ sân, một người được.</td><td>Hiếu</td><td>Sử</td></tr>
+    <tr><td>3</td><td>Báo cáo ngày khớp phiếu trừ hoàn.</td><td>Sử</td><td>Hiếu</td></tr>
+    <tr><td>4</td><td>Lớp trùng sân đã đặt thì không xuất bản.</td><td>Toàn</td><td>Hiếu</td></tr>
+    <tr><td>5</td><td>Quét cổng không làm học viên thành Có mặt.</td><td>Tân</td><td>Toàn</td></tr>
+    <tr><td>6</td><td>Gợi ý bài không tự thành giáo án.</td><td>Tân</td><td>—</td></tr>
+    <tr><td>7</td><td>Trợ lý không thu tiền. Câu không giải được thì thành phiếu.</td><td>Phúc</td><td>Hiếu</td></tr>
+    <tr><td>8</td><td>Bảy bước đi hết một lượt.</td><td>Hiếu</td><td>Cả nhóm</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h2>Khi bị hỏi vì sao</h2>
+<table>
+  <thead><tr><th>Câu hỏi</th><th>Trả lời</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><span class="who">Hiếu.</span> Sao không ghi lịch thẳng vào từng loại đặt sân?</td>
+      <td>Sân bị chiếm bởi bốn việc: thuê lẻ, lớp, bảo trì, và giữ chỗ chờ trả. Một lịch chung thì kiểm tra trống một lần. Bốn bảng riêng thì dễ sót một bảng và bán trùng.</td>
+    </tr>
+    <tr>
+      <td><span class="who">Sử.</span> Sao chuyển khoản chưa duyệt không tạo phiếu chờ?</td>
+      <td>Tiền chưa về thì chưa phải tiền của trung tâm. Phiếu chờ dễ lọt vào báo cáo nếu quên lọc. Chuyển khoản chưa đối soát chỉ là lời hẹn trên lượt đặt. Sổ chỉ ghi tiền đã nhận.</td>
+    </tr>
+    <tr>
+      <td><span class="who">Toàn.</span> Sao không sinh lịch cả năm lúc tạo lớp?</td>
+      <td>Xuất bản thì sinh trước vài tuần. Việc nền sinh tiếp các tuần sau. Lịch không phình một lần, và sân các tháng xa vẫn sửa được.</td>
+    </tr>
+    <tr>
+      <td><span class="who">Tân.</span> Sao khóa sổ sau 2 giờ?</td>
+      <td>Điểm danh gắn với buổi của khách và thù lao của huấn luyện viên. Sửa thoải mái sau buổi thì dễ chỉnh cho có lợi. Hết giờ thì khóa. Quản lý sửa phải gõ lý do.</td>
+    </tr>
+    <tr>
+      <td><span class="who">Phúc.</span> Sao trợ lý không đặt sân giúp?</td>
+      <td>Trợ lý không có quyền ghi sân và không có quyền ghi tiền. Dù câu chữ có bị dẫn, nó cũng không có chỗ để tạo phiếu hay giữ chỗ.</td>
+    </tr>
+  </tbody>
+</table>
+
+<p class="note">Việc phát sinh thì ghi vào buổi họp và thêm một dòng bàn giao. Không gắn thêm việc cho Tân hoặc Phúc. Hiếu chỉ giữ F1 và F7.</p>
+</body>
+</html>
