@@ -4,6 +4,7 @@ import { withIdempotency } from "./helpers";
 import { startJobLoop } from "./jobs";
 import { authFromRequest, staffRoles, type PublicUser } from "./session";
 import { withTx } from "./tx";
+import * as sportsH from "./handlers/sports";
 
 type Result = { status: number; body: unknown };
 
@@ -33,6 +34,11 @@ async function dispatch(request: Request): Promise<Response | Result> {
     return { status: 200, body: { ok: true } };
   }
 
+  if (method === "GET" && p0 === "sports" && !p1) {
+    const sql = await getSql();
+    return sportsH.publicSportsList(sql);
+  }
+
   // Authenticated
   const authed = async (fn: (sql: Awaited<ReturnType<typeof getSql>>, user: PublicUser) => Promise<Result | Response>) => {
     return withTx(async (sql) => {
@@ -52,6 +58,26 @@ async function dispatch(request: Request): Promise<Response | Result> {
     const user = await authFromRequest(sql, request);
     return fn(sql, user);
   };
+
+  // Manager sports
+  if (method === "GET" && p0 === "manager" && p1 === "sports" && !p2) {
+    return authedRead((sql, user) => sportsH.managerSportsList(sql, user));
+  }
+  if (method === "POST" && p0 === "manager" && p1 === "sports" && !p2) {
+    return authed((sql, user) => sportsH.managerSportCreate(sql, request, user));
+  }
+  if (method === "PATCH" && p0 === "manager" && p1 === "sports" && p2 && !parts[3]) {
+    return authed((sql, user) => sportsH.managerSportPatch(sql, p2, request, user));
+  }
+  if (method === "POST" && p0 === "manager" && p1 === "sports" && p2 && parts[3] === "retire") {
+    return authed((sql, user) => sportsH.managerSportRetire(sql, p2, user));
+  }
+  if (method === "POST" && p0 === "manager" && p1 === "sports" && p2 && parts[3] === "restore") {
+    return authed((sql, user) => sportsH.managerSportRestore(sql, p2, user));
+  }
+  if (method === "DELETE" && p0 === "manager" && p1 === "sports" && p2 && !parts[3]) {
+    return authed((sql, user) => sportsH.managerSportDelete(sql, p2, user));
+  }
 
   void staffRoles;
   void idem;
