@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1160" height="700" viewBox="0 0 1160 700">
+  <rect width="100%" height="100%" fill="#ffffff"/>
+  <text x="234" y="29" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="13" font-weight="700" fill="#1e293b">Use case overview — Arena3 sports complex</text>
+<rect x="340" y="250" width="560" height="200" fill="none" stroke="#1e293b" stroke-width="1.4"/><text x="620" y="267" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="13" font-weight="700" fill="#1e293b">Arena3 Sports Complex</text>
+<path d="M440.0 116.0 L440.0 250.0" fill="none" stroke="#1e293b" stroke-width="1.3" />
+<path d="M660.0 116.0 L660.0 250.0" fill="none" stroke="#1e293b" stroke-width="1.3" />
+<path d="M76.0 340.0 L340.0 340.0" fill="none" stroke="#1e293b" stroke-width="1.3" />
+<path d="M1020.0 380.0 L900.0 380.0" fill="none" stroke="#1e293b" stroke-width="1.3" />
+<path d="M420.0 540.0 L420.0 450.0" fill="none" stroke="#1e293b" stroke-width="1.3" />
+<path d="M600.0 540.0 L600.0 450.0" fill="none" stroke="#1e293b" stroke-width="1.3" />
+<path d="M840.0 540.0 L840.0 450.0" fill="none" stroke="#1e293b" stroke-width="1.3" />
+<g>
+      <circle cx="440" cy="46" r="8" fill="#fff" stroke="#1e293b" stroke-width="1.4"/>
+      <line x1="440" y1="54" x2="440" y2="78" stroke="#1e293b" stroke-width="1.4"/>
+      <line x1="428" y1="64" x2="452" y2="64" stroke="#1e293b" stroke-width="1.4"/>
+      <line x1="440" y1="78" x2="428" y2="98" stroke="#1e293b" stroke-width="1.4"/>
+      <line x1="440" y1="78" x2="452" y2="98" stroke="#1e293b" stroke-width="1.4"/>
+      <text x="440" y="129.5" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#1e293b">Guest</text>
+    </g>
+<g>
+      <circle cx="660" cy="46" r="8" fill="#fff" stroke="#1e293b" stroke-width="1.4"/>
+      <line x1="660" y1="54" x2="660" y2="78" stroke="#1e293b" stroke-width="1.4"/>
+      <line x1="648" y1="64" x2="672" y2="64" stroke="#1e293b" stroke-width="1.4"/>
+      <line x1="660" y1="78" x2="648" y2="98" stroke="#1e293b" stroke-width="1.4"/>
+      <line x1="660" y1="78" x2="672" y2="98" stroke="#1e293b" stroke-width="1.4"/>
+      <text x="660" y="129.5" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#1e293b">payOS</text>
+    </g>
+<g>
+      <circle cx="56" cy="310" r="8" fill="#fff" stroke="#1e293b" stroke-width="1.4"/>
+      <line x1="56" y1="318" x2="56" y2="342" stroke="#1e293b" stroke-width="1.4"/>
+      <line x1="44" y1="328" x2="68" y2="328" stroke="#1e293b" stroke-width="1.4"/>
+      <line x1="56" y1="342" x2="44" y2="362" stroke="#1e293b" stroke-width="1.4"/>
+      <line x1="56" y1="342" x2="68" y2="362" stroke="#1e293b" stroke-width="1.4"/>
+      <text x="56" y="393.5" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#1e293b">Member</text>
+    </g>
+<g>
+      <circle cx="1040" cy="350" r="8" fill="#fff" stroke="#1e293b" stroke-width="1.4"/>
+      <line x1="1040" y1="358" x2="1040" y2="382" stroke="#1e293b" stroke-width="1.4"/>
+      <line x1="1028" y1="368" x2="1052" y2="368" stroke="#1e293b" stroke-width="1.4"/>
+      <line x1="1040" y1="382" x2="1028" y2="402" stroke="#1e293b" stroke-width="1.4"/>
+      <line x1="1040" y1="382" x2="1052" y2="402" stroke="#1e293b" stroke-width="1.4"/>
+      <text x="1040" y="433.5" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#1e293b">Mail delivery</text>
+    </g>
+<g>
+      <circle cx="420" cy="550" r="8" fill="#fff" stroke="#1e293b" stroke-width="1.4"/>
+      <line x1="420" y1="558" x2="420" y2="582" stroke="#1e293b" stroke-width="1.4"/>
+      <line x1="408" y1="568" x2="432" y2="568" stroke="#1e293b" stroke-width="1.4"/>
+      <line x1="420" y1="582" x2="408" y2="602" stroke="#1e293b" stroke-width="1.4"/>
+      <line x1="420" y1="582" x2="432" y2="602" stroke="#1e293b" stroke-width="1.4"/>
+      <text x="420" y="633.5" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#1e293b">Receptionist</text>
+    </g>
+<g>
+      <circle cx="600" cy="550" r="8" fill="#fff" stroke="#1e293b" stroke-width="1.4"/>
+      <line x1="600" y1="558" x2="600" y2="582" stroke="#1e293b" stroke-width="1.4"/>
+      <line x1="588" y1="568" x2="612" y2="568" stroke="#1e293b" stroke-width="1.4"/>
+      <line x1="600" y1="582" x2="588" y2="602" stroke="#1e293b" stroke-width="1.4"/>
+      <line x1="600" y1="582" x2="612" y2="602" stroke="#1e293b" stroke-width="1.4"/>
+      <text x="600" y="633.5" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#1e293b">Coach</text>
+    </g>
+<g>
+      <circle cx="840" cy="550" r="8" fill="#fff" stroke="#1e293b" stroke-width="1.4"/>
+      <line x1="840" y1="558" x2="840" y2="582" stroke="#1e293b" stroke-width="1.4"/>
+      <line x1="828" y1="568" x2="852" y2="568" stroke="#1e293b" stroke-width="1.4"/>
+      <line x1="840" y1="582" x2="828" y2="602" stroke="#1e293b" stroke-width="1.4"/>
+      <line x1="840" y1="582" x2="852" y2="602" stroke="#1e293b" stroke-width="1.4"/>
+      <text x="840" y="633.5" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#1e293b">Manager</text>
+    </g>
+<text x="660" y="31" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="13" font-weight="400" fill="#1e293b">«actor»</text>
+<text x="1040" y="335" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="13" font-weight="400" fill="#1e293b">«actor»</text>
+<rect x="444" y="174.5" width="51.120000000000005" height="17" fill="#ffffff"/><text x="469.56" y="188.5" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#1e293b">Sign up</text>
+<rect x="664" y="174.5" width="81.92" height="17" fill="#ffffff"/><text x="704.96" y="188.5" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#1e293b">Take payment</text>
+<rect x="167.04" y="320" width="81.92" height="17" fill="#ffffff"/><text x="208" y="334" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#1e293b">Book a court</text>
+<rect x="919.04" y="360" width="81.92" height="17" fill="#ffffff"/><text x="960" y="374" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#1e293b">Send the OTP</text>
+<rect x="424" y="486.5" width="88.08000000000001" height="17" fill="#ffffff"/><text x="468.04" y="500.5" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#1e293b">Open the gate</text>
+<rect x="604" y="486.5" width="100.4" height="17" fill="#ffffff"/><text x="654.2" y="500.5" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#1e293b">Mark attendance</text>
+<rect x="766.4000000000001" y="486.5" width="69.60000000000001" height="17" fill="#ffffff"/><text x="801.2" y="500.5" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#1e293b">Set prices</text>
+</svg>
