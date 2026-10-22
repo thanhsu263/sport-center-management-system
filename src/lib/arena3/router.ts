@@ -4,6 +4,7 @@ import { withIdempotency } from "./helpers";
 import { startJobLoop } from "./jobs";
 import { authFromRequest, staffRoles, type PublicUser } from "./session";
 import { withTx } from "./tx";
+import * as deskH from "./handlers/desk";
 import * as sportsH from "./handlers/sports";
 
 type Result = { status: number; body: unknown };
@@ -58,6 +59,16 @@ async function dispatch(request: Request): Promise<Response | Result> {
     const user = await authFromRequest(sql, request);
     return fn(sql, user);
   };
+
+  if (method === "POST" && p0 === "shifts" && p1 === "open") {
+    return authed((sql, user) => deskH.shiftOpen(sql, user));
+  }
+  if (method === "GET" && p0 === "shifts" && p1 === "current") {
+    return authedRead((sql, user) => deskH.shiftCurrent(sql, user, request));
+  }
+  if (method === "POST" && p0 === "shifts" && p1 && p2 === "close") {
+    return authed((sql, user) => deskH.shiftClose(sql, p1, request, user));
+  }
 
   // Manager sports
   if (method === "GET" && p0 === "manager" && p1 === "sports" && !p2) {
