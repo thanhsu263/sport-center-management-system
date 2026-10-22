@@ -5,6 +5,7 @@ import { startJobLoop } from "./jobs";
 import { authFromRequest, staffRoles, type PublicUser } from "./session";
 import { withTx } from "./tx";
 import * as sportsH from "./handlers/sports";
+import * as assetsH from "./handlers/assets";
 
 type Result = { status: number; body: unknown };
 
@@ -34,6 +35,18 @@ async function dispatch(request: Request): Promise<Response | Result> {
     return { status: 200, body: { ok: true } };
   }
 
+  if (method === "GET" && p0 === "site-assets" && !p1) {
+    const sql = await getSql();
+    return assetsH.siteAssetsList(sql);
+  }
+  if (method === "GET" && p0 === "site-assets" && p1 && p2 === "file") {
+    const sql = await getSql();
+    return assetsH.siteAssetGetFile(sql, p1);
+  }
+  if (method === "GET" && p0 === "media" && p1 === "credits") {
+    const sql = await getSql();
+    return assetsH.publicMediaCredits(sql, request);
+  }
   if (method === "GET" && p0 === "sports" && !p1) {
     const sql = await getSql();
     return sportsH.publicSportsList(sql);
@@ -77,6 +90,43 @@ async function dispatch(request: Request): Promise<Response | Result> {
   }
   if (method === "DELETE" && p0 === "manager" && p1 === "sports" && p2 && !parts[3]) {
     return authed((sql, user) => sportsH.managerSportDelete(sql, p2, user));
+  }
+
+  // Manager site assets & media library
+  if (
+    (method === "GET" && p0 === "manager" && p1 === "site-assets" && p2 === "library") ||
+    (method === "GET" && p0 === "manager" && p1 === "media-library" && !p2)
+  ) {
+    return authedRead((sql, user) => assetsH.managerMediaLibrary(sql, request, user));
+  }
+  if (method === "GET" && p0 === "manager" && p1 === "site-assets" && !p2) {
+    return authedRead((sql, user) => assetsH.managerAssetsList(sql, user));
+  }
+  if (method === "POST" && p0 === "manager" && p1 === "site-assets" && p2 === "upload") {
+    return authed((sql, user) => assetsH.managerAssetUpload(sql, request, user));
+  }
+  if ((method === "PUT" || method === "POST") && p0 === "manager" && p1 === "site-assets" && p2 && !parts[3]) {
+    return authed((sql, user) => assetsH.managerAssetUpload(sql, request, user, p2));
+  }
+  if (method === "PATCH" && p0 === "manager" && p1 === "site-assets" && p2 && !parts[3]) {
+    return authed((sql, user) => assetsH.managerAssetPatch(sql, request, user, p2));
+  }
+  if (method === "POST" && p0 === "manager" && p1 === "site-assets" && p2 && parts[3] === "revert") {
+    return authed((sql, user) => assetsH.managerAssetRevert(sql, request, user, p2));
+  }
+  if (method === "POST" && p0 === "manager" && p1 === "site-assets" && p2 && parts[3] === "reset") {
+    return authed((sql, user) =>
+      assetsH.managerAssetRevert(
+        sql,
+        new Request(request.url, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ to: "default" }),
+        }),
+        user,
+        p2,
+      ),
+    );
   }
 
   void staffRoles;
