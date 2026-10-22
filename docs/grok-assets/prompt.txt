@@ -1,0 +1,13 @@
+You are making assets for "Arena3", a Vietnamese indoor sports centre (badminton, basketball, volleyball). Palette: deep forest green (#1f5c43), warm wood, cream, small amber accent. Use your image_gen tool. Save every result in the current directory with EXACTLY these file names (jpg), then list them. Only create files in the current directory; do not touch anything else.
+
+Photos (photorealistic, natural soft light, modern clean indoor hall, Vietnamese/Asian people, no text, no logos, no watermark, no distorted hands/faces):
+1. coach-whistle.jpg (16:9) - a badminton coach holding a clipboard and whistle on a court, facing the camera, calm confident, students blurred behind.
+2. coach-drill.jpg (16:9) - a coach demonstrating a footwork drill to a small group of adult learners on a badminton court.
+3. class-group.jpg (16:9) - a group badminton class, 8 people mixed ages, warming up together, smiling.
+4. train-progress.jpg (16:9) - a young player practicing a clear/smash alone, motion visible, hall lights, shuttlecock in the air.
+5. desk-gate.jpg (16:9) - a sports-centre entrance turnstile with a receptionist scanning a member's phone QR code, wide shot, no readable text.
+6. member-card.jpg (4:3) - close-up of a hand holding a phone showing a generic QR code beside a sports bag and racket, shallow depth of field.
+7. empty-court.jpg (16:9) - an empty, brightly lit badminton court seen from the baseline, calm, inviting.
+8. wellness.jpg (4:3) - a person stretching on a yoga mat on a court floor after training, soft morning light.
+
+After the photos, also write 12 flat SVG icons (24x24 viewBox, stroke="currentColor", fill="none", stroke-width 1.75, round caps/joins, no fixed colours) as separate files in an "icons" sub-folder: shuttlecock.svg, racket.svg, basketball.svg, volleyball.svg, whistle.svg, clipboard-check.svg, qr-pass.svg, court.svg, medal.svg, calendar-court.svg, turnstile.svg, bottle.svg. Plain valid SVG, no scripts.
