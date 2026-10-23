@@ -8,6 +8,7 @@ import * as deskH from "./handlers/desk";
 import * as sportsH from "./handlers/sports";
 import * as assetsH from "./handlers/assets";
 import * as trainH from "./handlers/training";
+import * as chatH from "./handlers/chat";
 
 type Result = { status: number; body: unknown };
 
@@ -30,6 +31,66 @@ async function dispatch(request: Request): Promise<Response | Result> {
       const r = await withIdempotency(sql, request, userId, true, fn);
       return r;
     });
+
+  // WebRTC Signaling Relay
+  if (p0 === "rtc" && !p1) {
+    if (method === "GET") {
+      return withTx(async (sql) => {
+        const user = await authFromRequest(sql, request);
+        const data = await chatH.rtcPollHandler(sql, user, request);
+        return { status: 200, body: data };
+      });
+    }
+    if (method === "POST") {
+      return withTx(async (sql) => {
+        const user = await authFromRequest(sql, request);
+        const data = await chatH.rtcSignalHandler(sql, user, request);
+        return { status: 200, body: data };
+      });
+    }
+  }
+
+  // Two-way Chat
+  if (p0 === "conversations") {
+    if (method === "GET" && !p1) {
+      return withTx(async (sql) => {
+        const user = await authFromRequest(sql, request);
+        const data = await chatH.listConversations(sql, user);
+        return { status: 200, body: data };
+      });
+    }
+    if (method === "POST" && !p1) {
+      return withTx(async (sql) => {
+        const user = await authFromRequest(sql, request);
+        const data = await chatH.createOrGetConversation(sql, user, request);
+        return { status: 201, body: data };
+      });
+    }
+    if (p1) {
+      const convId = p1;
+      if (method === "GET" && p2 === "messages") {
+        return withTx(async (sql) => {
+          const user = await authFromRequest(sql, request);
+          const data = await chatH.listMessages(sql, user, convId, url);
+          return { status: 200, body: data };
+        });
+      }
+      if (method === "POST" && p2 === "messages") {
+        return withTx(async (sql) => {
+          const user = await authFromRequest(sql, request);
+          const data = await chatH.sendMessage(sql, user, convId, request);
+          return { status: 201, body: data };
+        });
+      }
+      if (method === "POST" && p2 === "read") {
+        return withTx(async (sql) => {
+          const user = await authFromRequest(sql, request);
+          const data = await chatH.markConversationRead(sql, user, convId);
+          return { status: 200, body: data };
+        });
+      }
+    }
+  }
 
   // "Is the server there?" — what the connection banner's retry button asks. No session and no
   // database on purpose: it answers whenever the app itself is running, which is the whole question.
