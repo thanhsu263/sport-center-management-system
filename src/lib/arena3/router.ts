@@ -2,12 +2,15 @@ import { getSql } from "@/lib/db";
 import { ApiError, err, handleError, json } from "./errors";
 import { withIdempotency } from "./helpers";
 import { startJobLoop } from "./jobs";
-import { authFromRequest, staffRoles, type PublicUser } from "./session";
+import { authFromRequest, optionalAuth, staffRoles, type PublicUser } from "./session";
 import { withTx } from "./tx";
 import * as authH from "./handlers/auth";
+import * as memberH from "./handlers/members";
+import * as planH from "./handlers/plans";
 import * as deskH from "./handlers/desk";
 import * as sportsH from "./handlers/sports";
 import * as assetsH from "./handlers/assets";
+import * as staffH from "./handlers/staff";
 import * as trainH from "./handlers/training";
 
 type Result = { status: number; body: unknown };
@@ -50,6 +53,12 @@ async function dispatch(request: Request): Promise<Response | Result> {
   }
   if (method === "POST" && p0 === "auth" && p1 === "password" && p2 === "forgot") {
     return withTx((sql) => authH.forgot(sql, request));
+  }
+
+  if (method === "GET" && p0 === "plans" && !p1) {
+    const sql = await getSql();
+    const user = await optionalAuth(sql, request);
+    return planH.plansList(sql, user);
   }
 
   if (method === "GET" && p0 === "site-assets" && !p1) {
@@ -106,6 +115,55 @@ async function dispatch(request: Request): Promise<Response | Result> {
   }
   if (method === "POST" && p0 === "me" && p1 === "password") {
     return authed((sql, user) => authH.mePassword(sql, request, user));
+  }
+
+  // Staff accounts — the manager is the only one who issues them (R-01…R-03).
+  if (method === "GET" && p0 === "staff" && !p1) {
+    return authedRead((sql, user) => staffH.staffList(sql, request, user));
+  }
+  if (method === "POST" && p0 === "staff" && !p1) {
+    return authed((sql, user) => staffH.staffCreate(sql, request, user));
+  }
+  if (method === "PATCH" && p0 === "staff" && p1 && !p2) {
+    return authed((sql, user) => staffH.staffPatch(sql, p1, request, user));
+  }
+  if (method === "POST" && p0 === "staff" && p1 && p2 === "reset-password") {
+    return authed((sql, user) => staffH.staffResetPassword(sql, p1, user));
+  }
+  if (method === "POST" && p0 === "staff" && p1 && p2 === "revoke-sessions") {
+    return authed((sql, user) => staffH.staffRevokeSessions(sql, p1, user));
+  }
+
+  if (method === "GET" && p0 === "directory" && p1 === "members") {
+    return authedRead((sql, user) => memberH.membersDirectory(sql, request, user));
+  }
+  if (method === "GET" && p0 === "members" && !p1) {
+    return authedRead((sql, user) => memberH.membersSearch(sql, request, user));
+  }
+  if (method === "POST" && p0 === "members" && !p1) {
+    return authed((sql, user) => memberH.membersCreate(sql, request, user));
+  }
+  if (method === "GET" && p0 === "members" && p1 && !p2) {
+    return authedRead((sql, user) => memberH.memberGet(sql, p1, user));
+  }
+  if (method === "POST" && p0 === "members" && p1 && p2 === "reset-password") {
+    return authed((sql, user) => memberH.memberResetPassword(sql, p1, user));
+  }
+  if (method === "PATCH" && p0 === "members" && p1 && !p2) {
+    return authed((sql, user) => memberH.membersUpdate(sql, p1, request, user));
+  }
+
+  if (method === "POST" && p0 === "plans" && !p1) {
+    return authed((sql, user) => planH.plansCreate(sql, request, user));
+  }
+  if (method === "GET" && p0 === "plans" && p1 && !p2) {
+    return authedRead((sql, user) => planH.plansGet(sql, p1, user));
+  }
+  if (method === "PATCH" && p0 === "plans" && p1 && !p2) {
+    return authed((sql, user) => planH.plansPatch(sql, p1, request, user));
+  }
+  if (method === "POST" && p0 === "subscriptions" && !p1) {
+    return authed((sql, user) => planH.subscriptionsCreate(sql, request, user));
   }
 
   if (method === "POST" && p0 === "shifts" && p1 === "open") {
