@@ -115,6 +115,112 @@ export function validatePriceRules(
   return { ok: true, rules };
 }
 
+// F4 training (Phase 4C)
+
+export const ATT_RESULTS = ["present", "late", "absent", "excused"] as const;
+export type AttResult = (typeof ATT_RESULTS)[number];
+
+export function isAttResult(v: unknown): v is AttResult {
+  return typeof v === "string" && (ATT_RESULTS as readonly string[]).includes(v);
+}
+
+/** BR-35: a coach may correct a session's register for this long after it ends. */
+export const ATTENDANCE_LOCK_HOURS = 2;
+
+/**
+ * Whether the register for a session is closed to the coach.
+ *
+ * The job flips a session to `done` once the window is over, but it runs on a
+ * timer: between the end of the window and the next tick the status still says
+ * `scheduled`. Going by the clock as well means the lock does not depend on a
+ * job having woken up.
+ */
+export function attendanceLocked(endAtMs: number, nowMs: number, status: string): boolean {
+  if (status === "done") return true;
+  return nowMs > endAtMs + ATTENDANCE_LOCK_HOURS * 3_600_000;
+}
+
+/** BR-36: this many absences in a row raises an alert (it never drops the student). */
+export const ABSENT_STREAK_LIMIT = 3;
+
+/**
+ * How many `absent` marks end the list, counted from the most recent.
+ *
+ * `results` is oldest to newest and holds only sessions that were actually
+ * marked. Anything other than `absent` ends the run — an excused absence is one
+ * the member told the centre about, so it is not the pattern BR-36 looks for.
+ */
+export function absentStreak(results: readonly string[]): number {
+  let n = 0;
+  for (let i = results.length - 1; i >= 0 && results[i] === "absent"; i -= 1) n += 1;
+  return n;
+}
+
+export const TRAINING_GOALS = ["weight", "technique", "compete", "fun"] as const;
+export const LEVELS = ["beginner", "intermediate", "advanced"] as const;
+export const PLAN_PHASES = ["warm-up", "technique", "fitness", "match", "cool-down"] as const;
+
+/** The numbers a coach can log for a student in one session (FR-TRN-05). */
+export const METRIC_KEYS = ["smash_count", "freethrow_pct", "serve_pct"] as const;
+
+export type MetricsCheck =
+  | { ok: true; metrics: Record<string, number> }
+  | { ok: false; field: string; message: string };
+
+export function validateMetrics(raw: unknown): MetricsCheck {
+  if (raw === undefined || raw === null) return { ok: true, metrics: {} };
+  if (typeof raw !== "object" || Array.isArray(raw)) {
+    return { ok: false, field: "metrics", message: "Metrics must be an object." };
+  }
+  const metrics: Record<string, number> = {};
+  for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+    if (value === null || value === "") continue;
+    if (!(METRIC_KEYS as readonly string[]).includes(key)) {
+      return { ok: false, field: "metrics", message: `"${key}" is not a metric we record.` };
+    }
+    const n = typeof value === "string" ? Number(value) : value;
+    if (typeof n !== "number" || !Number.isFinite(n) || !Number.isInteger(n)) {
+      return { ok: false, field: key, message: "Use a whole number." };
+    }
+    const max = key === "smash_count" ? 1000 : 100;
+    if (n < 0 || n > max) return { ok: false, field: key, message: `Must be between 0 and ${max}.` };
+    metrics[key] = n;
+  }
+  return { ok: true, metrics };
+}
+
+export const MAX_CHECKLIST_ITEMS = 20;
+
+/** Homework checklist items: trimmed, non-empty, bounded. `null` when the shape is wrong. */
+export function normalizeChecklist(raw: unknown): string[] | null {
+  if (raw === undefined || raw === null) return [];
+  if (!Array.isArray(raw)) return null;
+  const out: string[] = [];
+  for (const it of raw) {
+    if (typeof it !== "string") return null;
+    const t = it.trim();
+    if (!t) continue;
+    if (t.length > 120) return null;
+    out.push(t);
+  }
+  return out.length > MAX_CHECKLIST_ITEMS ? null : out;
+}
+
+/** Done-items are stored as the indexes of ticked checklist rows; anything out of range is dropped. */
+export function normalizeDone(total: number, raw: unknown): number[] {
+  if (!Array.isArray(raw)) return [];
+  const set = new Set<number>();
+  for (const v of raw) {
+    if (typeof v === "number" && Number.isInteger(v) && v >= 0 && v < total) set.add(v);
+  }
+  return [...set].sort((a, b) => a - b);
+}
+
+/** A checklist is finished when every row is ticked; one with no rows is finished by an explicit "done". */
+export function homeworkComplete(total: number, done: readonly number[], explicitDone: boolean): boolean {
+  return total === 0 ? explicitDone : done.length >= total;
+}
+
 // ---- promotions (FR-PAY-03, BR-42) ---------------------------------------------
 
 /** What a code takes off an order, never leaving less than this to pay. */
