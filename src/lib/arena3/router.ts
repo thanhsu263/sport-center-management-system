@@ -4,6 +4,7 @@ import { withIdempotency } from "./helpers";
 import { startJobLoop } from "./jobs";
 import { authFromRequest, staffRoles, type PublicUser } from "./session";
 import { withTx } from "./tx";
+import * as authH from "./handlers/auth";
 import * as deskH from "./handlers/desk";
 import * as sportsH from "./handlers/sports";
 import * as assetsH from "./handlers/assets";
@@ -35,6 +36,20 @@ async function dispatch(request: Request): Promise<Response | Result> {
   // database on purpose: it answers whenever the app itself is running, which is the whole question.
   if (method === "GET" && p0 === "health" && !p1) {
     return { status: 200, body: { ok: true } };
+  }
+
+  // Public auth
+  if (method === "POST" && p0 === "auth" && p1 === "register") {
+    return withTx((sql) => authH.register(sql, request));
+  }
+  if (method === "POST" && p0 === "auth" && p1 === "otp" && p2 === "verify") {
+    return withTx((sql) => authH.verifyOtp(sql, request));
+  }
+  if (method === "POST" && p0 === "auth" && p1 === "login") {
+    return withTx((sql) => authH.login(sql, request));
+  }
+  if (method === "POST" && p0 === "auth" && p1 === "password" && p2 === "forgot") {
+    return withTx((sql) => authH.forgot(sql, request));
   }
 
   if (method === "GET" && p0 === "site-assets" && !p1) {
@@ -73,6 +88,25 @@ async function dispatch(request: Request): Promise<Response | Result> {
     const user = await authFromRequest(sql, request);
     return fn(sql, user);
   };
+
+  if (method === "POST" && p0 === "auth" && p1 === "logout") {
+    return authed((sql, user) => authH.logout(sql, request, user));
+  }
+  if (method === "GET" && p0 === "me" && !p1) {
+    return authedRead((sql, user) => authH.meGet(sql, user));
+  }
+  if (method === "PATCH" && p0 === "me" && !p1) {
+    return authed((sql, user) => authH.mePatch(sql, request, user));
+  }
+  if (method === "GET" && p0 === "me" && p1 === "notifications" && !p2) {
+    return authedRead((sql, user) => authH.meNotifications(sql, request, user));
+  }
+  if (method === "POST" && p0 === "me" && p1 === "notifications" && p2 === "read") {
+    return authed((sql, user) => authH.meNotificationsRead(sql, request, user));
+  }
+  if (method === "POST" && p0 === "me" && p1 === "password") {
+    return authed((sql, user) => authH.mePassword(sql, request, user));
+  }
 
   if (method === "POST" && p0 === "shifts" && p1 === "open") {
     return authed((sql, user) => deskH.shiftOpen(sql, user));
