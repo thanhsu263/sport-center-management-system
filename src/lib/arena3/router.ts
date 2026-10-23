@@ -7,6 +7,7 @@ import { withTx } from "./tx";
 import * as authH from "./handlers/auth";
 import * as memberH from "./handlers/members";
 import * as planH from "./handlers/plans";
+import * as bookH from "./handlers/bookings";
 import * as deskH from "./handlers/desk";
 import * as sportsH from "./handlers/sports";
 import * as assetsH from "./handlers/assets";
@@ -60,6 +61,10 @@ async function dispatch(request: Request): Promise<Response | Result> {
     const user = await optionalAuth(sql, request);
     return planH.plansList(sql, user);
   }
+  if (method === "GET" && p0 === "courts" && !p1) {
+    const sql = await getSql();
+    return bookH.courtsList(sql);
+  }
 
   if (method === "GET" && p0 === "site-assets" && !p1) {
     const sql = await getSql();
@@ -104,6 +109,9 @@ async function dispatch(request: Request): Promise<Response | Result> {
   if (method === "GET" && p0 === "me" && !p1) {
     return authedRead((sql, user) => authH.meGet(sql, user));
   }
+  if (method === "GET" && p0 === "me" && p1 === "bookings" && !p2) {
+    return authedRead((sql, user) => bookH.meBookings(sql, user));
+  }
   if (method === "PATCH" && p0 === "me" && !p1) {
     return authed((sql, user) => authH.mePatch(sql, request, user));
   }
@@ -115,6 +123,15 @@ async function dispatch(request: Request): Promise<Response | Result> {
   }
   if (method === "POST" && p0 === "me" && p1 === "password") {
     return authed((sql, user) => authH.mePassword(sql, request, user));
+  }
+  if (method === "GET" && p0 === "occupancy" && p1 === "detail") {
+    return authedRead((sql, user) => bookH.occupancyDetail(sql, request, user));
+  }
+  if (method === "GET" && p0 === "availability" && !p1) {
+    return authedRead((sql, user) => bookH.availabilityGet(sql, request, user));
+  }
+  if (method === "GET" && p0 === "occupancy" && !p1) {
+    return authedRead((sql) => bookH.occupancyGet(sql, request));
   }
 
   // Staff accounts — the manager is the only one who issues them (R-01…R-03).
@@ -164,6 +181,12 @@ async function dispatch(request: Request): Promise<Response | Result> {
   }
   if (method === "POST" && p0 === "subscriptions" && !p1) {
     return authed((sql, user) => planH.subscriptionsCreate(sql, request, user));
+  }
+
+  if (method === "POST" && p0 === "bookings" && !p1) {
+    return authed((sql, user) =>
+      withIdempotency(sql, request, user.id, true, () => bookH.bookingsHold(sql, request, user)),
+    );
   }
 
   if (method === "POST" && p0 === "shifts" && p1 === "open") {
