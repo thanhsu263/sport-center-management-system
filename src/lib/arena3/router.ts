@@ -11,6 +11,7 @@ import * as bookH from "./handlers/bookings";
 import * as deskH from "./handlers/desk";
 import * as sportsH from "./handlers/sports";
 import * as assetsH from "./handlers/assets";
+import * as courtH from "./handlers/courts";
 import * as staffH from "./handlers/staff";
 import * as trainH from "./handlers/training";
 
@@ -132,6 +133,9 @@ async function dispatch(request: Request): Promise<Response | Result> {
   }
   if (method === "GET" && p0 === "occupancy" && !p1) {
     return authedRead((sql) => bookH.occupancyGet(sql, request));
+  }
+  if (method === "PATCH" && p0 === "courts" && p1 && !p2) {
+    return authed((sql, user) => bookH.courtsPatch(sql, p1, request, user));
   }
 
   // Staff accounts — the manager is the only one who issues them (R-01…R-03).
@@ -256,6 +260,23 @@ async function dispatch(request: Request): Promise<Response | Result> {
   }
   if (method === "PUT" && p0 === "me" && p1 === "homework" && p2) {
     return authed((sql, user) => trainH.meHomeworkPut(sql, p2, request, user));
+  }
+
+  // Manager courts
+  if (method === "GET" && p0 === "manager" && p1 === "courts" && !p2) {
+    return authedRead((sql, user) => courtH.managerCourtsList(sql, user));
+  }
+  if (method === "POST" && p0 === "manager" && p1 === "courts" && !p2) {
+    return authed((sql, user) => courtH.managerCourtCreate(sql, request, user));
+  }
+  if (method === "PATCH" && p0 === "manager" && p1 === "courts" && p2 && !parts[3]) {
+    return authed((sql, user) => bookH.courtsPatch(sql, p2, request, user));
+  }
+  if (method === "POST" && p0 === "manager" && p1 === "courts" && p2 && parts[3] === "retire") {
+    return authed((sql, user) => courtH.managerCourtRetire(sql, p2, request, user));
+  }
+  if (method === "POST" && p0 === "manager" && p1 === "courts" && p2 && parts[3] === "restore") {
+    return authed((sql, user) => courtH.managerCourtRestore(sql, p2, user));
   }
 
   // Manager sports
