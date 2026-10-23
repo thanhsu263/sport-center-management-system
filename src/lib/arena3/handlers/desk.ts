@@ -2,6 +2,7 @@ import type { Sql } from "@/lib/db";
 import { err } from "../errors";
 import { audit, readJson } from "../helpers";
 import { requireRole, type PublicUser } from "../session";
+import { addDays, ictDateString } from "../time";
 import { one } from "../tx";
 import { parseInteger } from "../validate";
 
@@ -80,3 +81,96 @@ export async function shiftClose(sql: Sql, id: string, request: Request, user: P
   };
 }
 
+export async function activateSubscription(sql: Sql, subId: string) {
+  const sub = await one<{
+    id: string;
+    status: string;
+    end_on: string;
+    start_on: string;
+    sport_scope: string;
+    plan_id: string;
+    user_id: string;
+    court_hours_left: string | number;
+    session_left: number | null;
+  }>(sql, `select * from subscriptions where id = $1 for update`, [subId]);
+  if (!sub) throw err.notFound();
+  const plan = await one<{
+    duration_days: number | null;
+    court_hours: number;
+    session_quota: number | null;
+    carry_over_hours: boolean;
+    price_vnd: number;
+  }>(sql, `select * from membership_plans where id = $1`, [sub.plan_id]);
+  if (!plan) throw err.notFound();
+  const today = ictDateString();
+  const duration = plan.duration_days ?? 365;
+
+  if (sub.status === "active" && sub.end_on >= today) {
+    const end = addDays(sub.end_on, duration);
+    await sql.query(
+      `update subscriptions
+          set end_on = $2,
+              court_hours_left = court_hours_left + $3,
+              session_left = case when session_left is null and $4::int is null then null
+                                  else coalesce(session_left,0) + coalesce($4,0) end
+        where id = $1`,
+      [sub.id, end, plan.court_hours, plan.session_quota],
+    );
+    return;
+  }
+
+  // Check whether there is an existing live subscription for (user_id, sport_scope)
+  const live = await one<{
+    id: string;
+    status: string;
+    end_on: string;
+    plan_id: string;
+    court_hours_left: string | number;
+    session_left: number | null;
+  }>(
+    sql,
+    `select id, status, end_on::text, plan_id, court_hours_left, session_left from subscriptions
+      where user_id = $1 and sport_scope = $2 and status in ('active','frozen') and id <> $3
+      limit 1`,
+    [sub.user_id, sub.sport_scope, sub.id],
+  );
+
+  if (live) {
+    if (live.end_on < today) {
+      // The previous plan has expired; mark it expired so the new one can become active
+      await sql.query(`update subscriptions set status = 'expired' where id = $1`, [live.id]);
+    } else if (live.plan_id === sub.plan_id) {
+      // Same plan renewal: extend live subscription directly
+      const end = addDays(live.end_on, duration);
+      await sql.query(
+        `update subscriptions
+            set end_on = $2,
+                court_hours_left = court_hours_left + $3,
+                session_left = case when session_left is null and $4::int is null then null
+                                    else coalesce(session_left,0) + coalesce($4,0) end
+          where id = $1`,
+        [live.id, end, plan.court_hours, plan.session_quota],
+      );
+      // Repoint any payments on sub to live and clean up sub
+      await sql.query(`update payments set ref_id = $1 where ref_type = 'subscription' and ref_id = $2`, [live.id, sub.id]);
+      await sql.query(`delete from subscriptions where id = $1`, [sub.id]);
+      return;
+    } else {
+      // Different plan: mark old plan expired, carry over hours if configured
+      await sql.query(`update subscriptions set status = 'expired' where id = $1`, [live.id]);
+      if (plan.carry_over_hours) {
+        sub.court_hours_left = Number(live.court_hours_left) + Number(sub.court_hours_left);
+      }
+    }
+  }
+
+  const end = addDays(today, duration);
+  const hours = plan.carry_over_hours ? Number(sub.court_hours_left) + plan.court_hours : plan.court_hours;
+  await sql.query(
+    `update subscriptions
+        set status = 'active', start_on = $2, end_on = $3,
+            court_hours_left = $4, session_left = $5
+      where id = $1`,
+    [sub.id, today, end, hours, plan.session_quota],
+  );
+}
