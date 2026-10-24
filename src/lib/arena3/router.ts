@@ -263,6 +263,11 @@ async function dispatch(request: Request): Promise<Response | Result> {
   if (method === "POST" && p0 === "shifts" && p1 && p2 === "close") {
     return authed((sql, user) => deskH.shiftClose(sql, p1, request, user));
   }
+  if (method === "POST" && p0 === "payments" && !p1) {
+    return authed((sql, user) =>
+      withIdempotency(sql, request, user.id, true, () => deskH.paymentsCreate(sql, request, user)),
+    );
+  }
   if (method === "POST" && p0 === "payments" && p1 && p2 === "refund") {
     return authed((sql, user) => deskH.paymentsRefund(sql, p1, request, user));
   }
