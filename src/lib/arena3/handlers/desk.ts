@@ -1,7 +1,7 @@
 import type { Sql } from "@/lib/db";
 import { err } from "../errors";
-import { audit, enqueue, getSettings, nextCode, num, readJson, str } from "../helpers";
-import { restoreIfFullyRefunded } from "../promos";
+import { audit, bookingBuyer, enqueue, enqueueReceipt, getSettings, isUuid, issueInvoice, nextCode, num, readJson, str } from "../helpers";
+import { quotePromo, redeemForBooking, redeemPromo, restoreIfFullyRefunded, type PromoQuote } from "../promos";
 import { requireRole, type PublicUser } from "../session";
 import { addDays, ictDateString } from "../time";
 import { one } from "../tx";
@@ -174,6 +174,229 @@ export async function activateSubscription(sql: Sql, subId: string) {
       where id = $1`,
     [sub.id, today, end, hours, plan.session_quota],
   );
+}
+
+/**
+ * What the money actually bought, as it should read on the invoice.
+ *
+ * The goods line used to be the literal string "Thu ngan" for everything that
+ * was not a plan, so a member who paid for a court got an invoice saying
+ * "1 x Thu ngan". The payment already knows its `ref_type`/`ref_id`; this looks
+ * through to the thing itself so the line names the court and the hour.
+ */
+async function describePayment(
+  sql: Sql,
+  refType: string,
+  refId: string,
+): Promise<{ description: string; unit: string }> {
+  if (refType === "subscription") {
+    const row = await one<{ name: string }>(
+      sql,
+      `select p.name from subscriptions s join membership_plans p on p.id = s.plan_id where s.id = $1`,
+      [refId],
+    );
+    return { description: row ? `Gói hội viên — ${row.name}` : "Gói hội viên", unit: "gói" };
+  }
+  if (refType === "booking") {
+    const row = await one<{ court_code: string; window: string }>(
+      sql,
+      `select c.court_code,
+              to_char(b.start_at at time zone 'Asia/Ho_Chi_Minh', 'DD/MM/YYYY HH24:MI')
+                || '–' || to_char(b.end_at at time zone 'Asia/Ho_Chi_Minh', 'HH24:MI') as window
+         from court_bookings b join courts c on c.id = b.court_id
+        where b.id = $1`,
+      [refId],
+    );
+    return {
+      description: row ? `Thuê sân ${row.court_code} — ${row.window}` : "Thuê sân",
+      unit: "giờ",
+    };
+  }
+  if (refType === "walkin") return { description: "Vé lẻ vào cửa", unit: "lượt" };
+  if (refType === "equipment") return { description: "Thuê thiết bị", unit: "lượt" };
+  return { description: "Dịch vụ tại trung tâm", unit: "lượt" };
+}
+
+export async function paymentsCreate(sql: Sql, request: Request, user: PublicUser) {
+  requireRole(user, ["receptionist", "manager"]);
+  const b = await readJson(request);
+  const ref_type = str(b.ref_type);
+  const ref_id = str(b.ref_id);
+  const method = str(b.method);
+  const amount = num(b.amount_vnd);
+  if (!ref_type || !ref_id || !method || amount == null) {
+    throw err.validation("ref_type, ref_id, method and amount_vnd are required.");
+  }
+  const ALLOWED_PAYMENT_METHODS = ["cash", "card", "transfer"] as const;
+  if (!ALLOWED_PAYMENT_METHODS.includes(method as any)) {
+    throw err.field("method", `Payment method must be one of ${ALLOWED_PAYMENT_METHODS.join(", ")}.`);
+  }
+  if (ref_type !== "booking" && ref_type !== "subscription") {
+    throw err.field("ref_type", "ref_type must be booking or subscription.");
+  }
+  // Money in is a positive whole number of đồng. Zero and negative amounts used
+  // to post: a -5,000 "payment" quietly lowered what the member had paid, and a
+  // later one-đồng payment then activated the plan (D-01).
+  if (!Number.isInteger(amount) || amount <= 0 || amount > 2_000_000_000) {
+    throw err.field("amount_vnd", "Enter an amount above zero, in whole đồng.");
+  }
+  const settings = await getSettings(sql);
+  let shiftId: string | null = null;
+  const shiftIdRaw = str(b.shift_id);
+  if (shiftIdRaw) {
+    if (!isUuid(shiftIdRaw)) throw err.notFound("Shift does not exist.");
+    const sh = await one<{ id: string; receptionist_id: string; closed_at: string | null }>(
+      sql,
+      `select id, receptionist_id, closed_at from cashier_shifts where id = $1`,
+      [shiftIdRaw],
+    );
+    if (!sh) throw err.notFound("Shift does not exist.");
+    if (user.role === "receptionist") {
+      if (sh.receptionist_id !== user.id || sh.closed_at !== null) {
+        throw err.forbidden("Cannot record payment to another or closed shift.");
+      }
+    } else {
+      throw err.forbidden("Cannot record payment to a shift.");
+    }
+    shiftId = sh.id;
+  } else {
+    if (user.role === "receptionist") {
+      const sh = await one<{ id: string }>(
+        sql,
+        `select id from cashier_shifts where receptionist_id = $1 and closed_at is null`,
+        [user.id],
+      );
+      if (!sh) throw err.br("BR-44", "The front desk needs an open shift.");
+      shiftId = sh.id;
+    }
+  }
+  let buyer = user.full_name;
+  let buyerPhone: string | null = null;
+  let userId: string | null = null;
+  let quote: PromoQuote | null = null;
+  let subPromo: { id: string; discount: number } | null = null;
+  if (ref_type === "booking") {
+    // The receipt is made out to whoever the booking is for — the member, or
+    // the walk-in's typed name and phone — never to the receptionist taking it.
+    if (!isUuid(ref_id)) throw err.notFound("Booking does not exist.");
+    const bookingExists = await one<{ id: string }>(sql, `select id from court_bookings where id = $1`, [ref_id]);
+    if (!bookingExists) throw err.notFound("Booking does not exist.");
+    const who = await bookingBuyer(sql, ref_id);
+    buyer = who.name;
+    buyerPhone = who.phone;
+    userId = who.userId;
+  } else if (ref_type === "subscription") {
+    if (!isUuid(ref_id)) throw err.field("ref_id", "That value is not in the right format.");
+    // Locked for the rest of the transaction: two taps on "Take payment" queue
+    // here, and the second sees what the first left behind instead of both
+    // reading the same balance.
+    const sub = await one<{
+      user_id: string;
+      plan_id: string;
+      status: string;
+      price_vnd: number;
+      sub_price_vnd: number | null;
+      court_discount_pct: number;
+      sport_scope: string;
+      promo_id: string | null;
+      promo_discount_vnd: number;
+    }>(
+      sql,
+      `select s.user_id, s.plan_id, s.status::text as status, s.promo_id, s.promo_discount_vnd, s.price_vnd as sub_price_vnd,
+              p.price_vnd, p.court_discount_pct, p.sport_scope::text as sport_scope
+         from subscriptions s join membership_plans p on p.id = s.plan_id
+        where s.id = $1 for update of s`,
+      [ref_id],
+    );
+    if (!sub) throw err.notFound("No such plan.");
+    if (sub.status === "frozen") throw err.br("BR-14", "This plan is frozen — unfreeze it before taking payment.");
+    if (sub.status !== "pending" && sub.status !== "active") {
+      throw err.conflictState("That plan is not waiting for payment.");
+    }
+    // No credit and no deposit (BR-19): a plan is paid in one go for exactly what it
+    // costs after any code, or it stays pending and grants nothing.
+    if (sub.status === "pending") {
+      const paid = await one<{ n: number }>(
+        sql,
+        `select count(*)::int as n from payments
+          where ref_type = 'subscription' and ref_id = $1 and amount_vnd > 0 and status = 'posted'`,
+        [ref_id],
+      );
+      if ((paid?.n ?? 0) > 0) throw err.conflictState("This plan order is already paid for.");
+    }
+    const basePrice = sub.sub_price_vnd ?? sub.price_vnd;
+    let discount = sub.status === "pending" ? sub.promo_discount_vnd : 0;
+    let promoId: string | null = sub.status === "pending" ? sub.promo_id : null;
+    const code = str(b.promo_code);
+    if (code && !(sub.status === "pending" && promoId)) {
+      quote = await quotePromo(sql, {
+        code,
+        userId: sub.user_id,
+        scope: "plan",
+        sport: sub.sport_scope,
+        planId: sub.plan_id,
+        orderVnd: basePrice,
+      });
+      discount = quote.discount_vnd;
+      promoId = quote.promo_id;
+    }
+    const expected = basePrice - discount;
+    if (amount !== expected) {
+      throw err.field(
+        "amount_vnd",
+        sub.status === "active"
+          ? `A renewal is one full period: ${expected.toLocaleString("en-US")}đ.`
+          : `A plan is paid in full: ${expected.toLocaleString("en-US")}đ. Partial payments are not taken.`,
+        { expected_vnd: expected },
+      );
+    }
+    subPromo = promoId && discount > 0 ? { id: promoId, discount } : null;
+    userId = sub.user_id;
+    const u = await one<{ full_name: string }>(sql, `select full_name from users where id = $1`, [userId]);
+    buyer = u?.full_name ?? buyer;
+  }
+  const payCode = await nextCode(sql, "PAY");
+  const pay = await one<{ id: string }>(
+    sql,
+    `insert into payments (code, user_id, shift_id, method, amount_vnd, vat_rate, status, ref_type, ref_id, created_by)
+     values ($1,$2,$3,$4,$5,$6,'posted',$7,$8,$9) returning id`,
+    [payCode, userId, shiftId, method, amount, Number(settings.vat_rate), ref_type, ref_id, user.id],
+  );
+  if (ref_type === "subscription") {
+    if (subPromo) {
+      await sql.query(`update subscriptions set promo_id = $2, promo_discount_vnd = $3 where id = $1`, [
+        ref_id,
+        subPromo.id,
+        subPromo.discount,
+      ]);
+      await redeemPromo(sql, { promoId: subPromo.id, userId, paymentId: pay!.id, discountVnd: subPromo.discount });
+    }
+    // Paid in full (checked above), so a pending plan activates and an active one renews.
+    await activateSubscription(sql, ref_id);
+  } else if (ref_type === "booking") {
+    await redeemForBooking(sql, ref_id, userId, pay!.id);
+  }
+  const item = await describePayment(sql, ref_type, ref_id);
+  const invoiceId = await issueInvoice(sql, {
+    paymentId: pay!.id,
+    buyerName: buyer,
+    buyerPhone,
+    amountVnd: amount,
+    vatRate: Number(settings.vat_rate ?? 0),
+    description: item.description,
+    unit: item.unit,
+    settings,
+  });
+  await enqueueReceipt(sql, userId, {
+    payment_id: pay!.id,
+    invoice_id: invoiceId,
+    amount_vnd: amount,
+    method,
+  });
+  const payment = await one(sql, `select * from payments where id = $1`, [pay!.id]);
+  const invoice = await one(sql, `select * from invoices where id = $1`, [invoiceId]);
+  await audit(sql, user.id, "create_payment", "payment", pay!.id);
+  return { status: 201, body: { payment, invoice } };
 }
 
 export async function paymentsRefund(sql: Sql, id: string, request: Request, user: PublicUser) {
