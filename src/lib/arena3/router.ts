@@ -282,6 +282,22 @@ async function dispatch(request: Request): Promise<Response | Result> {
   }
 
   // Training plans, sessions results, students, homework (F4)
+  if (method === "GET" && p0 === "invoices" && !p1) {
+    return authedRead((sql, user) => deskH.invoicesMine(sql, request, user));
+  }
+  if (method === "GET" && p0 === "invoices" && p1?.endsWith(".pdf")) {
+    const id = p1.replace(/\.pdf$/, "");
+    return authedRead((sql, user) => deskH.invoicePdf(sql, id, request, user));
+  }
+  if (method === "GET" && p0 === "reports" && p1 === "revenue") {
+    return authedRead((sql, user) => {
+      requireRole(user, ["manager"]);
+      return deskH.reportsRevenue(sql, request, user);
+    });
+  }
+  if (method === "GET" && p0 === "reports" && p1 === "occupancy") {
+    return authedRead((sql, user) => deskH.reportsOccupancy(sql, request, user));
+  }
   if (method === "POST" && p0 === "subscriptions" && p1 && p2 === "decline") {
     return authed((sql, user) => deskH.subscriptionDecline(sql, p1, user));
   }

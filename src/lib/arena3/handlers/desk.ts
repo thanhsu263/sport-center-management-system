@@ -15,6 +15,8 @@ import {
   str,
 } from "../helpers";
 import { quotePromo, redeemForBooking, redeemPromo, restoreIfFullyRefunded, type PromoQuote } from "../promos";
+import { methodLabelVi } from "../labels";
+import { renderInvoicePdf } from "../pdf";
 import { requireRole, type PublicUser } from "../session";
 import { addDays, ictDateString } from "../time";
 import { one } from "../tx";
@@ -770,3 +772,296 @@ export async function subscriptionDecline(sql: Sql, id: string, user: PublicUser
  * Invoices hang off payments, and it is the payment that knows whose money it
  * was — so ownership is a join, not a column on the invoice.
  */
+export async function invoicesMine(sql: Sql, request: Request, user: PublicUser) {
+  requireRole(user, ["member", "receptionist", "manager"]);
+  const url = new URL(request.url);
+  const rawLimit = url.searchParams.get("limit");
+  let req = request;
+  if (rawLimit && Number(rawLimit) > 100) {
+    url.searchParams.set("limit", "100");
+    req = new Request(url.toString(), request);
+  }
+  const { limit, offset } = pageParams(req, { def: 30, max: 100 });
+  const rows = await sql.query<{ total: number } & Record<string, unknown>>(
+    `select i.id, i.code, i.issued_at::text as issued_at,
+            p.code as payment_code, p.method, p.amount_vnd, p.status, p.ref_type,
+            count(*) over ()::int as total
+       from invoices i
+       join payments p on p.id = i.payment_id
+      where p.user_id = $1
+      order by i.issued_at desc
+      limit $2 offset $3`,
+    [user.id, limit, offset],
+  );
+  const body = await pageOf(rows, { limit, offset }, async () =>
+    ((await one<{ n: number }>(
+      sql,
+      `select count(*)::int as n from invoices i join payments p on p.id = i.payment_id where p.user_id = $1`,
+      [user.id],
+    ))?.n ?? 0),
+  );
+  return { status: 200, body };
+}
+
+export async function invoicePdf(sql: Sql, id: string, request: Request, user: PublicUser) {
+  requireRole(user, ["manager", "receptionist", "member"]);
+  const format = new URL(request.url).searchParams.get("format") === "80mm" ? "80mm" : "a5";
+  const inv = await one<{
+    id: string;
+    code: string;
+    payment_id: string;
+    buyer_name: string;
+    buyer_phone: string | null;
+    buyer_tax_code: string | null;
+    buyer_address: string | null;
+    form_no: string | null;
+    serial_no: string | null;
+    seller_legal_name: string | null;
+    seller_tax_code: string | null;
+    seller_address: string | null;
+    subtotal_vnd: number | null;
+    vat_rate: string | number | null;
+    vat_vnd: number | null;
+    total_vnd: number | null;
+    issued_at: string;
+  }>(
+    sql,
+    `select id, code, payment_id, buyer_name, buyer_phone, buyer_tax_code, buyer_address,
+            form_no, serial_no, seller_legal_name, seller_tax_code, seller_address,
+            subtotal_vnd, vat_rate, vat_vnd, total_vnd, issued_at::text
+       from invoices where id = $1`,
+    [id],
+  );
+  if (!inv) throw err.notFound();
+  const pay = await one<{ code: string; method: string; amount_vnd: number; user_id: string | null }>(
+    sql,
+    `select code, method, amount_vnd, user_id from payments where id = $1`,
+    [inv.payment_id],
+  );
+  // Staff work the till and print anybody's receipt; a member may only see
+  // their own. Invoice ids are UUIDs, but "unguessable" is not an access
+  // control — without this a member could walk the whole centre's takings.
+  if (user.role === "member" && pay?.user_id !== user.id) throw err.notFound();
+  const lines = await sql.query<{
+    description: string;
+    unit: string | null;
+    qty: number;
+    unit_vnd: number;
+    amount_vnd: number;
+  }>(`select description, unit, qty, unit_vnd, amount_vnd from invoice_lines where invoice_id = $1`, [id]);
+
+  // The seller block and the tax split are read off the invoice, not off
+  // today's settings: an invoice states what was true when it was issued.
+  // `settings` is only the fallback for a row written before 0014.
+  const settings = await getSettings(sql);
+  const total = inv.total_vnd ?? pay?.amount_vnd ?? 0;
+  const vatRate = Number(inv.vat_rate ?? 0);
+  const subtotal = inv.subtotal_vnd ?? Math.floor(total / (1 + vatRate / 100));
+
+  const bytes = await renderInvoicePdf(
+    {
+      code: inv.code,
+      form_no: inv.form_no,
+      serial_no: inv.serial_no,
+      issued_at: inv.issued_at,
+      seller: {
+        legal_name: inv.seller_legal_name ?? settings.legal_name ?? "Arena3 Sports Center",
+        tax_code: inv.seller_tax_code ?? settings.tax_code,
+        address: inv.seller_address ?? settings.address,
+      },
+      buyer: { name: inv.buyer_name, phone: inv.buyer_phone, tax_code: inv.buyer_tax_code, address: inv.buyer_address },
+      pay_code: pay?.code ?? "",
+      method_label: methodLabelVi(pay?.method ?? ""),
+      lines,
+      subtotal_vnd: subtotal,
+      vat_rate: vatRate,
+      vat_vnd: inv.vat_vnd ?? total - subtotal,
+      total_vnd: total,
+    },
+    format,
+  );
+  return new Response(Buffer.from(bytes), {
+    status: 200,
+    headers: {
+      "content-type": "application/pdf",
+      "content-disposition": `inline; filename="${inv.code}.pdf"`,
+    },
+  });
+}
+
+/** A report day, checked. Anything else used to reach the SQL cast and come back as a 500. */
+export function reportDay(sp: URLSearchParams, field: string, fallback: string): string {
+  const v = sp.get(field);
+  if (v === null || v === "") return fallback;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(v) || Number.isNaN(Date.parse(v))) {
+    throw err.field(field, "Use a date like 2026-03-31.");
+  }
+  return v;
+}
+
+const REPORT_METHODS = ["cash", "transfer", "card", "gateway", "quota"];
+
+export function revenueParams(request: Request) {
+  const sp = new URL(request.url).searchParams;
+  const from = reportDay(sp, "from", ictDateString());
+  const to = reportDay(sp, "to", from);
+  if (from > to) throw err.field("to", "The end date is before the start date.");
+  const method = sp.get("method") || null;
+  if (method && !REPORT_METHODS.includes(method)) throw err.field("method", "Unknown payment method.");
+  return { from, to, method };
+}
+
+/** The window of the same length that ends the day before `from`. */
+export function previousWindow(from: string, to: string) {
+  const days = Math.round((Date.parse(to) - Date.parse(from)) / 86400000) + 1;
+  const prevTo = addDays(from, -1);
+  return { from: addDays(prevTo, -(days - 1)), to: prevTo };
+}
+
+export async function reportsRevenue(sql: Sql, request: Request, user: PublicUser) {
+  requireRole(user, ["manager"]);
+  const { from, to, method } = revenueParams(request);
+  const body = await revenueBody(sql, from, to, method);
+  // FR-PAY-05: the period against the one before it, from the same query, so the
+  // screen and the exported file can never disagree about the comparison.
+  const win = previousWindow(from, to);
+  const prev = await revenueBody(sql, win.from, win.to, method);
+  return {
+    status: 200,
+    body: { ...body.body, method, prev: { from: win.from, to: win.to, totals: prev.body.totals, by_source: prev.body.by_source } },
+  };
+}
+
+export async function revenueBody(sql: Sql, from: string, to: string, method: string | null) {
+  const rows = await sql.query<{
+    method: string;
+    ref_type: string;
+    total: number;
+    refunded: number;
+    cnt: number;
+  }>(
+    `select method::text, ref_type,
+            coalesce(sum(amount_vnd) filter (where amount_vnd >= 0),0)::int as total,
+            coalesce(sum(-amount_vnd) filter (where amount_vnd < 0),0)::int as refunded,
+            count(*)::int as cnt
+       from payments
+      where status = 'posted'
+        and (created_at at time zone 'Asia/Ho_Chi_Minh')::date between $1::date and $2::date
+        and ($3::text is null or method::text = $3)
+      group by method, ref_type`,
+    [from, to, method],
+  );
+  const money = rows.filter((r) => r.method !== "quota");
+  const quota = rows.filter((r) => r.method === "quota");
+  const gross = money.reduce((s, r) => s + r.total, 0);
+  const refund = money.reduce((s, r) => s + r.refunded, 0);
+  const by_source: Record<string, number> = {};
+  const refunds_by_source: Record<string, number> = {};
+  const by_method: Record<string, number> = {};
+  for (const r of money) {
+    by_source[r.ref_type] = (by_source[r.ref_type] ?? 0) + r.total;
+    if (r.refunded) refunds_by_source[r.ref_type] = (refunds_by_source[r.ref_type] ?? 0) + r.refunded;
+    by_method[r.method] = (by_method[r.method] ?? 0) + r.total;
+  }
+  const quotaHours = await one<{ hours: string | number }>(
+    sql,
+    `select coalesce(sum(quota_hours),0) as hours
+       from court_bookings
+      where quota_hours > 0
+        and (start_at at time zone 'Asia/Ho_Chi_Minh')::date between $1::date and $2::date
+        and status in ('confirmed','in_use','completed','no_show')`,
+    [from, to],
+  );
+  // Takings per cashier shift (G-07). A payment with no shift — an online
+  // payment nobody at the desk took — is its own line rather than being
+  // dropped, so the shifts and that line still add up to the total.
+  const by_shift = await sql.query<{
+    shift_id: string | null;
+    cashier: string | null;
+    opened_at: string | null;
+    closed_at: string | null;
+    takings_vnd: number;
+    refunds_vnd: number;
+    count: number;
+  }>(
+    `select p.shift_id, u.full_name as cashier, s.opened_at, s.closed_at,
+            coalesce(sum(p.amount_vnd) filter (where p.amount_vnd >= 0), 0)::int as takings_vnd,
+            coalesce(sum(-p.amount_vnd) filter (where p.amount_vnd < 0), 0)::int as refunds_vnd,
+            count(*)::int as count
+       from payments p
+       left join cashier_shifts s on s.id = p.shift_id
+       left join users u on u.id = s.receptionist_id
+      where p.status = 'posted' and p.method <> 'quota'
+        and (p.created_at at time zone 'Asia/Ho_Chi_Minh')::date between $1::date and $2::date
+        and ($3::text is null or p.method::text = $3)
+      group by p.shift_id, u.full_name, s.opened_at, s.closed_at
+      order by s.opened_at nulls last`,
+    [from, to, method],
+  );
+  // Revenue per ICT day, gapless across the whole window.
+  //
+  // The report could only ever be sliced by method and source, so the manager
+  // screen had no way to draw a trend — the one question a revenue report is
+  // usually opened to answer. generate_series supplies the days with no
+  // takings too: dropping them would make a quiet Tuesday vanish and join
+  // Monday straight to Wednesday, which reads as steady trade.
+  const by_day = await sql.query<{ day: string; revenue_vnd: number }>(
+    `select to_char(d.day, 'YYYY-MM-DD') as day,
+            coalesce(sum(p.amount_vnd) filter (where p.method <> 'quota'), 0)::int as revenue_vnd
+       from generate_series($1::date, $2::date, interval '1 day') as d(day)
+       left join payments p
+              on p.status = 'posted'
+             and (p.created_at at time zone 'Asia/Ho_Chi_Minh')::date = d.day::date
+             and ($3::text is null or p.method::text = $3)
+      group by d.day
+      order by d.day`,
+    [from, to, method],
+  );
+  return {
+    status: 200,
+    body: {
+      from,
+      to,
+      totals: { revenue_vnd: gross - refund, gross_vnd: gross, refund_vnd: refund, quota_hours: Number(quotaHours?.hours ?? 0) },
+      by_source,
+      refunds_by_source,
+      by_shift,
+      by_method,
+      by_day,
+      quota_payments: quota,
+      lines: money,
+    },
+  };
+}
+
+export async function reportsOccupancy(sql: Sql, request: Request, user: PublicUser) {
+  requireRole(user, ["manager"]);
+  const date = new URL(request.url).searchParams.get("date") ?? ictDateString();
+  const rows = await sql.query<{ court_id: string; court_code: string; minutes: number }>(
+    `select c.id as court_id, c.court_code,
+            coalesce(sum(
+              case when o.start_at is null then 0
+                   else extract(epoch from (least(o.end_at, $2::timestamptz) - greatest(o.start_at, $1::timestamptz))) / 60
+              end
+            ),0)::int as minutes
+       from courts c
+       left join occupancies o
+         on o.court_id = c.id and o.start_at < $2 and o.end_at > $1
+       where c.retired_at is null or o.id is not null
+      group by c.id, c.court_code
+      order by c.court_code`,
+    [`${date}T06:00:00+07:00`, `${date}T22:00:00+07:00`],
+  );
+  const openMin = 16 * 60;
+  return {
+    status: 200,
+    body: {
+      date,
+      items: rows.map((r) => ({
+        ...r,
+        pct: Math.round((r.minutes / openMin) * 1000) / 10,
+      })),
+    },
+  };
+}
+
