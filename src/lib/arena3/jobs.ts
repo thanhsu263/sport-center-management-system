@@ -157,6 +157,23 @@ export async function notifyFlush() {
   return sent;
 }
 
+export async function lockAttendance() {
+  return withTx(async (sql) => {
+    const rows = await sql.query<{ id: string }>(
+      `select id from sessions
+        where status = 'scheduled' and end_at + interval '2 hours' < now()`,
+    );
+    for (const r of rows) {
+      try {
+        await sql.query(`select occupancy_release_session($1::uuid, 'done'::session_status)`, [r.id]);
+      } catch (e) {
+        console.error("[job lock_attendance]", r.id, e);
+      }
+    }
+    return rows.length;
+  });
+}
+
 /**
  * Keep the demo court map and takings moving with the clock (0028).
  *
@@ -246,6 +263,7 @@ export async function runDueJobs() {
     if (due.mark_noshow) await markNoshow();
     if (due.complete_bookings) await completeBookings();
     if (due.notify_flush) await notifyFlush();
+    if (due.lock_attendance) await lockAttendance();
     if (due.subscription_status) await subscriptionStatus();
     if (due.expiry_reminders) await expiryReminders();
     const now = Date.now();
