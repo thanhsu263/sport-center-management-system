@@ -158,6 +158,22 @@ export async function notifyFlush() {
 }
 
 /**
+ * Withdraw payOS links whose court hold has lapsed.
+ *
+ * A live link outliving its slot means a customer can still pay for a court
+ * somebody else now holds. Cancelling it at the gateway stops the money
+ * arriving, which is a great deal simpler than refunding it afterwards.
+ */
+export async function expireGatewayLinks() {
+  const { payosConfigured } = await import("./payos");
+  if (!payosConfigured()) return 0;
+  return withTx(async (sql) => {
+    const { expireOnlineLinks } = await import("./handlers/online");
+    return expireOnlineLinks(sql);
+  });
+}
+
+/**
  * Keep the demo court map and takings moving with the clock (0028).
  *
  * Seed bookings pinned to a migration date drain within a week: the no-show
@@ -246,6 +262,7 @@ export async function runDueJobs() {
     if (due.mark_noshow) await markNoshow();
     if (due.complete_bookings) await completeBookings();
     if (due.notify_flush) await notifyFlush();
+    if (due.expire_links) await expireGatewayLinks();
     if (due.subscription_status) await subscriptionStatus();
     if (due.expiry_reminders) await expiryReminders();
     const now = Date.now();
