@@ -2,12 +2,19 @@ import { getSql } from "@/lib/db";
 import { ApiError, err, handleError, json } from "./errors";
 import { withIdempotency } from "./helpers";
 import { startJobLoop } from "./jobs";
-import { authFromRequest, staffRoles, type PublicUser } from "./session";
+import { authFromRequest, optionalAuth, staffRoles, type PublicUser } from "./session";
 import { withTx } from "./tx";
+import * as authH from "./handlers/auth";
+import * as memberH from "./handlers/members";
+import * as planH from "./handlers/plans";
+import * as bookH from "./handlers/bookings";
 import * as deskH from "./handlers/desk";
 import * as sportsH from "./handlers/sports";
 import * as assetsH from "./handlers/assets";
+import * as courtH from "./handlers/courts";
+import * as staffH from "./handlers/staff";
 import * as trainH from "./handlers/training";
+import * as chatH from "./handlers/chat";
 
 type Result = { status: number; body: unknown };
 
@@ -31,10 +38,94 @@ async function dispatch(request: Request): Promise<Response | Result> {
       return r;
     });
 
+  // WebRTC Signaling Relay
+  if (p0 === "rtc" && !p1) {
+    if (method === "GET") {
+      return withTx(async (sql) => {
+        const user = await authFromRequest(sql, request);
+        const data = await chatH.rtcPollHandler(sql, user, request);
+        return { status: 200, body: data };
+      });
+    }
+    if (method === "POST") {
+      return withTx(async (sql) => {
+        const user = await authFromRequest(sql, request);
+        const data = await chatH.rtcSignalHandler(sql, user, request);
+        return { status: 200, body: data };
+      });
+    }
+  }
+
+  // Two-way Chat
+  if (p0 === "conversations") {
+    if (method === "GET" && !p1) {
+      return withTx(async (sql) => {
+        const user = await authFromRequest(sql, request);
+        const data = await chatH.listConversations(sql, user);
+        return { status: 200, body: data };
+      });
+    }
+    if (method === "POST" && !p1) {
+      return withTx(async (sql) => {
+        const user = await authFromRequest(sql, request);
+        const data = await chatH.createOrGetConversation(sql, user, request);
+        return { status: 201, body: data };
+      });
+    }
+    if (p1) {
+      const convId = p1;
+      if (method === "GET" && p2 === "messages") {
+        return withTx(async (sql) => {
+          const user = await authFromRequest(sql, request);
+          const data = await chatH.listMessages(sql, user, convId, url);
+          return { status: 200, body: data };
+        });
+      }
+      if (method === "POST" && p2 === "messages") {
+        return withTx(async (sql) => {
+          const user = await authFromRequest(sql, request);
+          const data = await chatH.sendMessage(sql, user, convId, request);
+          return { status: 201, body: data };
+        });
+      }
+      if (method === "POST" && p2 === "read") {
+        return withTx(async (sql) => {
+          const user = await authFromRequest(sql, request);
+          const data = await chatH.markConversationRead(sql, user, convId);
+          return { status: 200, body: data };
+        });
+      }
+    }
+  }
+
   // "Is the server there?" — what the connection banner's retry button asks. No session and no
   // database on purpose: it answers whenever the app itself is running, which is the whole question.
   if (method === "GET" && p0 === "health" && !p1) {
     return { status: 200, body: { ok: true } };
+  }
+
+  // Public auth
+  if (method === "POST" && p0 === "auth" && p1 === "register") {
+    return withTx((sql) => authH.register(sql, request));
+  }
+  if (method === "POST" && p0 === "auth" && p1 === "otp" && p2 === "verify") {
+    return withTx((sql) => authH.verifyOtp(sql, request));
+  }
+  if (method === "POST" && p0 === "auth" && p1 === "login") {
+    return withTx((sql) => authH.login(sql, request));
+  }
+  if (method === "POST" && p0 === "auth" && p1 === "password" && p2 === "forgot") {
+    return withTx((sql) => authH.forgot(sql, request));
+  }
+
+  if (method === "GET" && p0 === "plans" && !p1) {
+    const sql = await getSql();
+    const user = await optionalAuth(sql, request);
+    return planH.plansList(sql, user);
+  }
+  if (method === "GET" && p0 === "courts" && !p1) {
+    const sql = await getSql();
+    return bookH.courtsList(sql);
   }
 
   if (method === "GET" && p0 === "site-assets" && !p1) {
@@ -74,6 +165,95 @@ async function dispatch(request: Request): Promise<Response | Result> {
     return fn(sql, user);
   };
 
+  if (method === "POST" && p0 === "auth" && p1 === "logout") {
+    return authed((sql, user) => authH.logout(sql, request, user));
+  }
+  if (method === "GET" && p0 === "me" && !p1) {
+    return authedRead((sql, user) => authH.meGet(sql, user));
+  }
+  if (method === "GET" && p0 === "me" && p1 === "bookings" && !p2) {
+    return authedRead((sql, user) => bookH.meBookings(sql, user));
+  }
+  if (method === "PATCH" && p0 === "me" && !p1) {
+    return authed((sql, user) => authH.mePatch(sql, request, user));
+  }
+  if (method === "GET" && p0 === "me" && p1 === "notifications" && !p2) {
+    return authedRead((sql, user) => authH.meNotifications(sql, request, user));
+  }
+  if (method === "POST" && p0 === "me" && p1 === "notifications" && p2 === "read") {
+    return authed((sql, user) => authH.meNotificationsRead(sql, request, user));
+  }
+  if (method === "POST" && p0 === "me" && p1 === "password") {
+    return authed((sql, user) => authH.mePassword(sql, request, user));
+  }
+  if (method === "GET" && p0 === "occupancy" && p1 === "detail") {
+    return authedRead((sql, user) => bookH.occupancyDetail(sql, request, user));
+  }
+  if (method === "GET" && p0 === "availability" && !p1) {
+    return authedRead((sql, user) => bookH.availabilityGet(sql, request, user));
+  }
+  if (method === "GET" && p0 === "occupancy" && !p1) {
+    return authedRead((sql) => bookH.occupancyGet(sql, request));
+  }
+  if (method === "PATCH" && p0 === "courts" && p1 && !p2) {
+    return authed((sql, user) => bookH.courtsPatch(sql, p1, request, user));
+  }
+
+  // Staff accounts — the manager is the only one who issues them (R-01…R-03).
+  if (method === "GET" && p0 === "staff" && !p1) {
+    return authedRead((sql, user) => staffH.staffList(sql, request, user));
+  }
+  if (method === "POST" && p0 === "staff" && !p1) {
+    return authed((sql, user) => staffH.staffCreate(sql, request, user));
+  }
+  if (method === "PATCH" && p0 === "staff" && p1 && !p2) {
+    return authed((sql, user) => staffH.staffPatch(sql, p1, request, user));
+  }
+  if (method === "POST" && p0 === "staff" && p1 && p2 === "reset-password") {
+    return authed((sql, user) => staffH.staffResetPassword(sql, p1, user));
+  }
+  if (method === "POST" && p0 === "staff" && p1 && p2 === "revoke-sessions") {
+    return authed((sql, user) => staffH.staffRevokeSessions(sql, p1, user));
+  }
+
+  if (method === "GET" && p0 === "directory" && p1 === "members") {
+    return authedRead((sql, user) => memberH.membersDirectory(sql, request, user));
+  }
+  if (method === "GET" && p0 === "members" && !p1) {
+    return authedRead((sql, user) => memberH.membersSearch(sql, request, user));
+  }
+  if (method === "POST" && p0 === "members" && !p1) {
+    return authed((sql, user) => memberH.membersCreate(sql, request, user));
+  }
+  if (method === "GET" && p0 === "members" && p1 && !p2) {
+    return authedRead((sql, user) => memberH.memberGet(sql, p1, user));
+  }
+  if (method === "POST" && p0 === "members" && p1 && p2 === "reset-password") {
+    return authed((sql, user) => memberH.memberResetPassword(sql, p1, user));
+  }
+  if (method === "PATCH" && p0 === "members" && p1 && !p2) {
+    return authed((sql, user) => memberH.membersUpdate(sql, p1, request, user));
+  }
+
+  if (method === "POST" && p0 === "plans" && !p1) {
+    return authed((sql, user) => planH.plansCreate(sql, request, user));
+  }
+  if (method === "GET" && p0 === "plans" && p1 && !p2) {
+    return authedRead((sql, user) => planH.plansGet(sql, p1, user));
+  }
+  if (method === "PATCH" && p0 === "plans" && p1 && !p2) {
+    return authed((sql, user) => planH.plansPatch(sql, p1, request, user));
+  }
+  if (method === "POST" && p0 === "subscriptions" && !p1) {
+    return authed((sql, user) => planH.subscriptionsCreate(sql, request, user));
+  }
+
+  if (method === "POST" && p0 === "bookings" && !p1) {
+    return authed((sql, user) =>
+      withIdempotency(sql, request, user.id, true, () => bookH.bookingsHold(sql, request, user)),
+    );
+  }
+
   if (method === "POST" && p0 === "shifts" && p1 === "open") {
     return authed((sql, user) => deskH.shiftOpen(sql, user));
   }
@@ -82,6 +262,15 @@ async function dispatch(request: Request): Promise<Response | Result> {
   }
   if (method === "POST" && p0 === "shifts" && p1 && p2 === "close") {
     return authed((sql, user) => deskH.shiftClose(sql, p1, request, user));
+  }
+  if (method === "POST" && p0 === "payments" && p1 && p2 === "refund") {
+    return authed((sql, user) => deskH.paymentsRefund(sql, p1, request, user));
+  }
+  if (method === "POST" && p0 === "payments" && p1 && p2 === "approve-refund") {
+    return authed((sql, user) => deskH.paymentsApproveRefund(sql, p1, request, user));
+  }
+  if (method === "POST" && p0 === "payments" && p1 && p2 === "reject-refund") {
+    return authed((sql, user) => deskH.paymentsRejectRefund(sql, p1, request, user));
   }
 
   // Training plans, sessions results, students, homework (F4)
@@ -141,6 +330,23 @@ async function dispatch(request: Request): Promise<Response | Result> {
   }
   if (method === "PUT" && p0 === "me" && p1 === "homework" && p2) {
     return authed((sql, user) => trainH.meHomeworkPut(sql, p2, request, user));
+  }
+
+  // Manager courts
+  if (method === "GET" && p0 === "manager" && p1 === "courts" && !p2) {
+    return authedRead((sql, user) => courtH.managerCourtsList(sql, user));
+  }
+  if (method === "POST" && p0 === "manager" && p1 === "courts" && !p2) {
+    return authed((sql, user) => courtH.managerCourtCreate(sql, request, user));
+  }
+  if (method === "PATCH" && p0 === "manager" && p1 === "courts" && p2 && !parts[3]) {
+    return authed((sql, user) => bookH.courtsPatch(sql, p2, request, user));
+  }
+  if (method === "POST" && p0 === "manager" && p1 === "courts" && p2 && parts[3] === "retire") {
+    return authed((sql, user) => courtH.managerCourtRetire(sql, p2, request, user));
+  }
+  if (method === "POST" && p0 === "manager" && p1 === "courts" && p2 && parts[3] === "restore") {
+    return authed((sql, user) => courtH.managerCourtRestore(sql, p2, user));
   }
 
   // Manager sports
