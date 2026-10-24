@@ -1,11 +1,24 @@
 import type { Sql } from "@/lib/db";
 import { err } from "../errors";
-import { audit, bookingBuyer, enqueue, enqueueReceipt, getSettings, isUuid, issueInvoice, nextCode, num, readJson, str } from "../helpers";
+import {
+  audit,
+  bookingBuyer,
+  enqueue,
+  enqueueReceipt,
+  getSettings,
+  isUuid,
+  issueInvoice,
+  nextCode,
+  num,
+  pageOf,
+  readJson,
+  str,
+} from "../helpers";
 import { quotePromo, redeemForBooking, redeemPromo, restoreIfFullyRefunded, type PromoQuote } from "../promos";
 import { requireRole, type PublicUser } from "../session";
 import { addDays, ictDateString } from "../time";
 import { one } from "../tx";
-import { parseInteger } from "../validate";
+import { pageParams, parseInteger } from "../validate";
 
 export async function shiftOpen(sql: Sql, user: PublicUser) {
   requireRole(user, ["receptionist"]);
@@ -592,4 +605,168 @@ export async function paymentsRejectRefund(sql: Sql, id: string, request: Reques
  * court open on trust, so it goes first. And transfers already reconciled land
  * in the last list, which is a record rather than a queue and carries no
  * actions: it exists to be read back against the bank line by line.
+ */
+export async function paymentsPending(sql: Sql, request: Request, user: PublicUser) {
+  requireRole(user, ["receptionist", "manager"]);
+  const sp = new URL(request.url).searchParams;
+  const days = Math.min(30, Math.max(1, Number(sp.get("days") ?? 7) || 7));
+
+  // The desk home wants a badge number and nothing else. Running three joined
+  // queries — including sixty transfers with their invoices — on every visit to
+  // the front page, to render a single digit, is work nobody ever reads.
+  if (sp.get("brief") === "1") {
+    const counts = await one<{ orders: number; refunds: number; awaiting: number }>(
+      sql,
+      `select (select count(*) from subscriptions where status = 'pending')::int as orders,
+              (select count(*) from payments where status = 'refund_pending')::int as refunds,
+              (select count(*) from court_bookings
+                where status = 'hold' and transfer_requested_at is not null
+                  and hold_until > now())::int as awaiting`,
+    );
+    return {
+      status: 200,
+      body: {
+        waiting:
+          Number(counts?.orders ?? 0) + Number(counts?.refunds ?? 0) + Number(counts?.awaiting ?? 0),
+      },
+    };
+  }
+
+  // Slots the centre is holding open against a promise to transfer. Expired
+  // holds are left out: the sweeper has already handed those courts back, so
+  // showing them would invite a receptionist to confirm money into a booking
+  // that no longer owns its slot.
+  const awaiting = await sql.query(
+    `select b.id, b.code, b.price_vnd, b.deposit_vnd, b.start_at, b.end_at,
+            b.transfer_requested_at, b.hold_until,
+            c.court_code, c.sport,
+            u.full_name as member_name, u.member_code, u.phone
+       from court_bookings b
+       join courts c on c.id = b.court_id
+       left join users u on u.id = b.user_id
+      where b.status = 'hold'
+        and b.transfer_requested_at is not null
+        and b.hold_until > now()
+      order by b.transfer_requested_at asc`,
+  );
+
+  // `paid_vnd` calculated directly from posted payments: the desk wants to see a part payment
+  // for what it is ("2 of 5 taken"), not just the balance left over.
+  const orders = await sql.query(
+    `select s.id, s.sport_scope, s.start_on::text as ordered_on, s.end_on::text as end_on,
+            u.id as user_id, u.full_name, u.phone, u.member_code,
+            pl.name as plan_name, coalesce(s.price_vnd, pl.price_vnd)::int as price_vnd, pl.id as plan_id,
+            s.promo_discount_vnd, pr.code as promo_code,
+            coalesce(sum(p.amount_vnd) filter (where p.status = 'posted'), 0)::int as paid_vnd
+       from subscriptions s
+       join users u on u.id = s.user_id
+       join membership_plans pl on pl.id = s.plan_id
+       left join promotions pr on pr.id = s.promo_id
+       left join payments p on p.ref_type = 'subscription' and p.ref_id = s.id
+      where s.status = 'pending'
+      group by s.id, s.sport_scope, s.start_on, s.end_on,
+               u.id, u.full_name, u.phone, u.member_code, pl.name, s.price_vnd, pl.price_vnd, pl.id,
+               s.promo_discount_vnd, pr.code
+      order by s.start_on asc, u.full_name asc`,
+  );
+
+  const refunds = await sql.query(
+    `select p.id, p.code, p.amount_vnd, p.created_at, p.ref_type, p.ref_id,
+            u.full_name as member_name, u.member_code,
+            r.full_name as raised_by
+       from payments p
+       left join users u on u.id = p.user_id
+       left join users r on r.id = p.created_by
+      where p.status = 'refund_pending'
+      order by p.created_at asc`,
+  );
+
+  /*
+   * Every posted payment, whatever it was paid with.
+   *
+   * This list was filtered to `method = 'transfer'`, which made it a bank
+   * reconciliation tool and nothing else. But a receipt is a receipt: cash taken
+   * at the counter, a card tapped, a plan paid off, a court settled in the app —
+   * each one issues an invoice, and none of them appeared anywhere at reception.
+   * A member coming back with "I paid on Tuesday, can I have that again?" had to
+   * be met by somebody guessing which queue to open.
+   *
+   * `taken_by` comes along because with cash in the list the obvious next
+   * question is whose till it went into.
+   */
+  //
+  // Paged and searched here, across the whole window: a statement read back against the bank
+  // needs every row reachable, not the newest sixty.
+  const page = pageParams(request, { def: 25, max: 100, prefix: "receipt_" });
+  const rq = sp.get("receipt_q")?.trim() || null;
+  const needle = rq ? `%${rq.replace(/[\\%_]/g, (c) => "\\" + c)}%` : null;
+  const method = sp.get("receipt_method") || null;
+  const receiptRows = (lim: number, off: number) =>
+    sql.query<{ total: number } & Record<string, unknown>>(
+      `select p.id, p.code, p.method, p.amount_vnd, p.created_at, p.ref_type, p.ref_id,
+              p.capture_mode, p.provider,
+              coalesce(u.full_name, i.buyer_name) as member_name, u.member_code,
+              i.buyer_phone,
+              s.full_name as taken_by,
+              i.id as invoice_id,
+              count(*) over ()::int as total
+         from payments p
+         left join users u on u.id = p.user_id
+         left join users s on s.id = p.created_by
+         left join invoices i on i.payment_id = p.id
+        where p.status = 'posted'
+          and p.created_at >= now() - ($1::int * interval '1 day')
+          and ($4::text is null or p.method::text = $4)
+          and ($5::text is null or concat_ws(' ', coalesce(u.full_name, i.buyer_name), u.member_code, i.buyer_phone, p.code) ilike $5)
+        order by p.created_at desc
+        limit $2 offset $3`,
+      [days, lim, off, method, needle],
+    );
+  const rows = await receiptRows(page.limit, page.offset);
+  const receipts = await pageOf(rows, page, async () => Number((await receiptRows(1, 0))[0]?.total ?? 0));
+
+  return {
+    status: 200,
+    body: { awaiting, orders, refunds, receipts: receipts.items, receipts_total: receipts.total, days, capped: false },
+  };
+}
+
+/**
+ * Clear a plan order the member never came in to pay for.
+ *
+ * `sub_status` has no `cancelled` member, and migrating a production enum for
+ * a row nobody will ever open again is a poor trade — so an abandoned order is
+ * retired as `expired`. It leaves the queue, it releases the one-pending-per-
+ * sport slot so the member can order again, and the audit row records who
+ * retired it. An order with money already against it is not eligible: a desk
+ * screen should not be able to make a payment stop pointing at anything.
+ */
+export async function subscriptionDecline(sql: Sql, id: string, user: PublicUser) {
+  requireRole(user, ["receptionist", "manager"]);
+  const sub = await one<{ id: string; status: string }>(
+    sql,
+    `select id, status from subscriptions where id = $1 for update`,
+    [id],
+  );
+  if (!sub) throw err.notFound();
+  if (sub.status !== "pending") throw err.conflictState("That order is no longer waiting for payment.");
+  const paid = await one<{ paid: number }>(
+    sql,
+    `select coalesce(sum(amount_vnd) filter (where status = 'posted'), 0)::int as paid
+       from payments where ref_type = 'subscription' and ref_id = $1`,
+    [id],
+  );
+  if (Number(paid?.paid ?? 0) > 0) {
+    throw err.conflictState("Money has already been taken against this order — refund it first.");
+  }
+  await sql.query(`update subscriptions set status = 'expired' where id = $1`, [id]);
+  await audit(sql, user.id, "decline_plan_order", "subscription", id);
+  return { status: 200, body: { ok: true } };
+}
+
+/**
+ * Every receipt the signed-in member has paid for, newest first.
+ *
+ * Invoices hang off payments, and it is the payment that knows whose money it
+ * was — so ownership is a join, not a column on the invoice.
  */
