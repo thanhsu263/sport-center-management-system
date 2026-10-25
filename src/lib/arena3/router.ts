@@ -16,6 +16,7 @@ import * as staffH from "./handlers/staff";
 import * as trainH from "./handlers/training";
 import * as chatH from "./handlers/chat";
 import * as opsH from "./handlers/ops";
+import * as classH from "./handlers/classes";
 
 type Result = { status: number; body: unknown };
 
@@ -144,6 +145,11 @@ async function dispatch(request: Request): Promise<Response | Result> {
   if (method === "GET" && p0 === "sports" && !p1) {
     const sql = await getSql();
     return sportsH.publicSportsList(sql);
+  }
+  if (method === "GET" && p0 === "classes" && !p1) {
+    const sql = await getSql();
+    const user = await optionalAuth(sql, request);
+    return classH.classesList(sql, request, user);
   }
 
   // Authenticated
@@ -326,6 +332,42 @@ async function dispatch(request: Request): Promise<Response | Result> {
   }
   if (method === "PATCH" && p0 === "training-plans" && p1 && !p2) {
     return authed((sql, user) => trainH.trainingPatch(sql, p1, request, user));
+  }
+  if (method === "POST" && p0 === "classes" && !p1) {
+    return authed((sql, user) => classH.classesCreate(sql, request, user));
+  }
+  if (method === "POST" && p0 === "classes" && p1 && p2 === "publish") {
+    return authed((sql, user) => classH.classesPublish(sql, p1, user));
+  }
+  if (method === "POST" && p0 === "classes" && p1 && p2 === "enroll") {
+    return authed((sql, user) => classH.classesEnroll(sql, p1, request, user));
+  }
+  if (method === "GET" && p0 === "classes" && p1 && !p2) {
+    return authedRead((sql, user) => classH.classDetail(sql, p1, user));
+  }
+  if (method === "GET" && p0 === "classes" && p1 && p2 === "roster") {
+    return authedRead((sql, user) => classH.classRoster(sql, p1, user));
+  }
+  if (method === "PATCH" && p0 === "classes" && p1 && !p2) {
+    return authed((sql, user) => classH.classesPatch(sql, p1, request, user));
+  }
+  if (method === "POST" && p0 === "classes" && p1 && p2 === "coach") {
+    return authed((sql, user) => classH.classesAssignCoach(sql, p1, request, user));
+  }
+  if (method === "POST" && p0 === "sessions" && p1 && p2 === "cancel") {
+    return authed((sql, user) => classH.sessionCancel(sql, p1, request, user));
+  }
+  if (method === "POST" && p0 === "sessions" && p1 && p2 === "reschedule") {
+    return authed((sql, user) => classH.sessionReschedule(sql, p1, request, user));
+  }
+  if (method === "GET" && p0 === "coach" && p1 === "schedule") {
+    return authedRead((sql, user) => classH.coachSchedule(sql, user));
+  }
+  if (method === "GET" && p0 === "coach" && p1 === "classes") {
+    return authedRead((sql, user) => classH.coachClasses(sql, user));
+  }
+  if (method === "DELETE" && p0 === "enrollments" && p1) {
+    return authed((sql, user) => classH.enrollmentDelete(sql, p1, user));
   }
   if (
     method === "POST" &&
