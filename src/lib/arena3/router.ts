@@ -321,6 +321,13 @@ async function dispatch(request: Request): Promise<Response | Result> {
   if (method === "GET" && p0 === "reports" && p1 === "occupancy") {
     return authedRead((sql, user) => deskH.reportsOccupancy(sql, request, user));
   }
+
+  if (method === "POST" && p0 === "subscriptions" && p1 && p2 === "freeze") {
+    return authed((sql, user) => opsH.subscriptionFreeze(sql, p1, request, user));
+  }
+  if (method === "POST" && p0 === "subscriptions" && p1 && p2 === "unfreeze") {
+    return authed((sql, user) => opsH.subscriptionUnfreeze(sql, p1, user));
+  }
   if (method === "POST" && p0 === "subscriptions" && p1 && p2 === "decline") {
     return authed((sql, user) => deskH.subscriptionDecline(sql, p1, user));
   }
@@ -425,6 +432,14 @@ async function dispatch(request: Request): Promise<Response | Result> {
   }
   if (method === "PUT" && p0 === "me" && p1 === "homework" && p2) {
     return authed((sql, user) => trainH.meHomeworkPut(sql, p2, request, user));
+  }
+
+  if (method === "GET" && p0 === "flags") {
+    const sql = await getSql();
+    return opsH.flagsGet(sql);
+  }
+  if (method === "PATCH" && p0 === "flags") {
+    return authed((sql, user) => opsH.flagsPatch(sql, request, user));
   }
 
   // Manager courts
