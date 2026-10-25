@@ -158,6 +158,10 @@ async function dispatch(request: Request): Promise<Response | Result> {
     const user = await optionalAuth(sql, request);
     return classH.classesList(sql, request, user);
   }
+  if (method === "GET" && p0 === "price-rules" && !p1) {
+    const sql = await getSql();
+    return deskH.priceRulesGet(sql);
+  }
 
   // Authenticated
   const authed = async (
@@ -320,6 +324,18 @@ async function dispatch(request: Request): Promise<Response | Result> {
   }
   if (method === "GET" && p0 === "reports" && p1 === "occupancy") {
     return authedRead((sql, user) => deskH.reportsOccupancy(sql, request, user));
+  }
+  if (method === "GET" && p0 === "settings" && !p1) {
+    return authedRead((sql, user) => deskH.settingsGet(sql, user));
+  }
+  if (method === "PATCH" && p0 === "settings" && !p1) {
+    return authed((sql, user) => deskH.settingsPatch(sql, request, user));
+  }
+  if (method === "PUT" && p0 === "price-rules") {
+    return authed((sql, user) => deskH.priceRulesPut(sql, request, user));
+  }
+  if (method === "GET" && p0 === "audit") {
+    return authedRead((sql, user) => deskH.auditList(sql, request, user));
   }
 
   if (method === "POST" && p0 === "subscriptions" && p1 && p2 === "freeze") {
