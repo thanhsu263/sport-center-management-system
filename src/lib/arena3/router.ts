@@ -40,6 +40,13 @@ async function dispatch(request: Request): Promise<Response | Result> {
       return r;
     });
 
+  // Server-Sent Events live update stream
+  if (method === "GET" && p0 === "live" && !p1) {
+    const sql = await getSql();
+    const user = await optionalAuth(sql, request);
+    return liveStreamHandler(request, sql, user);
+  }
+
   // WebRTC Signaling Relay
   if (p0 === "rtc" && !p1) {
     if (method === "GET") {
