@@ -1,13 +1,17 @@
 import type { Sql } from "@/lib/db";
 import { err } from "../errors";
-import { flagsMap, type FlagKey } from "../flags";
-import { audit, classSubscription, enqueue, getSettings, readJson } from "../helpers";
+import { flagsMap, requireFlag, type FlagKey } from "../flags";
+import { audit, classSubscription, enqueue, getSettings, pageOf, readJson, str } from "../helpers";
+import { limit, RULES } from "../ratelimit";
 import { requireRole, type PublicUser } from "../session";
+import { generateAssistantReply, type ChatTurn } from "../gemini";
+import { COACHES } from "../coaches";
+import { ticketBody } from "../rules";
 import { addDays, ictDateString } from "../time";
 import { one } from "../tx";
 import { payosConfigured } from "../payos";
 import { centreBank } from "../bank";
-import { parseInteger } from "../validate";
+import { pageParams, parseInteger } from "../validate";
 
 export async function flagsGet(sql: Sql) {
   const settings = await getSettings(sql);
@@ -207,4 +211,263 @@ export async function inviteWaitlist(sql: Sql, classId: string) {
     { offer_id: offer!.id, class_id: classId },
     `wl|${offer!.id}`,
   );
+}
+
+export async function assistantChat(sql: Sql, request: Request, user: PublicUser) {
+  await requireFlag(sql, "F6");
+  const body = await readJson(request);
+  const message = (str(body.message) ?? "").trim().slice(0, 800);
+  if (message.length < 2) throw err.validation("Type a question first.");
+  // Every turn that falls through to the model costs a call upstream.
+  limit(`ai:${user.id}`, RULES.assistant, "questions");
+  const q = message.toLowerCase();
+
+  if (/ticket:|complaint|feedback|khiếu nại|góp ý/.test(q) || q.startsWith("ticket:")) {
+    const note = ticketBody(message);
+    // "ticket:" and nothing else. Opening a blank request would put a row at the
+    // desk that nobody can answer, so ask for the rest before writing anything.
+    if (note.length < 2) {
+      return {
+        status: 200,
+        body: {
+          reply: "Tell me what happened after «ticket:» and I'll pass it to the front desk.",
+          source: "rules" as const,
+        },
+      };
+    }
+    const t = await one<{ id: string }>(
+      sql,
+      `insert into tickets (user_id, body) values ($1,$2) returning id`,
+      [user.id, note],
+    );
+    await audit(sql, user.id, "assistant", "chat", user.id, null, { q: note.slice(0, 200), source: "ticket" });
+    return {
+      status: 200,
+      body: {
+        reply: `Opened request ${t!.id.slice(0, 8)} for the front desk. Reception replies during opening hours.`,
+        source: "rules" as const,
+      },
+    };
+  }
+
+  const settings = await getSettings(sql);
+  const plans = await sql.query<{ name: string; price_vnd: number; sport_scope: string; court_hours: number }>(
+    `select name, price_vnd, sport_scope, court_hours from membership_plans where is_on_sale = true order by price_vnd`,
+  );
+  const classes = await sql.query<{
+    sport: string;
+    level: string;
+    rrule: string;
+    enrolled_count: number;
+    capacity: number;
+    coach_name: string | null;
+  }>(
+    `select cl.sport, cl.level, cl.rrule, cl.enrolled_count, cl.capacity, u.full_name as coach_name
+       from classes cl
+       left join users u on u.id = cl.coach_id
+      where cl.status = 'open'`,
+  );
+  const subs = await sql.query<{ plan_name: string; status: string; end_on: string; court_hours_left: string | number }>(
+    `select p.name as plan_name, s.status, s.end_on::text, s.court_hours_left
+       from subscriptions s join membership_plans p on p.id = s.plan_id
+      where s.user_id = $1 and s.status in ('active','frozen','pending')
+      order by s.end_on desc limit 3`,
+    [user.id],
+  );
+  const todayBookings = await sql.query<{ court_code: string; start_at: string; status: string }>(
+    `select c.court_code, b.start_at::text, b.status
+       from court_bookings b join courts c on c.id = b.court_id
+      where b.user_id = $1
+        and b.status in ('hold','confirmed')
+        and b.start_at >= now() - interval '12 hours'
+        and b.start_at < now() + interval '24 hours'
+      order by b.start_at`,
+    [user.id],
+  );
+
+  const facts = [
+    `Centre: Arena3. Open ${settings.open_time.slice(0, 5)}–${settings.close_time.slice(0, 5)} ICT every day.`,
+    `Court holds last ${settings.hold_minutes} minutes. Cancel a court at least ${settings.cancel_court_hours}h ahead, a class at least ${settings.cancel_class_hours}h ahead. No-shows are not refunded.`,
+    `Waitlists are first-come; an offer stands for ${settings.waitlist_offer_hours}h. Under-${settings.minor_age}s cannot book or enrol on their own.`,
+    `Plans on sale:\n${plans.map((p) => `• ${p.name} (${p.sport_scope}): ${p.price_vnd.toLocaleString("en-US")}đ · ${p.court_hours} court hours`).join("\n") || "—"}`,
+    `Open classes:\n${classes.map((c) => `• ${c.sport} ${c.level} · coach ${c.coach_name ?? "—"} · ${c.enrolled_count}/${c.capacity}`).join("\n") || "No classes are open."}`,
+    `Coaches:\n${COACHES.map((c) => `• ${c.name} — ${c.title}. ${c.blurb}`).join("\n")}`,
+    `Member asking: ${user.full_name} (${user.member_code ?? "no member code yet"}).`,
+    `Their plans:\n${subs.map((s) => `• ${s.plan_name} · ${s.status} · through ${s.end_on.slice(0, 10)} · ${s.court_hours_left} court hours left`).join("\n") || "No plan yet."}`,
+    `Today / next 24h:\n${todayBookings.map((b) => `• ${b.court_code} ${b.start_at} (${b.status})`).join("\n") || "Nothing booked."}`,
+  ].join("\n\n");
+
+  const system = `You are the Arena3 front-desk assistant inside the member app. Answer in English, keep it short (2–8 sentences), and stay strictly inside the DATA BLOCK.
+No medical advice, no discounts beyond the listed plans, never invent a free slot.
+Only name coaches, plans and classes that appear in the data block.
+If you do not know: tell them to ask the desk or type «ticket: …».
+You can walk them through Book / Classes / Plans in the app. Payment is taken at the desk after they order in the app.
+
+DATA BLOCK:
+${facts}`;
+
+  const history = parseHistory(body.history);
+  const turns: ChatTurn[] = [...history, { role: "user", text: message }];
+
+  const ai = await generateAssistantReply(system, turns);
+  const reply = ai?.text ?? ruleReply(q, settings, plans, classes);
+  const source = ai?.source ?? "rules";
+
+  await audit(sql, user.id, "assistant", "chat", user.id, null, {
+    q: message.slice(0, 200),
+    source,
+  });
+  return { status: 200, body: { reply, source } };
+}
+
+function parseHistory(raw: unknown): ChatTurn[] {
+  if (!Array.isArray(raw)) return [];
+  const out: ChatTurn[] = [];
+  for (const item of raw.slice(-8)) {
+    if (!item || typeof item !== "object") continue;
+    const rec = item as { role?: unknown; text?: unknown };
+    const role =
+      rec.role === "me" || rec.role === "user" ? "user" : rec.role === "bot" || rec.role === "model" ? "model" : null;
+    const text = typeof rec.text === "string" ? rec.text.trim().slice(0, 800) : "";
+    if (!role || text.length < 1) continue;
+    out.push({ role, text });
+  }
+  return out;
+}
+
+function ruleReply(
+  q: string,
+  settings: Awaited<ReturnType<typeof getSettings>>,
+  plans: Array<{ name: string; price_vnd: number }>,
+  classes: Array<{ sport: string; level: string; enrolled_count: number; capacity: number }>,
+): string {
+  if (/price|cost|how much|plan|giá|gói/.test(q)) {
+    return `Plans on sale:\n${plans.map((p) => `• ${p.name}: ${p.price_vnd.toLocaleString("en-US")}đ`).join("\n")}\nPay at the desk after you order in the app.`;
+  }
+  if (/hour|open|close|what time|giờ|mở cửa/.test(q)) {
+    return `Arena3 is open ${settings.open_time.slice(0, 5)}–${settings.close_time.slice(0, 5)} every day (ICT). Court holds last ${settings.hold_minutes} minutes, and you can cancel a court up to ${settings.cancel_court_hours}h before.`;
+  }
+  if (/class|coach|lesson|lớp|hlv/.test(q)) {
+    return classes.length
+      ? `Open classes:\n${classes.map((c) => `• ${c.sport} ${c.level} (${c.enrolled_count}/${c.capacity})`).join("\n")}`
+      : "No classes are open right now — ask the desk.";
+  }
+  if (/cancel|book|hold|hủy|đặt sân/.test(q)) {
+    return `Book in the app and the slot is held for ${settings.hold_minutes} minutes. Cancel a court at least ${settings.cancel_court_hours}h before you play, a class at least ${settings.cancel_class_hours}h before. No-shows are not refunded.`;
+  }
+  if (/waitlist|full|queue|chờ|đầy/.test(q)) {
+    return `When a class is full you join a first-come waitlist. If a seat frees up you get an offer that stands for ${settings.waitlist_offer_hours}h — claim it in the app.`;
+  }
+  return "I can help with the timetable, plans, coaches, booking and cancelling, and waitlists at Arena3. Type «ticket: …» to send a note to the desk. I do not give medical advice.";
+}
+
+
+export async function ticketsCreate(sql: Sql, request: Request, user: PublicUser) {
+  // Same stripping as the assistant route: a member who typed "ticket:" into
+  // the support box is repeating the habit the assistant taught them.
+  const body = ticketBody(str((await readJson(request)).body) ?? "").slice(0, 2000);
+  if (body.length < 2) throw err.validation("The message is empty.");
+  const row = await one(sql, `insert into tickets (user_id, body) values ($1,$2) returning *`, [user.id, body]);
+  return { status: 201, body: row };
+}
+
+/**
+ * The member's own side of customer care.
+ *
+ * Closed tickets come back too. A request that has been answered is the most
+ * useful row on this screen — it is the answer — and hiding it the moment the
+ * desk replies would mean the reply is only ever seen if the member happens to
+ * be looking when the notification lands.
+ */
+export async function ticketsMine(sql: Sql, request: Request, user: PublicUser) {
+  const { limit: take, offset } = pageParams(request, { def: 50, max: 100 });
+  const rows = await sql.query<{ total: number } & Record<string, unknown>>(
+    `select t.id, t.body, t.status, t.created_at, t.reply, t.replied_at,
+            s.full_name as replied_by_name, count(*) over ()::int as total
+       from tickets t
+       left join users s on s.id = t.replied_by
+      where t.user_id = $1
+      order by t.created_at desc
+      limit $2 offset $3`,
+    [user.id, take, offset],
+  );
+  const body = await pageOf(rows, { limit: take, offset }, async () =>
+    ((await one<{ n: number }>(sql, `select count(*)::int as n from tickets where user_id = $1`, [user.id]))?.n ?? 0),
+  );
+  return { status: 200, body };
+}
+
+export async function ticketsList(sql: Sql, request: Request, user: PublicUser) {
+  requireRole(user, ["receptionist", "manager"]);
+  // The desk works the open queue, but wants to be able to read back what it
+  // told somebody last week without opening the database.
+  const all = new URL(request.url).searchParams.get("status") === "all";
+  const { limit: take, offset } = pageParams(request, { def: 50, max: 100 });
+  const rows = await sql.query<{ total: number } & Record<string, unknown>>(
+    `select t.id, t.body, t.status, t.created_at, t.reply, t.replied_at,
+            u.full_name, u.phone, u.member_code,
+            s.full_name as replied_by_name, count(*) over ()::int as total
+       from tickets t
+       left join users u on u.id = t.user_id
+       left join users s on s.id = t.replied_by
+      where ($1::bool or t.status = 'open')
+      order by t.status = 'open' desc, t.created_at desc
+      limit $2 offset $3`,
+    [all, take, offset],
+  );
+  const body = await pageOf(rows, { limit: take, offset }, async () =>
+    ((await one<{ n: number }>(sql, `select count(*)::int as n from tickets where ($1::bool or status = 'open')`, [all]))?.n ?? 0),
+  );
+  return { status: 200, body };
+}
+
+/**
+ * Reception answers, and the member is told there is an answer.
+ *
+ * Replying closes the ticket in the same statement rather than leaving that as
+ * a second button: an answered request that stays in the open queue is one a
+ * colleague will answer again. Reopening is the member's move — they send
+ * another note — which is also the honest signal that the first answer did not
+ * land.
+ */
+export async function ticketReply(sql: Sql, id: string, request: Request, user: PublicUser) {
+  requireRole(user, ["receptionist", "manager"]);
+  const reply = (str((await readJson(request)).reply) ?? "").trim().slice(0, 2000);
+  if (reply.length < 2) throw err.validation("Write a reply first.");
+  const t = await one<{ id: string; user_id: string | null; status: string }>(
+    sql,
+    `select id, user_id, status from tickets where id = $1 for update`,
+    [id],
+  );
+  if (!t) throw err.notFound();
+  const row = await one(
+    sql,
+    `update tickets
+        set reply = $2, replied_at = now(), replied_by = $3, status = 'closed'
+      where id = $1
+      returning *`,
+    [id, reply, user.id],
+  );
+  // A ticket raised by a walk-in the desk typed in has nobody to notify.
+  if (t.user_id) {
+    await enqueue(
+      sql,
+      "inapp",
+      "ticket_replied",
+      t.user_id,
+      { ticket_id: id, reply: reply.slice(0, 200) },
+      // Keyed on the reply, not the ticket: if the desk answers again after the
+      // member writes back, that second answer is its own notification.
+      `ticket_replied|${id}|${Date.now()}`,
+    );
+  }
+  await audit(sql, user.id, "ticket_reply", "ticket", id);
+  return { status: 200, body: { ticket: row } };
+}
+
+export async function ticketClose(sql: Sql, id: string, user: PublicUser) {
+  requireRole(user, ["receptionist", "manager"]);
+  await sql.query(`update tickets set status = 'closed' where id = $1`, [id]);
+  await audit(sql, user.id, "ticket_close", "ticket", id);
+  return { status: 200, body: { ok: true } };
 }
