@@ -11,6 +11,7 @@ import * as bookH from "./handlers/bookings";
 import * as deskH from "./handlers/desk";
 import * as sportsH from "./handlers/sports";
 import * as assetsH from "./handlers/assets";
+import * as attH from "./handlers/attendance";
 import * as courtH from "./handlers/courts";
 import * as staffH from "./handlers/staff";
 import * as trainH from "./handlers/training";
@@ -315,6 +316,18 @@ async function dispatch(request: Request): Promise<Response | Result> {
   if (method === "GET" && p0 === "invoices" && p1?.endsWith(".pdf")) {
     const id = p1.replace(/\.pdf$/, "");
     return authedRead((sql, user) => deskH.invoicePdf(sql, id, request, user));
+  }
+  if (method === "GET" && p0 === "reports" && p1 === "attendance" && !p2) {
+    return authedRead((sql, user) => attH.reportsAttendance(sql, request, user));
+  }
+  if (method === "GET" && p0 === "at-risk" && !p1) {
+    return authedRead((sql, user) => attH.atRiskList(sql, user));
+  }
+  if (method === "POST" && p0 === "contacts" && !p1) {
+    return authed((sql, user) => attH.contactCreate(sql, request, user));
+  }
+  if (method === "GET" && p0 === "members" && p1 && p2 === "contacts") {
+    return authedRead((sql, user) => attH.contactList(sql, p1, user));
   }
   if (method === "GET" && p0 === "reports" && p1 === "revenue") {
     return authedRead((sql, user) => {
