@@ -271,6 +271,11 @@ async function dispatch(request: Request): Promise<Response | Result> {
       withIdempotency(sql, request, user.id, true, () => bookH.bookingsHold(sql, request, user)),
     );
   }
+  if (method === "POST" && p0 === "bookings" && p1 && p2 === "confirm") {
+    return authed((sql, user) =>
+      withIdempotency(sql, request, user.id, true, () => bookH.bookingsConfirm(sql, p1, request, user)),
+    );
+  }
 
   if (method === "POST" && p0 === "shifts" && p1 === "open") {
     return authed((sql, user) => deskH.shiftOpen(sql, user));
