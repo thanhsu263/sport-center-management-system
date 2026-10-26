@@ -1,0 +1,51 @@
+flowchart LR
+  LOGIN["Login Screen"]
+
+  subgraph HOME["Desk Home Screen  (/desk)"]
+    H_SHIFT["Close Shift Modal"]
+    H_NEW["New Member Wizard<br/>Profile → Plan → Payment"]
+    H_TICKET["Support Request Reply"]
+  end
+
+  GATE["Gate Check-in Screen<br/>(/desk/gate)"]
+
+  subgraph COURTS["Court Map Screen  (/desk/courts)"]
+    C_WALK["Walk-in Payment Form"]
+    C_MERGE["Merge BR + BC Mode"]
+    C_OCC["Occupancy Detail Modal"]
+  end
+
+  subgraph CLASSES["Classes Screen  (/desk/classes)"]
+    CL_DETAIL["Class Detail Modal<br/>(read-only)"]
+  end
+
+  subgraph PAY["Payments Screen  (/desk/payments)"]
+    P_TRANS["Transfers to Check"]
+    P_WAIT["Waiting for Payment"]
+    P_REF["Refund Queue"]
+    P_REC["Receipts List"]
+    P_QR["Scan-to-Pay Modal"]
+  end
+
+  GEAR["Gear Screen<br/>(/desk/gear)"]
+
+  subgraph MEMBER["Member Profile Screen  (/desk/member/:id)"]
+    M_EDIT["Edit Profile Modal"]
+    M_REFUND["Raise Refund Modal"]
+  end
+
+  RECEIPT["Receipt PDF<br/>(new tab)"]
+  ALERTS["Alerts Screen<br/>(/alerts)"]
+  ACCOUNT["Account Settings Screen<br/>(/account)"]
+
+  LOGIN --> HOME
+  HOME --> GATE
+  HOME --> COURTS
+  HOME --> CLASSES
+  HOME --> PAY
+  HOME --> GEAR
+  HOME --> ALERTS
+  HOME --> ACCOUNT
+  GATE --> MEMBER
+  P_REC --> RECEIPT
+  PAY --> RECEIPT

@@ -1,0 +1,27 @@
+flowchart LR
+  LOGIN["Login Screen"]
+  SCHEDULE["Coach Schedule Screen<br/>(/coach)"]
+
+  subgraph ATT["Attendance Screen  (/coach/attendance)"]
+    A_REG["Session Register"]
+    A_RES["Results Panel"]
+    A_PLAN["Session Plan Panel"]
+    A_HW["Homework Panel"]
+  end
+
+  subgraph STUDENT["Student Profile Screen  (/coach/student/:id)"]
+    S_LEVEL["Level"]
+    S_REVIEW["Progress Review"]
+    S_NOTES["Coach Notes"]
+    S_HW["Homework History"]
+  end
+
+  ALERTS["Alerts Screen<br/>(/alerts)"]
+  ACCOUNT["Account Settings Screen<br/>(/account)"]
+
+  LOGIN --> SCHEDULE
+  SCHEDULE --> ATT
+  SCHEDULE --> ACCOUNT
+  SCHEDULE --> ALERTS
+  A_REG --> STUDENT
+  STUDENT --> ATT

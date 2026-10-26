@@ -1,0 +1,51 @@
+flowchart LR
+  LOGIN["Login Screen"]
+
+  subgraph HOME["Member Home Screen  (/app)"]
+    H_OFFER["Waitlist Offer Card"]
+    H_PAY["Scan-to-Pay Modal"]
+  end
+
+  subgraph BOOK["Book Court Screen  (/app/book)"]
+    B_MONTH["Month Calendar View"]
+    B_HOLD["Hold Panel (5-minute timer)"]
+    B_CLASH["Clash Confirmation"]
+    B_ALT["Alternative Slots"]
+    B_MOVE["Change Time Mode"]
+    B_PAY["Scan-to-Pay Modal"]
+  end
+
+  subgraph CLASSES["Classes Screen  (/app/classes)"]
+    C_OFFER["Waitlist Offer Card"]
+    C_ATT["My Attendance Panel"]
+  end
+
+  PLANS["Plans Screen<br/>(/app/plans)"]
+  TRAIN["Progress Screen<br/>(/app/train)"]
+  ASSIST["Assistant Screen<br/>(/app/assistant)"]
+
+  subgraph NOTIF["Notifications Screen  (/app/notifications)"]
+    N_DETAIL["Notification Detail Modal"]
+  end
+
+  subgraph ACCOUNT["Account Settings Screen  (/account)"]
+    A_PROFILE["Profile Tab"]
+    A_SEC["Security Tab"]
+    A_REC["Receipts Tab"]
+    A_SUP["Support Tab"]
+  end
+
+  RECEIPT["Receipt PDF<br/>(new tab)"]
+  PAYRET["Payment Return Screen<br/>(/pay/return)"]
+
+  LOGIN --> HOME
+  HOME --> BOOK
+  HOME --> CLASSES
+  HOME --> PLANS
+  HOME --> TRAIN
+  HOME --> ASSIST
+  HOME --> NOTIF
+  HOME --> ACCOUNT
+  B_PAY --> PAYRET
+  PAYRET --> HOME
+  A_REC --> RECEIPT
