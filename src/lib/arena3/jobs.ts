@@ -8,7 +8,9 @@ export async function expireHolds() {
     );
     for (const r of rows) {
       try {
-        await sql.query(`select occupancy_release_booking($1::uuid, 'cancelled'::booking_status)`, [r.id]);
+        await sql.query(`select occupancy_release_booking($1::uuid, 'cancelled'::booking_status)`, [
+          r.id,
+        ]);
       } catch (e) {
         console.error("[job expire_holds]", r.id, e);
       }
@@ -28,7 +30,9 @@ export async function markNoshow() {
     );
     for (const r of rows) {
       try {
-        await sql.query(`select occupancy_release_booking($1::uuid, 'no_show'::booking_status)`, [r.id]);
+        await sql.query(`select occupancy_release_booking($1::uuid, 'no_show'::booking_status)`, [
+          r.id,
+        ]);
       } catch (e) {
         console.error("[job mark_noshow]", r.id, e);
       }
@@ -48,7 +52,9 @@ export async function completeBookings() {
     );
     for (const r of rows) {
       try {
-        await sql.query(`select occupancy_release_booking($1::uuid, 'completed'::booking_status)`, [r.id]);
+        await sql.query(`select occupancy_release_booking($1::uuid, 'completed'::booking_status)`, [
+          r.id,
+        ]);
       } catch (e) {
         console.error("[job complete_bookings]", r.id, e);
       }
@@ -173,6 +179,27 @@ export async function expireGatewayLinks() {
   });
 }
 
+export async function waitlistExpire() {
+  return withTx(async (sql) => {
+    const stale = await sql.query<{ id: string; enrollment_id: string; class_id: string }>(
+      `select o.id, o.enrollment_id, e.class_id
+         from waitlist_offers o
+         join enrollments e on e.id = o.enrollment_id
+        where o.status = 'pending' and o.expires_at < now()`,
+    );
+    for (const r of stale) {
+      await sql.query(`update waitlist_offers set status = 'expired' where id = $1`, [r.id]);
+      await sql.query(
+        `update enrollments set status = 'cancelled', waitlist_pos = null where id = $1 and status = 'waitlisted'`,
+        [r.enrollment_id],
+      );
+      const { inviteWaitlist } = await import("./handlers/ops");
+      await inviteWaitlist(sql, r.class_id);
+    }
+    return stale.length;
+  });
+}
+
 export async function lockAttendance() {
   return withTx(async (sql) => {
     const rows = await sql.query<{ id: string }>(
@@ -181,13 +208,34 @@ export async function lockAttendance() {
     );
     for (const r of rows) {
       try {
-        await sql.query(`select occupancy_release_session($1::uuid, 'done'::session_status)`, [r.id]);
+        await sql.query(`select occupancy_release_session($1::uuid, 'done'::session_status)`, [
+          r.id,
+        ]);
       } catch (e) {
         console.error("[job lock_attendance]", r.id, e);
       }
     }
     return rows.length;
   });
+}
+
+export async function generateSessions() {
+  const ids = await withTx(async (sql) =>
+    sql.query<{ id: string }>(`select id from classes where status = 'open'`),
+  );
+  let n = 0;
+  for (const r of ids) {
+    try {
+      await withTx(async (sql) => {
+        const { materializeClassSessions } = await import("./handlers/classes");
+        await materializeClassSessions(sql, r.id, null);
+      });
+      n += 1;
+    } catch (e) {
+      console.error("[job generate_sessions]", r.id, e);
+    }
+  }
+  return n;
 }
 
 /**
