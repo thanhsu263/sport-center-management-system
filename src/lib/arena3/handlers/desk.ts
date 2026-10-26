@@ -16,11 +16,13 @@ import {
 } from "../helpers";
 import { quotePromo, redeemForBooking, redeemPromo, restoreIfFullyRefunded, type PromoQuote } from "../promos";
 import { methodLabelVi } from "../labels";
+import { parseCancelTiers } from "../policy";
 import { renderInvoicePdf } from "../pdf";
+import { validatePriceRules } from "../rules";
 import { requireRole, type PublicUser } from "../session";
 import { addDays, ictDateString } from "../time";
 import { one } from "../tx";
-import { pageParams, parseInteger } from "../validate";
+import { checkOpeningHours, pageParams, parseInteger, parseSettingsPatch } from "../validate";
 
 export async function shiftOpen(sql: Sql, user: PublicUser) {
   requireRole(user, ["receptionist"]);
@@ -1065,3 +1067,148 @@ export async function reportsOccupancy(sql: Sql, request: Request, user: PublicU
   };
 }
 
+export async function settingsGet(sql: Sql, user: PublicUser) {
+  requireRole(user, ["manager", "receptionist", "coach"]);
+  const row = await one<Record<string, unknown>>(sql, `select * from center_settings where id = 1`);
+  return { status: 200, body: row };
+}
+
+export async function settingsPatch(sql: Sql, request: Request, user: PublicUser) {
+  requireRole(user, ["manager"]);
+  const b = await readJson(request);
+  const patch = parseSettingsPatch(b);
+  if (b.cancel_tiers !== undefined) patch.cancel_tiers = JSON.stringify(parseCancelTiers(b.cancel_tiers));
+  const keys = Object.keys(patch);
+  const current = await one<Record<string, string>>(
+    sql,
+    `select open_time::text, close_time::text, hold_minutes, book_ahead_days, max_slots_per_day,
+            cancel_court_hours, cancel_class_hours, noshow_grace_minutes, checkin_before_minutes,
+            refund_manager_vnd, self_checkin_enabled, gate_dedup_minutes, at_risk_idle_days, minor_age, vat_rate, legal_name, tax_code, address,
+            freeze_max_days_year, waitlist_offer_hours, deposit_pct, deposit_peak_only, cancel_tiers::text,
+            series_min_weeks, series_max_weeks, series_discount_pct, loyalty_earn_vnd, loyalty_redeem_vnd
+       from center_settings where id = 1`,
+  );
+  if (keys.length === 0) {
+    const row = await one<Record<string, unknown>>(sql, `select * from center_settings where id = 1`);
+    return { status: 200, body: row };
+  }
+  // Opening hours are judged as a pair, so changing only one is still checked.
+  checkOpeningHours(
+    (patch.open_time as string | undefined) ?? current!.open_time,
+    (patch.close_time as string | undefined) ?? current!.close_time,
+  );
+  const minW = Number(patch.series_min_weeks ?? current!.series_min_weeks);
+  const maxW = Number(patch.series_max_weeks ?? current!.series_max_weeks);
+  if (minW > maxW) throw err.field("series_max_weeks", "The maximum cannot be below the minimum.");
+  const sets = keys.map((k, i) => `${k} = $${i + 1}${k === "cancel_tiers" ? "::jsonb" : ""}`);
+  await sql.query(`update center_settings set ${sets.join(", ")} where id = 1`, keys.map((k) => patch[k]));
+  await audit(
+    sql,
+    user.id,
+    "patch_settings",
+    "settings",
+    // The row is `id = 1`, which is not a UUID: passing "1" here is what made
+    // every save fail with "invalid input syntax for type uuid" (B-01).
+    null,
+    Object.fromEntries(keys.map((k) => [k, current![k]])),
+    patch,
+  );
+  const finalRow = await one<Record<string, unknown>>(sql, `select * from center_settings where id = 1`);
+  return { status: 200, body: finalRow };
+}
+
+export async function priceRulesGet(sql: Sql) {
+  const items = await sql.query(
+    `select id, sport, court_id, day_kind, start_local::text, end_local::text, price_vnd, is_peak
+       from price_rules order by sport, day_kind, start_local`,
+  );
+  return { status: 200, body: { items } };
+}
+
+export async function priceRulesPut(sql: Sql, request: Request, user: PublicUser) {
+  requireRole(user, ["manager"]);
+  const b = await readJson(request);
+  const items = Array.isArray(b.items) ? b.items : Array.isArray(b) ? b : null;
+  if (!items) throw err.validation("items[] is required.");
+  // The one thing standing between a fat-fingered (or malicious) PUT and a
+  // court quoted at 99,999,999đ. Validate the whole table before touching a
+  // row — `delete from price_rules` is not the place to discover row 9 was bad.
+  const sportsRes = await sql.query<{ code: string }>(`select code from sports where retired_at is null`);
+  const validSports = sportsRes.map((r) => r.code);
+  const checked = validatePriceRules(items, validSports);
+  if (!checked.ok) throw err.validation(checked.message, { index: checked.index });
+  const before = await priceRulesGet(sql);
+  await sql.query(`delete from price_rules`);
+  for (const it of checked.rules) {
+    await sql.query(
+      `insert into price_rules (sport, court_id, day_kind, start_local, end_local, price_vnd, is_peak)
+       values ($1,$2,$3,$4,$5,$6,$7)`,
+      [it.sport, it.court_id, it.day_kind, it.start_local, it.end_local, it.price_vnd, it.is_peak],
+    );
+  }
+  await audit(sql, user.id, "replace_prices", "price_rules", null, before.body, { items: checked.rules });
+  return priceRulesGet(sql);
+}
+
+export async function auditList(sql: Sql, request: Request, user: PublicUser) {
+  requireRole(user, ["manager"]);
+  const sp = new URL(request.url).searchParams;
+  const day = (field: string) => {
+    const v = sp.get(field);
+    if (!v) return null;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(v) || Number.isNaN(Date.parse(v))) {
+      throw err.field(field, "Use a date like 2026-03-31.");
+    }
+    return v;
+  };
+  const from = day("from");
+  const to = day("to");
+  if (from && to && from > to) throw err.field("to", "The end date is before the start date.");
+  const actor = sp.get("actor");
+  if (actor && !/^[0-9a-f-]{36}$/i.test(actor)) throw err.field("actor", "Unknown person.");
+  const { limit, offset } = pageParams(request, { def: 50, max: 200 });
+  // One search over who, what and which record, across every page; underscores in the stored
+  // action and entity names match the spaces people type.
+  const q = sp.get("q")?.trim() || null;
+  const needle = q ? `%${q.replace(/[\\%_]/g, (c) => "\\" + c)}%` : null;
+  // Days are the centre's days: 23:30 on the 31st is still the 31st here.
+  const page = (lim: number, off: number) =>
+    sql.query<{ total: number } & Record<string, unknown>>(
+      `select a.id, a.at, a.actor_id, u.full_name as actor_name, u.role as actor_role,
+              a.action, a.entity, a.entity_id, a.before, a.after, count(*) over ()::int as total
+         from audit_logs a
+         left join users u on u.id = a.actor_id
+        where ($1::text is null or a.action = $1)
+          and ($2::uuid is null or a.actor_id = $2::uuid)
+          and ($3::text is null or a.entity = $3)
+          and ($4::date is null or (a.at at time zone 'Asia/Ho_Chi_Minh')::date >= $4::date)
+          and ($5::date is null or (a.at at time zone 'Asia/Ho_Chi_Minh')::date <= $5::date)
+          and ($8::text is null or concat_ws(' ', u.full_name, replace(a.action, '_', ' '), replace(a.entity, '_', ' '), a.entity_id::text) ilike $8)
+        order by a.at desc, a.id desc
+        limit $6 offset $7`,
+      [sp.get("action"), actor, sp.get("entity"), from, to, lim, off, needle],
+    );
+  const rows = await page(limit, offset);
+  const { items, total } = await pageOf(rows, { limit, offset }, async () => Number((await page(1, 0))[0]?.total ?? 0));
+  const more = offset + items.length < total;
+  // What the filters can offer: only what actually exists, so the pickers never
+  // drift from the handlers that write the log.
+  const actions = await sql.query<{ action: string }>(`select distinct action from audit_logs order by action`);
+  const entities = await sql.query<{ entity: string }>(`select distinct entity from audit_logs order by entity`);
+  const actors = await sql.query<{ id: string; full_name: string; role: string }>(
+    `select distinct u.id, u.full_name, u.role from audit_logs a join users u on u.id = a.actor_id order by u.full_name`,
+  );
+  return {
+    status: 200,
+    body: {
+      items,
+      more,
+      total,
+      limit,
+      offset,
+      actions: actions.map((a) => a.action),
+      entities: entities.map((e) => e.entity),
+      actors,
+    },
+  };
+}
