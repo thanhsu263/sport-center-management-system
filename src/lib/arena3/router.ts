@@ -463,6 +463,25 @@ async function dispatch(request: Request): Promise<Response | Result> {
   if (method === "PUT" && p0 === "me" && p1 === "homework" && p2) {
     return authed((sql, user) => trainH.meHomeworkPut(sql, p2, request, user));
   }
+  if (method === "POST" && p0 === "assistant") {
+    return authed((sql, user) => opsH.assistantChat(sql, request, user));
+  }
+  // Before the bare /tickets read, or "mine" is matched as a ticket id.
+  if (method === "GET" && p0 === "tickets" && p1 === "mine") {
+    return authedRead((sql, user) => opsH.ticketsMine(sql, request, user));
+  }
+  if (method === "GET" && p0 === "tickets" && !p1) {
+    return authedRead((sql, user) => opsH.ticketsList(sql, request, user));
+  }
+  if (method === "POST" && p0 === "tickets" && !p1) {
+    return authed((sql, user) => opsH.ticketsCreate(sql, request, user));
+  }
+  if (method === "POST" && p0 === "tickets" && p1 && p2 === "reply") {
+    return authed((sql, user) => opsH.ticketReply(sql, p1, request, user));
+  }
+  if (method === "POST" && p0 === "tickets" && p1 && p2 === "close") {
+    return authed((sql, user) => opsH.ticketClose(sql, p1, user));
+  }
 
   if (method === "GET" && p0 === "flags") {
     const sql = await getSql();
