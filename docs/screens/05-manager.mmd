@@ -1,0 +1,53 @@
+flowchart LR
+  LOGIN["Login Screen"]
+
+  subgraph REPORTS["Reports Screen  (/manager)"]
+    R_REV["Revenue and Occupancy Summary"]
+    R_CAP["Capacity Heatmap Panel"]
+    R_MEM["Members and Enrolment Panel"]
+    R_EXP["Export (XLSX / PDF / CSV)"]
+  end
+
+  subgraph CLASSES["Classes Screen  (/manager/classes)"]
+    C_CREATE["Create Class Form"]
+    subgraph C_DETAIL["Class Detail Modal (manage)"]
+      CD_SESSION["Cancel / Move Session Form"]
+      CD_COACH["Change Coach Form"]
+      CD_CAP["Edit Capacity Form"]
+      CD_CANCEL["Cancel Class Form"]
+    end
+  end
+
+  MEMBERS["Members Screen<br/>(/manager/members)"]
+  MPROFILE["Member Profile Screen<br/>(/desk/member/:id)"]
+  PAYMENTS["Payments Screen<br/>(/desk/payments)<br/>refund sign-off"]
+
+  subgraph PLANS["Plans Screen  (/manager/plans)"]
+    PL_NEW["New Plan Modal"]
+    PL_DETAIL["Plan Detail Modal"]
+  end
+
+  subgraph STAFF["Staff Screen  (/manager/staff)"]
+    ST_ADD["Add Staff Modal"]
+    ST_ROLE["Role Modal"]
+    ST_PASS["Hand-over Password Modal"]
+  end
+
+  PRICES["Pricing Screen<br/>(/manager/prices)"]
+  AUDIT["Audit Screen<br/>(/manager/audit)"]
+  SETTINGS["Settings Screen<br/>(/manager/settings)<br/>features · courts · centre details"]
+  ALERTS["Alerts Screen<br/>(/alerts)"]
+  ACCOUNT["Account Settings Screen<br/>(/account)"]
+
+  LOGIN --> REPORTS
+  REPORTS --> CLASSES
+  REPORTS --> MEMBERS
+  REPORTS --> PLANS
+  REPORTS --> PAYMENTS
+  REPORTS --> STAFF
+  REPORTS --> PRICES
+  REPORTS --> AUDIT
+  REPORTS --> SETTINGS
+  REPORTS --> ALERTS
+  REPORTS --> ACCOUNT
+  MEMBERS --> MPROFILE

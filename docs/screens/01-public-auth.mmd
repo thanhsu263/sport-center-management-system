@@ -1,0 +1,28 @@
+flowchart LR
+  subgraph LAND["Landing Page  (/)"]
+    L_COACH["Coach Profile Modal"]
+  end
+  LOGIN["Login Screen<br/>(/login)"]
+  subgraph REG["Register Screen  (/register)"]
+    R_FORM["Registration Form"] --> R_OTP["OTP Verification Step"]
+  end
+  subgraph FORGOT["Forgot Password Screen  (/forgot)"]
+    F_REQ["Request Code Step"] --> F_RESET["Code + New Password Step"]
+  end
+
+  MEMBER["Member Home Screen<br/>(/app)"]
+  DESK["Desk Home Screen<br/>(/desk)"]
+  COACH["Coach Schedule Screen<br/>(/coach)"]
+  MANAGER["Manager Reports Screen<br/>(/manager)"]
+  ACCOUNT["Account Settings Screen<br/>(/account)"]
+
+  LAND --> LOGIN
+  LOGIN --> REG
+  LOGIN --> FORGOT
+  F_RESET --> LOGIN
+  R_OTP --> MEMBER
+  LOGIN -->|member| MEMBER
+  LOGIN -->|receptionist| DESK
+  LOGIN -->|coach| COACH
+  LOGIN -->|manager| MANAGER
+  LOGIN -.->|must change password| ACCOUNT
