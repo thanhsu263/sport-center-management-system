@@ -18,6 +18,7 @@ import * as trainH from "./handlers/training";
 import * as chatH from "./handlers/chat";
 import * as opsH from "./handlers/ops";
 import * as classH from "./handlers/classes";
+import * as xH from "./handlers/extras";
 
 type Result = { status: number; body: unknown };
 
@@ -555,6 +556,17 @@ async function dispatch(request: Request): Promise<Response | Result> {
         p2,
       ),
     );
+  }
+
+  // Maintenance work orders.
+  if (method === "GET" && p0 === "work-orders" && !p1) {
+    return authedRead((sql, user) => xH.workOrdersList(sql, request, user));
+  }
+  if (method === "POST" && p0 === "work-orders" && !p1) {
+    return authed((sql, user) => xH.workOrdersCreate(sql, request, user));
+  }
+  if (method === "PATCH" && p0 === "work-orders" && p1) {
+    return authed((sql, user) => xH.workOrdersPatch(sql, p1, request, user));
   }
 
   void staffRoles;
