@@ -1,7 +1,7 @@
 import type { Sql } from "@/lib/db";
 import { ApiError, err, isConflictSlot } from "../errors";
 import { audit, enqueue, enqueueReceipt, getSettings, issueInvoice, nextCode, num, readJson, str } from "../helpers";
-import { depositFor } from "../policy";
+import { depositFor, dueNow } from "../policy";
 import { applyDiscount, lookupPrice, memberDiscount } from "../pricing";
 import { quotePromo, redeemForBooking } from "../promos";
 import { requireRole, type PublicUser } from "../session";
@@ -829,3 +829,89 @@ export async function settleHeldBooking(
  * an online payment becomes real when payOS confirms it, never because a
  * client said so.
  */
+const MEMBER_SETTLE_METHODS = new Set(["quota", "transfer"]);
+
+export async function bookingsConfirm(sql: Sql, id: string, request: Request, user: PublicUser) {
+  requireRole(user, ["member"]);
+  const b = await readJson(request);
+  const method = str(b.method) ?? "transfer";
+  if (!MEMBER_SETTLE_METHODS.has(method)) {
+    throw err.forbidden(
+      "Pay online, or pay at the front desk — a booking cannot be marked paid from the app.",
+    );
+  }
+  const settings = await getSettings(sql);
+  const booking = await one<HeldBooking>(
+    sql,
+    `select * from court_bookings where id = $1 for update`,
+    [id],
+  );
+  if (!booking) throw err.notFound();
+  if (booking.user_id !== user.id) throw err.forbidden();
+  if (booking.status !== "hold") throw err.conflictState("That booking is no longer on hold.");
+  if (booking.transfer_requested_at) {
+    throw err.conflictState("Reception is already checking the bank for this one.");
+  }
+  if (!booking.hold_until || new Date(booking.hold_until) < new Date()) {
+    throw err.holdExpired();
+  }
+  const court = await courtById(sql, booking.court_id);
+
+  /*
+   * A bank transfer is a promise, not a payment.
+   *
+   * Nothing is posted and nothing is confirmed here: the slot stays on hold —
+   * still blocking the court, still swept by expire_holds if the money never
+   * arrives — on a longer clock, because five minutes is the wrong amount of
+   * time to give somebody who has to open a banking app. Reception confirms it
+   * against the statement, and only then does a payment row exist.
+   */
+  if (method === "transfer") {
+    const until = new Date(Date.now() + settings.transfer_hold_minutes * 60_000);
+    await sql.query(
+      `update court_bookings set hold_until = $2, transfer_requested_at = now() where id = $1`,
+      [booking.id, until.toISOString()],
+    );
+    await enqueue(
+      sql,
+      "inapp",
+      "transfer_requested",
+      user.id,
+      { booking_id: booking.id, code: booking.code, amount_vnd: dueNow(booking) },
+      `transfer_requested|${booking.id}`,
+    );
+    const fresh = await one(sql, `select * from court_bookings where id = $1`, [id]);
+    return {
+      status: 202,
+      body: {
+        booking: fresh,
+        payment: null,
+        invoice_id: null,
+        awaiting_transfer: true,
+        hold_until: until.toISOString(),
+        amount_vnd: dueNow(booking),
+      },
+    };
+  }
+
+  let payAmount = dueNow(booking);
+  let quotaHours = 0;
+  if (method === "quota") {
+    const disc = await memberDiscount(sql, user.id, court.sport);
+    if (disc.court_hours_left < 1) throw err.br("BR-13", "You have no court hours left on your plan.");
+    payAmount = 0;
+    quotaHours = 1;
+    await sql.query(
+      `update subscriptions set court_hours_left = court_hours_left - 1 where id = $1 and court_hours_left >= 1`,
+      [disc.sub_id],
+    );
+  }
+  const settled = await settleHeldBooking(sql, booking, court, {
+    method,
+    payAmount,
+    quotaHours,
+    buyerName: user.full_name,
+    actorId: user.id,
+  });
+  return { status: 200, body: settled };
+}
