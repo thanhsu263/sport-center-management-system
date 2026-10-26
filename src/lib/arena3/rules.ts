@@ -115,6 +115,35 @@ export function validatePriceRules(
   return { ok: true, rules };
 }
 
+/**
+ * A `ticket:` marker at the very start of what is left of the message. The
+ * colon may be the full-width one a Vietnamese IME produces, and zero-width
+ * characters pasted from chat apps count as blank.
+ */
+const TICKET_PREFIX = /^[\s\u200B-\u200D\uFEFF]*ticket[\s\u200B-\u200D\uFEFF]*[:\uFF1A][\s\u200B-\u200D\uFEFF]*/i;
+
+/**
+ * The note a `ticket:` message actually leaves at the desk.
+ *
+ * People type "ticket: ticket: the lights in BC2 are out" — the second prefix is
+ * what you write when the first one did not look like it was heard. The desk was
+ * then reading the word "ticket" back to itself before getting to the lights.
+ *
+ * The first prefix is the instruction: it is the thing that routed this message
+ * to the desk at all, so it is consumed rather than stored. Every repeat of it is
+ * the same instruction given again, so it goes too. Only leading repeats are
+ * removed — a "ticket:" in the middle of a sentence is the member writing prose
+ * about a ticket, and cutting it there would edit their complaint.
+ *
+ * What is left may be empty ("ticket:", "ticket:ticket:"). Callers refuse that
+ * (FR-S03) rather than open a blank request.
+ */
+export function ticketBody(message: string): string {
+  let body = message;
+  while (TICKET_PREFIX.test(body)) body = body.replace(TICKET_PREFIX, "");
+  return body.replace(/^[\s\u200B-\u200D\uFEFF]+|[\s\u200B-\u200D\uFEFF]+$/g, "");
+}
+
 // F4 training (Phase 4C)
 
 export const ATT_RESULTS = ["present", "late", "absent", "excused"] as const;
