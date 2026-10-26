@@ -15,6 +15,7 @@ import * as attH from "./handlers/attendance";
 import * as courtH from "./handlers/courts";
 import * as staffH from "./handlers/staff";
 import * as trainH from "./handlers/training";
+import * as promoH from "./handlers/promos";
 import * as chatH from "./handlers/chat";
 import * as opsH from "./handlers/ops";
 import * as classH from "./handlers/classes";
@@ -462,6 +463,22 @@ async function dispatch(request: Request): Promise<Response | Result> {
   }
   if (method === "PUT" && p0 === "me" && p1 === "homework" && p2) {
     return authed((sql, user) => trainH.meHomeworkPut(sql, p2, request, user));
+  }
+  // Promotions (FR-PAY-03, BR-40..43). "validate" before the /:id routes.
+  if (method === "GET" && p0 === "promotions" && !p1) {
+    return authedRead((sql, user) => promoH.promosList(sql, user));
+  }
+  if (method === "POST" && p0 === "promotions" && p1 === "validate") {
+    return authedRead((sql, user) => promoH.promosValidate(sql, request, user));
+  }
+  if (method === "POST" && p0 === "promotions" && !p1) {
+    return authed((sql, user) => promoH.promosCreate(sql, request, user));
+  }
+  if (method === "PATCH" && p0 === "promotions" && p1 && !p2) {
+    return authed((sql, user) => promoH.promosPatch(sql, p1, request, user));
+  }
+  if (method === "GET" && p0 === "promotions" && p1 && p2 === "redemptions") {
+    return authedRead((sql, user) => promoH.promosRedemptions(sql, p1, user));
   }
   if (method === "POST" && p0 === "assistant") {
     return authed((sql, user) => opsH.assistantChat(sql, request, user));
