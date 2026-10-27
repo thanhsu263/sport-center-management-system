@@ -9,6 +9,7 @@ import * as memberH from "./handlers/members";
 import * as planH from "./handlers/plans";
 import * as bookH from "./handlers/bookings";
 import * as deskH from "./handlers/desk";
+import * as reportH from "./handlers/reports";
 import * as sportsH from "./handlers/sports";
 import * as assetsH from "./handlers/assets";
 import * as attH from "./handlers/attendance";
@@ -331,11 +332,23 @@ async function dispatch(request: Request): Promise<Response | Result> {
   if (method === "GET" && p0 === "members" && p1 && p2 === "contacts") {
     return authedRead((sql, user) => attH.contactList(sql, p1, user));
   }
+  if (method === "GET" && p0 === "reports" && p1 && p2 === "export") {
+    return authedRead((sql, user) => reportH.reportsExport(sql, request, user, p1));
+  }
   if (method === "GET" && p0 === "reports" && p1 === "revenue") {
     return authedRead((sql, user) => {
       requireRole(user, ["manager"]);
       return deskH.reportsRevenue(sql, request, user);
     });
+  }
+  if (
+    (method === "GET" && p0 === "reports" && p1 === "capacity") ||
+    (method === "GET" && p0 === "manager" && p1 === "capacity")
+  ) {
+    return authedRead((sql, user) => reportH.reportsCapacity(sql, request, user));
+  }
+  if (method === "GET" && p0 === "reports" && p1 === "members") {
+    return authedRead((sql, user) => reportH.reportsMembers(sql, request, user));
   }
   if (method === "GET" && p0 === "reports" && p1 === "occupancy") {
     return authedRead((sql, user) => deskH.reportsOccupancy(sql, request, user));
