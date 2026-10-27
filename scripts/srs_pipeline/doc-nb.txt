@@ -1,0 +1,1506 @@
+# Arena 3 — Software Requirement Specification
+Oct 11, 2026 · @Lame
+## Record of changes
+This record lists every released version of the SRS, newest first. A = added, M = modified, D = deleted.
+| Date | Version | A/M/D | In charge | Description |
+| 2026-10-12 | 2.2 | M | Arena3 team | Brought the figures in line with Learning UML 2.0: merge nodes in the activity diagrams, goal-phrase ovals without UC codes in the use case diagrams, and unnumbered messages in the sequence diagrams. Redrew the context diagram as a level-0 data flow diagram. |
+| 2026-10-12 | 2.1 | M | Arena3 team | Consolidated 86 use cases into 44, each with a full specification. Restated the business rules as BR-01 to BR-53, grouped by category and typed by rule type. Redrew the use case, activity and sequence figures they affect. |
+| 2026-10-11 | 2.0 | M | Arena3 team | Redrew all 28 UML figures to the FPT template and Learning UML 2.0 rules. Aligned every section with the deployed app. |
+| 2026-10-04 | 1.4.1 | A, D | Arena3 team | Added QR gate check-in, promo codes, at-risk list, deposits, fixed weekly bookings, day passes and loyalty points. Removed member debt and court conversion. |
+| 2026-09-27 | 1.4 | M | Arena3 team | Traced each requirement to its endpoint or business rule. Added online payment by payOS. |
+| 2026-09-20 | 1.1 | A | Arena3 team | Added receipts, customer care requests and the training module (feature flag F4). |
+## I. Overall requirements
+### 1. Product overview
+Arena3 is one web application that runs a single sports centre in Ho Chi Minh City, from court booking to the end-of-day till. It serves badminton, basketball and volleyball courts, membership plans, coached classes and the front desk.
+| Portal | Route | Who uses it | Main purpose |
+| Public site | `/`, `/login`, `/register` | Guest | Browse prices and classes, sign up, sign in |
+| Member portal | `/app` | Member | Book courts, pay, enrol in classes, show the gate pass |
+| Front desk | `/desk` | Receptionist | Serve walk-ins, take payments, run the gate and the till |
+| Coach portal | `/coach` | Coach | Teach classes, take attendance, track student progress |
+| Manager portal | `/manager` | Manager | Set prices and rules, staff the centre, read reports |
+The app is built with TanStack Start and React, with a JSON API under `/v1` in the same deployment. Production runs on Vercel with Neon PostgreSQL. Development runs offline on an embedded PGLite database that migrates and seeds itself.
+**Out of scope.** Multi-branch operation, payroll, native mobile apps and SMS delivery are not part of this release. Class fees are covered by membership plans and are not charged per session.
+### 2. Context diagram
+The context diagram shows Arena3 as one process exchanging data with five human actors and three external systems.
+&#91;image: Figure 1 — Context diagram of the Arena3 Sports Centre Management System\]
+| External entity | Data into Arena3 | Data out of Arena3 |
+| Guest | Registration details, OTP code | Public schedule, prices, OTP prompt |
+| Member | Booking, enrolment and plan requests, online payments | Booking confirmations, QR pass, notifications |
+| Receptionist | Walk-ins, check-ins, counter payments, refund requests | Court map, payment queue, receipts |
+| Coach | Attendance, results, training plans | Teaching schedule, rosters, earnings |
+| Manager | Prices, plans, staff, settings, refund approvals | Reports, audit log, e-invoices |
+| payOS | Signed "paid" webhook | Payment link request |
+| Mail delivery (SMTP) | Delivery result | OTP codes, reminders, notices |
+| Gemini AI | Assistant answer | Member question with centre context only |
+### 3. Main workflows
+Four activity diagrams cover the workflows that move money or change a schedule. Each uses swimlanes, one initial node, guarded decisions and one final node.
+#### 3.1 Register a member account
+A guest becomes a member only after proving the email address with a one-time code.
+&#91;image: Figure 2 — Activity diagram: Register a member account\]
+The code expires after 5 minutes. Too many wrong attempts lock the challenge for 15 minutes. A successful check creates the account, writes an audit entry and signs the member in.
+#### 3.2 Book a court and pay
+A booking is confirmed only when money is known to have arrived or plan hours are spent.
+&#91;image: Figure 3 — Activity diagram: Book a court and pay\]
+A slot is held for 5 minutes while the member pays. Three paths follow:
+- **payOS QR:** the booking is confirmed only after Arena3 verifies payOS's signed result and the amount.
+- **Bank transfer:** the hold stretches to 120 minutes and the transfer waits for the front desk to reconcile it.
+- **Plan quota:** one court hour is taken from the member's active plan.
+#### 3.3 Enrol in a class or join the waitlist
+A full class never refuses a member outright; it offers a waitlist place instead.
+&#91;image: Figure 4 — Activity diagram: Enrol in a class or join the waitlist\]
+When a seat frees up, the next member gets a 2-hour offer. The scheduled job expires an unanswered offer and moves on to the next member.
+#### 3.4 Refund a payment
+A large refund needs a second person, so no receptionist can refund their own sale above the limit.
+&#91;image: Figure 5 — Activity diagram: Refund a payment\]
+Refunds up to 1,000,000đ post at once. Larger refunds wait for a manager, who approves or rejects them. Both outcomes are audited and the member is notified.
+## II. User requirements
+### 1. Actors
+Arena3 has five human actors and three external system actors. The four staff and member roles specialise one abstract Registered User, who can sign in.
+| # | Actor | Kind | Description |
+| 1 | Guest | Human | Anyone not signed in. Browses prices and classes and registers a member account. |
+| 2 | Registered User | Abstract | Any signed-in person. Owns the sign-in, profile, password and notification use cases. |
+| 3 | Member | Human | A customer with an account. Books courts, buys plans, joins classes and enters with a QR pass. |
+| 4 | Receptionist | Staff | Runs the front desk and the till: walk-ins, payments, gate, gear, refunds up to the limit. |
+| 5 | Coach | Staff | Teaches classes. Takes attendance and records results, plans, homework and reviews. |
+| 6 | Manager | Staff | Sets prices, plans, classes and rules. Issues staff accounts, approves large refunds and reads reports. |
+| 7 | payOS | System | Vietnamese payment gateway. Issues VietQR payment links and sends signed "paid" webhooks. |
+| 8 | Mail delivery (SMTP) | System | Sends one-time codes, reminders and notices by email. |
+| 9 | Gemini AI | System | Google's model. Answers member questions and drafts training plans from centre data only. |
+Staff accounts are issued by a manager; there is no public staff sign-up and no admin role.
+### 2. Use case diagrams
+Each diagram covers one feature area inside one system boundary. Every oval is a complete goal of its actor, named by a short verb phrase; the use case list (II.3) gives each goal its UC number, which the specifications (III.2) and the activity and sequence diagrams use. Steps such as verifying a one-time code or paying by payOS QR are flows inside their use case, so the diagrams need no «include» or «extend» relationships. Associations carry no arrowheads.
+#### 2.1 Account and access
+&#91;image: Figure 6 — Use case diagram: Account and access\]
+#### 2.2 Member: courts, plans and payment
+&#91;image: Figure 7 — Use case diagram: Member court booking and payment\]
+#### 2.3 Member: classes and training
+&#91;image: Figure 8 — Use case diagram: Member classes and training\]
+#### 2.4 Receptionist: sales and the till
+&#91;image: Figure 9 — Use case diagram: Front desk sales\]
+#### 2.5 Receptionist: daily operations
+&#91;image: Figure 10 — Use case diagram: Front desk operations\]
+#### 2.6 Coach
+&#91;image: Figure 11 — Use case diagram: Coach\]
+#### 2.7 Manager: setup
+&#91;image: Figure 12 — Use case diagram: Manager setup\]
+#### 2.8 Manager: oversight
+&#91;image: Figure 13 — Use case diagram: Manager oversight\]
+### 3. Use case list
+The list numbers all 44 use cases in figure order. Each is one complete goal of its primary actor and has a full specification in III.2. Version 2.1 folded the 86 cases of v2.0 into these 44: sub-steps and variants of the same goal became flows of that goal.
+| ID | Use case | Primary actor | Figure |
+| UC-01 | Browse courts, classes and prices | Guest | 6 |
+| UC-02 | Register a member account | Guest | 6 |
+| UC-03 | Sign in and sign out | Registered User | 6 |
+| UC-04 | Reset a forgotten password | Registered User | 6 |
+| UC-05 | Manage the personal profile | Registered User | 6 |
+| UC-06 | View notifications | Registered User | 6 |
+| UC-07 | View my schedule | Member | 7 |
+| UC-08 | Book a court and pay | Member | 7 |
+| UC-09 | Reschedule or cancel a booking | Member | 7 |
+| UC-10 | Order a membership plan | Member | 7 |
+| UC-11 | View receipts and redeem points | Member | 7 |
+| UC-12 | Check in by self-service | Member | 7 |
+| UC-13 | Enrol in a class | Member | 8 |
+| UC-14 | Accept a waitlist offer | Member | 8 |
+| UC-15 | Leave a class | Member | 8 |
+| UC-16 | Follow my training progress | Member | 8 |
+| UC-17 | Get help from the AI assistant or staff | Member | 8 |
+| UC-18 | Open and close a cashier shift | Receptionist | 9 |
+| UC-19 | Manage a member record at the desk | Receptionist | 9 |
+| UC-20 | Manage a member plan at the desk | Receptionist | 9 |
+| UC-21 | Book a court at the desk | Receptionist | 9 |
+| UC-22 | Settle pending payments | Receptionist | 9 |
+| UC-24 | Raise a refund | Receptionist | 9 |
+| UC-25 | Check in a court booking | Receptionist | 10 |
+| UC-26 | Check a member in at the gate | Receptionist | 10 |
+| UC-27 | Rent out gear and record its return | Receptionist | 10 |
+| UC-28 | Handle maintenance work orders | Receptionist, Manager | 10 |
+| UC-29 | Reply to a support request | Receptionist | 10 |
+| UC-30 | View the teaching schedule and rosters | Coach | 11 |
+| UC-31 | Take session attendance | Coach | 11 |
+| UC-32 | Plan a training session | Coach | 11 |
+| UC-33 | Record session results and homework | Coach | 11 |
+| UC-34 | Assess a student's progress | Coach | 11 |
+| UC-35 | View monthly earnings | Coach | 11 |
+| UC-36 | Manage user accounts | Manager | 12 |
+| UC-37 | Manage membership plans and prices | Manager | 12 |
+| UC-38 | Manage promo codes | Manager | 12 |
+| UC-39 | Schedule classes and sessions | Manager | 12 |
+| UC-40 | Configure the centre | Manager | 12 |
+| UC-41 | View reports and export data | Manager | 13 |
+| UC-42 | Approve or reject a refund | Manager | 13 |
+| UC-43 | Close and pay coach commission | Manager | 13 |
+| UC-44 | Review the audit log | Manager | 13 |
+## III. Functional requirements
+### 1. System functional overview
+#### 1.1 Screens flow
+Each portal has one screen flow that starts at its entry point and reads left to right. Solid boxes are routed screens; dashed boxes are dialogs or in-page steps; grey boxes are portal homes drawn in their own flow.
+&#91;image: Figure 14 — Screens flow: public site and sign-in\]
+&#91;image: Figure 15 — Screens flow: member portal\]
+&#91;image: Figure 16 — Screens flow: front desk (receptionist)\]
+&#91;image: Figure 17 — Screens flow: coach portal\]
+&#91;image: Figure 18 — Screens flow: manager portal\]
+#### 1.2 Screen descriptions
+The app has 44 routed screens. Each row names the route exactly as the app serves it.
+| # | Feature | Screen | Route | Description |
+| 1 | Public | Landing page | `/` | Centre introduction, sports, prices, open classes and coach profiles. |
+| 2 | Account | Sign in | `/login` | Sign in by phone or email and password. Each role lands on its own portal. |
+| 3 | Account | Create an account | `/register` | Member sign-up with consent, confirmed by a one-time code. |
+| 4 | Account | Forgot password | `/forgot` | Sends a reset code and sets a new password. |
+| 5 | Account | Account settings | `/account` | Personal details, password, receipts and support requests. |
+| 6 | Account | Alerts | `/alerts` | Staff alerts, such as an absence streak. |
+| 7 | Payment | Payment result | `/pay/return` | Return page after payOS. Asks Arena3 to verify the payment, then shows the outcome. |
+| 8 | Member | My schedule | `/app` | Upcoming bookings and classes, plan balance and waitlist offers. |
+| 9 | Booking | Book a court | `/app/book` | Pick a date and sport, tap a free slot, hold it for 5 minutes and pay. |
+| 10 | Classes | Classes | `/app/classes` | Enrol by sport. A full class offers a first-come waitlist. |
+| 11 | Training | My progress | `/app/train` | Attendance, results, reviews, training plans and homework. |
+| 12 | Plans | Membership plans | `/app/plans` | Order a plan here and pay at the desk. |
+| 13 | Loyalty | My points | `/app/points` | Points balance and history. |
+| 14 | Gate | Gate pass | `/app/pass` | QR pass whose code changes every minute. |
+| 15 | Assistant | AI assistant | `/app/assistant` | Gemini answers grounded in the timetable, plans and coaches. |
+| 16 | Notifications | Notifications | `/app/notifications` | In-app notices for the member. |
+| 17 | Desk | Front desk | `/desk` | Find a member, sell a plan, take a payment, open and close the shift. |
+| 18 | Desk | Member profile | `/desk/member/$id` | Plans, bookings and payments. Edit, refund, reset password, take a payOS payment. |
+| 19 | Gate | Gate | `/desk/gate` | Scan a member's QR pass, or look the member up by phone. |
+| 20 | Courts | Court map | `/desk/courts` | Live court grid. Sells a walk-in slot. |
+| 21 | Classes | Classes (desk) | `/desk/classes` | Every class with its sessions, court, coach and roster. |
+| 22 | Payments | Payments | `/desk/payments` | Plans awaiting payment, transfers to reconcile, refunds awaiting a manager, receipts. |
+| 24 | Bookings | Fixed bookings | `/desk/series` | Fixed weekly bookings over 4–12 weeks at 10% off. |
+| 25 | Care | At risk | `/desk/at-risk` | Members whose attendance has dropped, with a contact log. |
+| 26 | Gear | Gear | `/desk/gear` | Lend and take back equipment against stock. |
+| 27 | Maintenance | Maintenance | `/desk/maintenance` | Work orders. An open order can block a court. |
+| 28 | Coach | Schedule | `/coach` | The coach's own sessions by day, with court, class code and enrolment. |
+| 29 | Coach | Attendance | `/coach/attendance` | Session register: Present, Late, Absent or Excused, plus results. |
+| 30 | Coach | Student progress | `/coach/student/$id` | Goal, level, attendance totals, reviews, notes and homework. |
+| 31 | Coach | Classes (coach) | `/coach/classes` | Classes the coach leads or assists, with plans and homework. |
+| 32 | Coach | My earnings | `/coach/earnings` | Fee per class plus a fee per student present, by month. |
+| 33 | Reports | Reports | `/manager` | Revenue by day, method, source and shift; capacity and members reports; export. |
+| 34 | Classes | Classes (manager) | `/manager/classes` | Create, publish, edit and cancel classes. Clashes are blocked. |
+| 35 | Members | Members | `/manager/members` | Every member with filters, plan and class count. |
+| 36 | Plans | Membership plans | `/manager/plans` | Create, edit and withdraw plans. A plan is never deleted. |
+| 37 | Promotions | Promo codes | `/manager/promos` | Create codes and read their redemption history. |
+| 38 | Attendance | Attendance report | `/manager/attendance` | Attendance across classes, sessions and members. |
+| 39 | Staff | Staff | `/manager/staff` | Issue, lock and re-role staff accounts; reset passwords. |
+| 40 | Pricing | Pricing | `/manager/prices` | Price rules by sport, court, day type and hour band. A new price applies only to new sales. |
+| 41 | Commission | Coach commission | `/manager/commission` | Close a month's coach commission and mark it paid. |
+| 42 | Invoices | E-invoice export | `/manager/invoices` | Export invoices as a spreadsheet or XML. |
+| 43 | Audit | Audit log | `/manager/audit` | Audit entries filtered by actor, action, entity and date. |
+| 44 | Settings | Centre settings | `/manager/settings` | Opening hours, slot length, windows, limits, VAT, rounding and feature flags. |
+#### 1.3 Screen authorization
+Each portal layout checks the signed-in role before it renders. A wrong role is sent to its own home; no session is sent to Sign in.
+| Screens | Guest | Member | Receptionist | Coach | Manager |
+| Landing page, Sign in, Create an account, Forgot password, Payment result | X | X | X | X | X |
+| Account settings |  | X | X | X | X |
+| Alerts |  |  | X | X | X |
+| Member portal (`/app/*`, screens 8–16) |  | X |  |  |  |
+| Front desk (`/desk/*`, screens 17–27) |  |  | X |  | X |
+| Coach portal (`/coach/*`, screens 28–32) |  |  |  | X | X |
+| Manager portal (`/manager/*`, screens 33–44) |  |  |  |  | X |
+The API checks every request again on the server, so hiding a button is never the only control. These actions are narrower than the screen that shows them:
+| Action | Allowed roles | Refused with |
+| Approve or reject a refund above the limit | Manager | 403 FORBIDDEN |
+| Mark a bank transfer as received or rejected | Receptionist, Manager | 403 FORBIDDEN |
+| Raise a payOS link for a plan order | Receptionist, Manager | 403 FORBIDDEN |
+| Raise a payOS link for a held court | Member (own hold only), Receptionist, Manager | 403 FORBIDDEN |
+| Write a register for a session | Coach (own classes only), Manager | 403 FORBIDDEN |
+| Correct a closed register | Manager, with a reason | 422 BR-35 |
+| Read another member's bookings or receipts | Receptionist, Manager | 403 FORBIDDEN |
+#### 1.4 Non-screen functions
+Ten background jobs keep holds, bookings, plans and messages correct without anyone pressing a button. A single probe query checks every 15 seconds whether any job has work.
+| # | Function | Trigger | Description |
+| 1 | Expire holds | Every 15 s, when due | Cancels court holds past their hold time and frees the court. |
+| 2 | Mark no-shows | Every 15 s, when due | Marks a confirmed booking as a no-show 10 minutes after its start without check-in. |
+| 3 | Complete bookings | Every 15 s, when due | Closes an in-use booking 10 minutes after it ends. |
+| 4 | Send notifications | Every 15 s, when due | Sends up to 50 queued messages. A message is marked sent only on delivery and stops after 5 tries. |
+| 5 | Withdraw payment links | Every 15 s, when due | Cancels a payOS link whose court hold has lapsed. Runs only when payOS is configured. |
+| 6 | Expire waitlist offers | Every 15 s, when due | Expires an unanswered offer and offers the seat to the next member. |
+| 7 | Lock attendance | Every 15 s, when due | Closes a session's register 2 hours after it ends. |
+| 8 | Expire plans | Every 15 s, when due | Marks a plan expired the day after its end date. |
+| 9 | Plan expiry reminders | Every 15 s, when due | Sends one in-app reminder 7 days, 3 days and 0 days before a plan ends. |
+| 10 | Generate sessions | Every 10 minutes | Creates upcoming sessions for every open class. |
+| 11 | payOS webhook | Called by payOS | Verifies the signature and amount, then posts the payment through the normal settle path. |
+The job loop starts with the first API request on each server instance. Each job with work runs in its own transaction, so one failure cannot roll back another.
+#### 1.5 Entity relationship diagram
+The conceptual ERD shows 17 core entities in Chen notation, with a verb on each relationship and 1, N or M cardinality.
+&#91;image: Figure 19 — Conceptual entity relationship diagram\]
+| # | Entity | Table | Description |
+| 1 | User | `users` | Every person with an account, with one role: member, receptionist, coach or manager. |
+| 2 | Court | `courts` | A playable court for one sport, with a status of ready, maintenance or closed. |
+| 3 | PriceRule | `price_rules` | Price per hour by sport, court class, day type and hour band. |
+| 4 | CourtBooking | `court_bookings` | A court-time owned by a member or a walk-in, from hold to completed. |
+| 5 | Payment | `payments` | Money in or out, with method, amount, VAT, shift and capture mode. |
+| 6 | Invoice | `invoices` | The receipt issued for a payment, with a gapless code. |
+| 7 | Promotion | `promotions` | A promo code with its discount, validity and usage limits. |
+| 8 | CashierShift | `cashier_shifts` | One receptionist's till session, from opening float to counted close. |
+| 9 | MembershipPlan | `membership_plans` | A plan on sale: price, duration, court hours or sessions, sport scope. |
+| 10 | Subscription | `subscriptions` | A member's copy of a plan, with start and end dates and balances. |
+| 11 | TrainingClass | `classes` | A coached class with a coach, a court, a weekly timetable and a capacity. |
+| 12 | ClassSession | `sessions` | One dated meeting of a class. |
+| 13 | Attendance | `attendance` | One member's mark for one session. |
+| 14 | TrainingPlan | `training_plans` | Up to 12 timed blocks for a class, a session or one student. |
+| 15 | ProgressReview | `progress_reviews` | An append-only review scoring technique, fitness and attitude. |
+| 16 | EquipmentItem | `equipment_items` | Rentable gear with stock on hand. |
+| 17 | WorkOrder | `work_orders` | A maintenance job that can block a court while it is open. |
+#### 1.6 Class diagrams
+Four class diagrams refine the ERD by subsystem, with attributes, operations, enumerations and multiplicities.
+&#91;image: Figure 20 — Class diagram: booking and payment\]
+Figure 20 covers Court, PriceRule, Occupancy, CourtBooking, BookingSeries, DayPass, Payment, CashierShift, Promotion, PromotionRedemption, Invoice and InvoiceLine. CourtBooking, DayPass and Subscription realise the Payable interface.
+&#91;image: Figure 21 — Class diagram: membership and classes\]
+Figure 21 covers MembershipPlan, Subscription, TrainingClass, ClassSession, Enrollment, WaitlistOffer and Attendance, with their status enumerations.
+&#91;image: Figure 22 — Class diagram: coaching and training\]
+Figure 22 specialises User into Coach and Member. It covers CoachRate, CoachPayout, MemberLevel, SessionResult, TrainingPlan, TrainingPlanVersion, Homework, HomeworkRecipient, ProgressReview and CoachNote.
+&#91;image: Figure 23 — Class diagram: centre operations\]
+Figure 23 covers CenterSettings, FeatureFlag, OtpChallenge, CheckinToken, Notification, SupportTicket, ContactLog, LoyaltyAdjustment, AuditLog, WorkOrder, EquipmentItem and EquipmentLoan.
+### 2. Use case specifications
+This section specifies all 44 use cases in the FPT template: a header table, then the normal flow, the alternative flows and the exceptions. Each alternative or exception is numbered by the step it branches from, so 3a branches from step 3.
+Every refusal named below reaches the screen as a sentence, with its error code and, where a business rule applies, the rule code from V.1. The common requirements in V.3 (idempotency keys, audit rows, sessions and rate limits) apply to every use case and are not repeated.
+#### 2.1 UC-01 Browse courts, classes and prices
+| Field | Detail |
+| UC ID and name | UC-01 Browse courts, classes and prices |
+| Created by / date | Arena3 team / 2026-10-12 |
+| Primary actor | Guest |
+| Secondary actors | None |
+| Trigger | The guest opens the public site (/). |
+| Description | A guest reads the sports, courts, opening hours, plan prices and open classes before deciding to join. |
+| Preconditions | None. |
+| Postconditions | No data changes. |
+| Priority | Must have |
+| Frequency of use | Many times a day |
+| Business rules | BR-38 |
+**Normal flow**
+1. The guest opens the landing page.
+2. The system shows the sports, the opening hours, the court list and the plan prices.
+3. The guest opens the class list.
+4. The system shows each open class with its sport, coach, schedule and seats left.
+5. The guest selects Create an account to continue (UC-02).
+**Alternative flows**
+- 2a. The guest switches the language: the page is shown again in English or Vietnamese.
+**Exceptions**
+- 4a. No class is open: the system says so and shows the plan prices only.
+#### 2.2 UC-02 Register a member account
+| Field | Detail |
+| UC ID and name | UC-02 Register a member account |
+| Created by / date | Arena3 team / 2026-10-12 |
+| Primary actor | Guest |
+| Secondary actors | Email service (SMTP) |
+| Trigger | The guest selects Create an account on /register. |
+| Description | A guest creates a member account and proves the email address with a one-time code. |
+| Preconditions | The guest is signed out. The phone and email have no account yet. |
+| Postconditions | A member account exists, the guest is signed in for seven days, and an audit row is written. |
+| Priority | Must have |
+| Frequency of use | Once per new member |
+| Business rules | BR-01, BR-02, BR-03, BR-04 |
+**Normal flow**
+1. The guest enters full name, phone, email, password and date of birth.
+2. The guest accepts the terms and the data-privacy notice, then submits.
+3. The system checks every field and confirms the phone and email are unused.
+4. The system stores a sign-up challenge for five minutes and emails a one-time code.
+5. The guest enters the code on the same page.
+6. The system checks the code, creates the member account and returns a session token.
+7. The system opens My schedule.
+**Alternative flows**
+- 1a. The guest is under 16: the guest also enters a guardian's name and phone (BR-03).
+**Exceptions**
+- 3a. A field is malformed: VALIDATION, and the field to correct is marked.
+- 3b. The phone or email already has an account: BR-01.
+- 3c. The password is shorter than 8 characters or lacks letters and digits: BR-02.
+- 3d. The terms are not accepted: BR-04.
+- 6a. The code is wrong: the attempt is counted and the guest may try again.
+- 6b. The code is older than five minutes: the guest submits the form again to receive a new code.
+- 6c. Five wrong attempts: the challenge is locked for 15 minutes (RATE\_LIMITED).
+&#91;image: Figure 24 — Sequence diagram: register a member account\]
+The activity diagram in Figure 2 (I.3.1) shows the same flow.
+#### 2.3 UC-03 Sign in and sign out
+| Field | Detail |
+| UC ID and name | UC-03 Sign in and sign out |
+| Created by / date | Arena3 team / 2026-10-12 |
+| Primary actor | Registered User |
+| Secondary actors | None |
+| Trigger | The user selects Sign in on /login, or Sign out in any portal. |
+| Description | A registered user opens a session with phone or email and password, and closes it when done. |
+| Preconditions | The user has an active account. |
+| Postconditions | Sign in: a session token is stored as a hash and the user lands on the home screen of their role. Sign out: the session is revoked. |
+| Priority | Must have |
+| Frequency of use | Many times a day |
+| Business rules | None |
+**Normal flow**
+1. The user enters a phone or email and the password.
+2. The system checks the password against the stored salted hash.
+3. The system creates a session: seven days for a member, twelve hours for staff.
+4. The system opens the portal for the user's role: /app, /desk, /coach or /manager.
+5. Later, the user selects Sign out.
+6. The system revokes the session and opens the landing page.
+**Alternative flows**
+- 4a. The user opened a protected page before signing in: the system returns the user to that page.
+**Exceptions**
+- 2a. The password is wrong: UNAUTHENTICATED, and the attempt is counted.
+- 2b. Five wrong passwords: sign-in is locked for 15 minutes (RATE\_LIMITED).
+- 2c. The account is locked or disabled: FORBIDDEN, and the user is told to contact the centre.
+#### 2.4 UC-04 Reset a forgotten password
+| Field | Detail |
+| UC ID and name | UC-04 Reset a forgotten password |
+| Created by / date | Arena3 team / 2026-10-12 |
+| Primary actor | Registered User |
+| Secondary actors | Email service (SMTP) |
+| Trigger | The user selects Forgot password on /login. |
+| Description | A user who has forgotten the password proves control of the account email with a one-time code and sets a new password. |
+| Preconditions | The user is signed out. |
+| Postconditions | The password is replaced, every other session of the user is revoked, and an audit row is written. |
+| Priority | Must have |
+| Frequency of use | A few times a week |
+| Business rules | BR-02 |
+**Normal flow**
+1. The user enters the phone number of the account on /forgot.
+2. The system emails a one-time code valid for five minutes to the address on the account.
+3. The user enters the code and a new password twice.
+4. The system checks the code and the password rules.
+5. The system stores the new password and signs the user in.
+**Exceptions**
+- 2a. The phone has no account: the system shows the same message as for a real account, so it never reveals who is a member.
+- 4a. The code is wrong or expired: the user may try again or request a new code.
+- 4b. Five wrong codes: the reset is locked for 15 minutes (RATE\_LIMITED).
+- 4c. The new password breaks BR-02, or the two entries differ: VALIDATION.
+#### 2.5 UC-05 Manage the personal profile
+| Field | Detail |
+| UC ID and name | UC-05 Manage the personal profile |
+| Created by / date | Arena3 team / 2026-10-12 |
+| Primary actor | Registered User |
+| Secondary actors | None |
+| Trigger | The user opens Account (/account). |
+| Description | A signed-in user updates the profile details and changes the password. |
+| Preconditions | The user is signed in. |
+| Postconditions | The profile or password is updated and an audit row is written. |
+| Priority | Should have |
+| Frequency of use | Occasionally |
+| Business rules | BR-01, BR-02 |
+**Normal flow**
+1. The user opens Account.
+2. The system shows the name, phone, email, date of birth and language.
+3. The user edits the details and saves.
+4. The system checks the fields and stores them.
+**Alternative flows**
+- 3a. The user changes the password: the user enters the current password and the new one twice. The system checks the current password, rejects reuse of the same password and stores the new hash.
+**Exceptions**
+- 3b. The current password is wrong: VALIDATION.
+- 3c. The new password breaks BR-02 or the two entries differ: VALIDATION.
+- 4a. The new phone or email belongs to another account: BR-01.
+#### 2.6 UC-06 View notifications
+| Field | Detail |
+| UC ID and name | UC-06 View notifications |
+| Created by / date | Arena3 team / 2026-10-12 |
+| Primary actor | Registered User |
+| Secondary actors | None |
+| Trigger | The user opens Notifications (/app/notifications or /alerts), or a new badge appears. |
+| Description | The user reads booking, payment, class, plan and support notices, and marks them as read. |
+| Preconditions | The user is signed in. |
+| Postconditions | The notices shown are marked as read. |
+| Priority | Should have |
+| Frequency of use | Daily |
+| Business rules | None |
+| Other information | Notices are queued and sent in batches of 50, with up to five attempts each. Plan reminders go 7, 3 and 0 days before the end date. |
+**Normal flow**
+1. The user opens Notifications.
+2. The system lists the user's notices, newest first, with unread ones highlighted.
+3. The user opens a notice; the system marks it as read and links to the related screen.
+**Alternative flows**
+- 3a. The user selects Mark all as read: every notice is marked as read.
+**Exceptions**
+- 2a. The user has no notices: the system shows an empty list.
+#### 2.7 UC-07 View my schedule
+| Field | Detail |
+| UC ID and name | UC-07 View my schedule |
+| Created by / date | Arena3 team / 2026-10-12 |
+| Primary actor | Member |
+| Secondary actors | None |
+| Trigger | The member opens My schedule (/app). |
+| Description | The member sees upcoming court bookings, class sessions, plan balance and recent attendance in one place. |
+| Preconditions | The member is signed in. |
+| Postconditions | No data changes. |
+| Priority | Must have |
+| Frequency of use | Daily |
+| Business rules | BR-12 |
+**Normal flow**
+1. The member opens My schedule.
+2. The system lists upcoming bookings and class sessions in time order.
+3. The system shows the active plan with its end date, sessions left and court hours left.
+4. The system shows the attendance recorded for recent sessions.
+5. The member opens a booking to reschedule or cancel it (UC-09).
+**Alternative flows**
+- 3a. The plan ends within seven days: the system shows a renewal notice.
+**Exceptions**
+- 2a. The member has nothing booked: the system suggests Book a court and Classes.
+#### 2.8 UC-08 Book a court and pay
+| Field | Detail |
+| UC ID and name | UC-08 Book a court and pay |
+| Created by / date | Arena3 team / 2026-10-12 |
+| Primary actor | Member |
+| Secondary actors | payOS |
+| Trigger | The member selects a free slot on Book a court (/app/book). |
+| Description | The member holds a court slot for five minutes and pays the amount due to confirm it. |
+| Preconditions | The member is signed in. The slot is in the future, within seven days and inside opening hours. The court is ready. |
+| Postconditions | Success: the booking is confirmed and the payment is posted with a receipt code. Failure: the hold lapses and the slot is free again. |
+| Priority | Must have |
+| Frequency of use | Many times a day |
+| Business rules | BR-05, BR-06, BR-07, BR-08, BR-09, BR-10, BR-13, BR-37, BR-39, BR-40, BR-41, BR-42 |
+**Normal flow**
+1. The member chooses a sport and a date, then a free slot on the court grid.
+2. The system checks the booking window, the court status and the daily cap of two slots.
+3. The system prices the slot from the price rules and holds it for five minutes.
+4. The member may enter a promo code; the system applies it to the amount due.
+5. The member chooses Pay online. The system creates a payOS link and shows the VietQR code.
+6. The member scans the QR with a banking app and pays.
+7. payOS confirms by a signed webhook, or the screen's check every three seconds reads the link as paid.
+8. The system compares the amount with the amount due, posts the payment and confirms the booking.
+9. The system shows the receipt, and the booking appears in My schedule.
+**Alternative flows**
+- 2a. The slot clashes with one of the member's classes: the system asks for confirmation (BR-09), and the member may hold it anyway.
+- 3a. The slot is at peak time: the member pays a 30% deposit now, and the desk collects the balance on arrival (UC-22).
+- 3b. The member already holds a slot: the new hold is checked in full before it replaces the old one (BR-10).
+- 5a. The member pays from plan court hours: the system deducts the hours and confirms at once (BR-13).
+- 5b. The member pays by bank transfer: the booking waits up to 120 minutes until the desk confirms the transfer (UC-22).
+**Exceptions**
+- 2b. The slot is in the past (BR-07), more than seven days ahead (BR-05), or outside opening hours (BR-06).
+- 2c. The court is not ready (BR-06), or the member already holds two slots that day (BR-05).
+- 3c. No price rule matches the slot: BR-37; the system never invents a price.
+- 3d. Another member took the slot first: CONFLICT\_SLOT.
+- 4a. The promo code is unknown, expired or out of scope (BR-40), or used up (BR-41). A code that does not stack gives way to a larger plan discount (BR-42).
+- 5c. The plan has too few court hours left: BR-13.
+- 5d. Online payment is switched off or cannot start: C-08 or C-09, and the member pays at the desk.
+- 8a. The hold lapsed before payment was confirmed: HOLD\_EXPIRED, and the member books again.
+&#91;image: Figure 25 — Sequence diagram: book a court and pay by payOS QR\]
+The activity diagram in Figure 3 (I.3.2) shows the three payment paths.
+#### 2.9 UC-09 Reschedule or cancel a booking
+| Field | Detail |
+| UC ID and name | UC-09 Reschedule or cancel a booking |
+| Created by / date | Arena3 team / 2026-10-12 |
+| Primary actor | Member |
+| Secondary actors | None |
+| Trigger | The member opens a booking in My schedule and selects Reschedule or Cancel. |
+| Description | The member moves a confirmed booking to another slot, or cancels it and receives a refund by the notice given. |
+| Preconditions | The member owns the booking. The booking is confirmed and has not started. |
+| Postconditions | Reschedule: the booking owns the new slot and the old slot is free. Cancel: the booking is cancelled, the slot is free, and any refund or plan hour is returned. |
+| Priority | Must have |
+| Frequency of use | Several times a day |
+| Business rules | BR-05, BR-06, BR-07, BR-09 |
+**Normal flow**
+1. The member opens the booking and selects Reschedule.
+2. The member picks a new slot for the same sport.
+3. The system checks the new slot with the booking rules and that its price equals the price paid.
+4. The system moves the booking and frees the old slot.
+**Alternative flows**
+- 1a. The member selects Cancel instead: the system quotes the refund by notice (100% at 24 hours or more, 50% at 4 to 24 hours, 0% under 4 hours).
+- 1b. The member confirms: the system cancels the booking, frees the slot and raises the refund. Plan hours come back when the refund is 50% or more.
+- 1c. The booking is still an unpaid hold: it is released at no cost.
+**Exceptions**
+- 1d. The booking is in a state that cannot be cancelled or moved: CONFLICT\_STATE.
+- 1e. The booking starts in less than 2 hours: it can no longer be moved.
+- 3a. The new slot breaks a booking rule (BR-05, BR-06, BR-07) or clashes with a class (BR-09).
+- 3b. The new slot has a different price: the member cancels and books the new slot instead.
+- 3c. Another member took the new slot first: CONFLICT\_SLOT.
+#### 2.10 UC-10 Order a membership plan
+| Field | Detail |
+| UC ID and name | UC-10 Order a membership plan |
+| Created by / date | Arena3 team / 2026-10-12 |
+| Primary actor | Member |
+| Secondary actors | Receptionist, who takes payment; payOS |
+| Trigger | The member selects Order on a plan in Plans (/app/plans). |
+| Description | The member orders a membership plan online and pays for it at the front desk. |
+| Preconditions | The member is signed in. The plan is on sale. |
+| Postconditions | A plan order is pending payment. Once paid, the plan becomes active from its start date. |
+| Priority | Must have |
+| Frequency of use | Daily |
+| Business rules | BR-14, BR-16, BR-40 |
+**Normal flow**
+1. The member opens Plans and compares the plans on sale.
+2. The member selects a plan and may enter a promo code.
+3. The system checks the plan and the code and creates a pending order.
+4. The system tells the member to pay at the front desk.
+5. The receptionist takes payment for the order (UC-20), and the plan becomes active.
+**Alternative flows**
+- 5a. The receptionist raises a payOS link for the order, and the member pays by VietQR.
+**Exceptions**
+- 3a. The plan has been withdrawn: BR-16.
+- 3b. The member's current plan is frozen: BR-14.
+- 3c. The promo code does not apply: BR-40.
+- 3d. The member tries to pay for a plan online: the system answers that the front desk takes payment for plans.
+- 3e. More than 3 orders a minute or 10 an hour: RATE\_LIMITED.
+#### 2.11 UC-11 View receipts and redeem points
+| Field | Detail |
+| UC ID and name | UC-11 View receipts and redeem points |
+| Created by / date | Arena3 team / 2026-10-12 |
+| Primary actor | Member |
+| Secondary actors | None |
+| Trigger | The member opens Points (/app/points) or a receipt from My schedule. |
+| Description | The member views paid receipts and e-invoices, and turns loyalty points into a single-use discount code. |
+| Preconditions | The member is signed in. |
+| Postconditions | Redeem: points are spent and a promo code worth their value is created. |
+| Priority | Should have |
+| Frequency of use | Weekly |
+| Business rules | BR-40, BR-41 |
+| Other information | One point is earned for every 10,000đ paid for bookings and plans. Spending points never lowers the tier. |
+**Normal flow**
+1. The member opens Points.
+2. The system shows the points balance, the tier and the points needed for the next tier.
+3. The member enters the points to redeem.
+4. The system creates a single-use code worth 100đ per point, valid for 60 days, and lowers the balance.
+5. The member uses the code at checkout (UC-08 or UC-10).
+**Alternative flows**
+- 1a. The member opens a receipt instead: the system shows the payment and its e-invoice as PDF.
+**Exceptions**
+- 4a. Fewer than 50 points are entered, or more than the balance: VALIDATION.
+#### 2.12 UC-12 Check in by self-service
+| Field | Detail |
+| UC ID and name | UC-12 Check in by self-service |
+| Created by / date | Arena3 team / 2026-10-12 |
+| Primary actor | Member |
+| Secondary actors | None |
+| Trigger | The member opens Gate pass (/app/pass) at the centre. |
+| Description | The member shows a short-lived QR pass at the desk, or scans the desk code to check in without staff. |
+| Preconditions | The member is signed in. |
+| Postconditions | Self check-in: one visit row exists for the member. |
+| Priority | Should have |
+| Frequency of use | Daily |
+| Business rules | BR-30, BR-32 |
+**Normal flow**
+1. The member opens Gate pass.
+2. The system shows a short-lived member QR code that refreshes itself.
+3. The member shows the code to the receptionist, who continues with UC-26.
+**Alternative flows**
+- 3a. Self check-in is switched on: the member scans the desk code with the phone, and the system records the visit as in UC-26.
+**Exceptions**
+- 3b. Self check-in is switched off: BR-30, and the member shows the pass at the desk.
+- 3c. The scanned code is not the desk code, or was already used: BR-30.
+#### 2.13 UC-13 Enrol in a class
+| Field | Detail |
+| UC ID and name | UC-13 Enrol in a class |
+| Created by / date | Arena3 team / 2026-10-12 |
+| Primary actor | Member |
+| Secondary actors | Receptionist or manager, enrolling on the member's behalf |
+| Trigger | The member selects Enrol on a class in Classes (/app/classes). |
+| Description | The member takes a seat in an open class, or joins its waitlist when the class is full. |
+| Preconditions | The member is signed in and holds an active plan covering the class sport. |
+| Postconditions | The member is enrolled and the sessions appear in My schedule, or the member is waitlisted with a position. |
+| Priority | Must have |
+| Frequency of use | Daily |
+| Business rules | BR-12, BR-18, BR-19, BR-20, BR-21, BR-22 |
+**Normal flow**
+1. The member opens Classes and chooses an open class.
+2. The system checks that a plan covers the sport and has sessions left.
+3. The system checks the class does not clash with the member's other classes.
+4. A seat is free: the system enrols the member and adds the class sessions to My schedule.
+**Alternative flows**
+- 4a. The class is full: the system adds the member to the waitlist and shows the position.
+- 4b. A seat frees up later: the next member in line receives an offer valid for two hours (UC-14).
+**Exceptions**
+- 1a. The class is not open for enrolment: BR-18.
+- 2a. No active plan covers the sport: BR-19.
+- 2b. The plan has no sessions left: BR-20.
+- 3a. The class clashes with another class, or the member is already enrolled: BR-22.
+The activity diagram in Figure 4 (I.3.3) shows this flow with its waitlist branch.
+#### 2.14 UC-14 Accept a waitlist offer
+| Field | Detail |
+| UC ID and name | UC-14 Accept a waitlist offer |
+| Created by / date | Arena3 team / 2026-10-12 |
+| Primary actor | Member |
+| Secondary actors | None |
+| Trigger | The member receives a waitlist offer notice. |
+| Description | A waitlisted member accepts a freed seat before the offer expires. |
+| Preconditions | The member holds an offer that has not expired. |
+| Postconditions | The member is enrolled and the offer is closed. |
+| Priority | Should have |
+| Frequency of use | A few times a week |
+| Business rules | BR-19, BR-21, BR-23 |
+**Normal flow**
+1. The member opens the offer from Notifications or Classes.
+2. The member selects Accept.
+3. The system checks the offer, the seat and the member's plan.
+4. The system enrols the member and closes the offer.
+**Alternative flows**
+- 2a. The member ignores the offer: after two hours the scheduled job expires it and offers the seat to the next member (BR-23).
+**Exceptions**
+- 3a. The offer has expired: BR-23.
+- 3b. The seat was filled in the meantime: BR-21.
+- 3c. The plan no longer covers the sport: BR-19.
+#### 2.15 UC-15 Leave a class
+| Field | Detail |
+| UC ID and name | UC-15 Leave a class |
+| Created by / date | Arena3 team / 2026-10-12 |
+| Primary actor | Member |
+| Secondary actors | None |
+| Trigger | The member selects Leave on an enrolled class. |
+| Description | The member leaves a class in time, which frees the seat for the waitlist. |
+| Preconditions | The member is enrolled in the class. |
+| Postconditions | The enrolment is cancelled, and the next waitlisted member receives an offer. |
+| Priority | Should have |
+| Frequency of use | A few times a week |
+| Business rules | BR-24 |
+**Normal flow**
+1. The member opens the class in My schedule and selects Leave.
+2. The system checks the time to the next session.
+3. The system cancels the enrolment and removes the future sessions from My schedule.
+4. The system offers the seat to the first member on the waitlist.
+**Exceptions**
+- 2a. The next session starts in less than 4 hours: BR-24, and the member stays enrolled.
+#### 2.16 UC-16 Follow my training progress
+| Field | Detail |
+| UC ID and name | UC-16 Follow my training progress |
+| Created by / date | Arena3 team / 2026-10-12 |
+| Primary actor | Member |
+| Secondary actors | Coach, who writes the plans and feedback |
+| Trigger | The member opens Training (/app/train). |
+| Description | The member follows training plans, coach feedback, reviews and homework, and sets a personal goal. |
+| Preconditions | The member is signed in and enrolled in at least one class. The training module is switched on. |
+| Postconditions | Homework progress and the goal are saved. |
+| Priority | Could have |
+| Frequency of use | Weekly |
+| Business rules | BR-47, BR-52 |
+**Normal flow**
+1. The member opens Training.
+2. The system shows the plan of each upcoming session, the latest session results and the coach's reviews.
+3. The member opens a homework item and ticks the checklist items done.
+4. The system saves the progress, which the coach sees on the student profile.
+5. The member sets or edits a personal goal; the system saves it.
+**Exceptions**
+- 1a. The training module is switched off: FORBIDDEN with BR-52.
+- 3a. The homework is past its due date: it is shown as overdue but can still be ticked.
+#### 2.17 UC-17 Get help from the AI assistant or staff
+| Field | Detail |
+| UC ID and name | UC-17 Get help from the AI assistant or staff |
+| Created by / date | Arena3 team / 2026-10-12 |
+| Primary actor | Member |
+| Secondary actors | Gemini AI service; Receptionist, who answers support requests |
+| Trigger | The member opens Assistant (/app/assistant). |
+| Description | The member asks the AI assistant about the centre, or sends a support request to the front desk. |
+| Preconditions | The member is signed in. |
+| Postconditions | An answer is shown, or a support request is open in the desk queue. |
+| Priority | Could have |
+| Frequency of use | Daily |
+| Business rules | BR-46 |
+**Normal flow**
+1. The member types a question of up to 800 characters.
+2. The system sends the question with the centre facts to the Gemini model, without health notes.
+3. The system shows the answer.
+**Alternative flows**
+- 1a. The member writes a support request instead: the system opens a ticket for the desk (UC-29), and the reply arrives as a notice.
+**Exceptions**
+- 2a. More than 20 questions in a minute: RATE\_LIMITED.
+- 2b. The model is unavailable: the system answers from the centre facts and suggests a support request.
+#### 2.18 UC-18 Open and close a cashier shift
+| Field | Detail |
+| UC ID and name | UC-18 Open and close a cashier shift |
+| Created by / date | Arena3 team / 2026-10-12 |
+| Primary actor | Receptionist |
+| Secondary actors | None |
+| Trigger | The receptionist starts or ends a working shift on Payments (/desk/payments). |
+| Description | The receptionist opens a cashier shift with a float and closes it by declaring the cash counted. |
+| Preconditions | The receptionist is signed in. |
+| Postconditions | Open: the shift is open and payments are tied to it. Close: the shift is closed with the expected and declared cash and the difference. |
+| Priority | Must have |
+| Frequency of use | Twice a day per receptionist |
+| Business rules | BR-44 |
+**Normal flow**
+1. The receptionist selects Open shift and enters the opening float.
+2. The system opens the shift.
+3. During the shift, every payment taken at the desk is tied to it.
+4. At the end, the receptionist selects Close shift and enters the cash counted.
+5. The system closes the shift and shows expected cash, declared cash and the difference.
+**Exceptions**
+- 1a. The receptionist already has an open shift: CONFLICT\_STATE.
+- 4a. The counted cash is missing: VALIDATION.
+#### 2.19 UC-19 Manage a member record at the desk
+| Field | Detail |
+| UC ID and name | UC-19 Manage a member record at the desk |
+| Created by / date | Arena3 team / 2026-10-12 |
+| Primary actor | Receptionist |
+| Secondary actors | Coach (read only, own students) |
+| Trigger | The receptionist searches for a member on the desk home (/desk) or opens Member profile (/desk/member/$id). |
+| Description | The receptionist registers a walk-in customer, views and edits a member record, and follows up members at risk of leaving. |
+| Preconditions | The receptionist is signed in. |
+| Postconditions | A member record is created or updated, or a follow-up contact is logged. An audit row is written. |
+| Priority | Must have |
+| Frequency of use | Many times a day |
+| Business rules | BR-01, BR-03, BR-04, BR-36, BR-46 |
+**Normal flow**
+1. The receptionist searches by name, phone or member code.
+2. The system shows the matching members.
+3. The receptionist opens a member profile.
+4. The system shows details, plans, bookings, payments, visits and attendance.
+5. The receptionist edits the details and saves; the system checks and stores them.
+**Alternative flows**
+- 1a. The person has no account: the receptionist registers them at the counter with name, phone, terms consent and, for a minor, guardian details.
+- 1b. The receptionist opens At-risk members (/desk/at-risk): the system lists members with a live plan but no visit or class for the idle period, or with three absences in a row, and the receptionist logs a follow-up contact.
+- 5a. The receptionist resets the member's password: the system issues a temporary password.
+**Exceptions**
+- 1c. The terms are not accepted: BR-04.
+- 5b. The phone already has an account: BR-01.
+- 5c. A minor has no guardian details: BR-03.
+#### 2.20 UC-20 Manage a member plan at the desk
+| Field | Detail |
+| UC ID and name | UC-20 Manage a member plan at the desk |
+| Created by / date | Arena3 team / 2026-10-12 |
+| Primary actor | Receptionist |
+| Secondary actors | Member |
+| Trigger | The receptionist opens the Plans panel on Member profile. |
+| Description | The receptionist sells, renews, freezes and resumes a member's plan. |
+| Preconditions | The receptionist is signed in with an open shift. The member exists. |
+| Postconditions | Sell or renew: a posted payment, an e-invoice and an active plan. Freeze or resume: the plan status and end date change. An audit row is written. |
+| Priority | Must have |
+| Frequency of use | Many times a day |
+| Business rules | BR-12, BR-14, BR-15, BR-16, BR-39, BR-40, BR-44 |
+**Normal flow**
+1. The receptionist selects a plan, or a pending order the member placed (UC-10).
+2. The system prices it, applies any promo code and shows the amount due.
+3. The receptionist takes cash, card or transfer and confirms.
+4. The system posts the payment, issues the e-invoice and activates the plan.
+**Alternative flows**
+- 1a. Renew: the new plan starts the day after the current one ends.
+- 1b. Freeze: the receptionist enters 1 to 90 days; the system freezes the plan and moves the end date by that many days.
+- 1c. Resume: the system sets a frozen plan active again.
+- 3a. The member pays by VietQR: the receptionist raises a payOS link for the order.
+**Exceptions**
+- 1d. The plan has been withdrawn: BR-16.
+- 1e. Freeze on a plan that is not active: BR-14. Over the yearly allowance: BR-15.
+- 1f. Resume on a plan that is not frozen: CONFLICT\_STATE.
+- 3b. No open shift: BR-44.
+#### 2.21 UC-21 Book a court at the desk
+| Field | Detail |
+| UC ID and name | UC-21 Book a court at the desk |
+| Created by / date | Arena3 team / 2026-10-12 |
+| Primary actor | Receptionist |
+| Secondary actors | Member, if known |
+| Trigger | The receptionist selects a slot on Courts (/desk/courts) or opens Fixed series (/desk/series). |
+| Description | The receptionist books a court for a walk-in customer, or a fixed weekly series of 4 to 12 weeks at 10% off. |
+| Preconditions | The receptionist is signed in with an open shift. |
+| Postconditions | Walk-in: a confirmed, paid booking. Series: one booking per week, all confirmed, with one payment. |
+| Priority | Must have |
+| Frequency of use | Many times a day |
+| Business rules | BR-05, BR-06, BR-07, BR-08, BR-37, BR-44 |
+**Normal flow**
+1. The receptionist selects a free slot on the court map.
+2. The receptionist enters the customer's name and phone and selects Walk-in.
+3. The system checks the slot and prices it.
+4. The receptionist takes payment.
+5. The system confirms the booking and posts the payment.
+**Alternative flows**
+- 1a. Fixed series: the receptionist picks the court, weekday, time and 4 to 12 weeks. The system previews every week, marks any week that is taken, and books the free weeks at 10% off after payment.
+**Exceptions**
+- 2a. The name, phone or court is missing: VALIDATION.
+- 3a. The slot has less than 20 minutes left: BR-07.
+- 3b. The slot is outside opening hours or the court is not ready: BR-06.
+- 3c. No price rule matches: BR-37.
+- 3d. Another booking took the slot first: CONFLICT\_SLOT.
+- 4a. No open shift: BR-44.
+#### 2.22 UC-22 Settle pending payments
+| Field | Detail |
+| UC ID and name | UC-22 Settle pending payments |
+| Created by / date | Arena3 team / 2026-10-12 |
+| Primary actor | Receptionist |
+| Secondary actors | Member; payOS |
+| Trigger | The receptionist opens Payments (/desk/payments) or a booking on Courts. |
+| Description | The receptionist settles money that is still open: a booking balance, a bank transfer to confirm, or a payment for an order. |
+| Preconditions | The receptionist is signed in with an open shift. |
+| Postconditions | The payment is posted with a receipt and e-invoice, and the booking or order it pays for is confirmed. |
+| Priority | Must have |
+| Frequency of use | Many times a day |
+| Business rules | BR-39, BR-44 |
+**Normal flow**
+1. The receptionist opens the list of pending items.
+2. The receptionist selects a booking with a balance left after its deposit.
+3. The receptionist takes the balance in cash, card or transfer.
+4. The system posts the payment and marks the booking as paid.
+**Alternative flows**
+- 2a. A bank transfer is waiting: the receptionist checks the bank statement and selects Confirm; the system confirms the booking.
+- 2b. The transfer has not arrived: the receptionist selects Reject; the system releases the slot and notifies the member.
+- 2c. An order has no money taken yet: the receptionist may cancel it.
+**Exceptions**
+- 2d. The booking is not confirmed or has nothing left to pay: CONFLICT\_STATE.
+- 2e. The transfer is not confirmed within 120 minutes: the scheduled job releases the slot.
+- 3a. No open shift: BR-44.
+#### 2.24 UC-24 Raise a refund
+| Field | Detail |
+| UC ID and name | UC-24 Raise a refund |
+| Created by / date | Arena3 team / 2026-10-12 |
+| Primary actor | Receptionist |
+| Secondary actors | Manager, who signs off large refunds; Member, who is notified |
+| Trigger | The receptionist chooses Raise a refund on a payment in Member profile. |
+| Description | Staff give back all or part of a posted payment, and large refunds wait for a second person. |
+| Preconditions | The receptionist is signed in. The payment is posted and has money left to refund. |
+| Postconditions | A negative payment row exists with its own receipt code, either posted or pending approval. An audit row is written. |
+| Priority | Must have |
+| Frequency of use | A few times a week |
+| Business rules | BR-44, BR-53 |
+**Normal flow**
+1. The receptionist opens the member profile, selects a posted payment and chooses Raise a refund.
+2. The receptionist enters the amount and a reason.
+3. The system works out what is still refundable: the payment, less refunds already posted or pending.
+4. The amount is under the refund limit (1,000,000đ): the system posts the refund with its own receipt code.
+5. The system writes an audit row and shows the refund receipt.
+6. If the order is now refunded in full, a used promo code is given back to the member.
+**Alternative flows**
+- 4a. The amount is at or above the refund limit: the refund is saved as pending approval and goes to a manager (UC-42).
+- 4b. A manager raises the refund: it is posted directly, whatever the amount.
+**Exceptions**
+- 3a. The payment is already refunded in full, or the amount is larger than what remains: VALIDATION.
+- 4c. A cash refund without an open shift: BR-44.
+&#91;image: Figure 26 — Sequence diagram: raise and approve a refund\]
+The activity diagram in Figure 5 (I.3.4) shows the approval branch.
+#### 2.25 UC-25 Check in a court booking
+| Field | Detail |
+| UC ID and name | UC-25 Check in a court booking |
+| Created by / date | Arena3 team / 2026-10-12 |
+| Primary actor | Receptionist |
+| Secondary actors | Member |
+| Trigger | The customer arrives for a booking and the receptionist opens Courts (/desk/courts). |
+| Description | The receptionist checks a court booking in on the live court map, inside the check-in window. |
+| Preconditions | The receptionist is signed in. The booking is confirmed. |
+| Postconditions | The booking is checked in; a booking missed past the window becomes a no-show. |
+| Priority | Must have |
+| Frequency of use | Many times a day |
+| Business rules | BR-11 |
+**Normal flow**
+1. The receptionist opens the live court map for today.
+2. The system shows each court with its current and next bookings and their payment status.
+3. The receptionist selects the booking and chooses Check in.
+4. The system checks the window and records the check-in time.
+**Alternative flows**
+- 3a. The booking still has a balance: the receptionist collects it first (UC-22).
+- 3b. The member shows a booking QR code: the receptionist scans it to open the booking.
+**Exceptions**
+- 3c. The booking is not confirmed: CONFLICT\_STATE.
+- 4a. The time is outside the window of 15 minutes before to 10 minutes after the start: BR-11.
+#### 2.26 UC-26 Check a member in at the gate
+| Field | Detail |
+| UC ID and name | UC-26 Check a member in at the gate |
+| Created by / date | Arena3 team / 2026-10-12 |
+| Primary actor | Receptionist |
+| Secondary actors | Member, who shows the gate pass |
+| Trigger | The member shows the gate pass QR at the front desk. |
+| Description | The receptionist admits a member and the system records the visit, flagging any override. |
+| Preconditions | The receptionist is signed in on Gate (/desk/gate). The member opens Gate pass (/app/pass). |
+| Postconditions | One visit row exists for the member within the 120-minute window. Any override is flagged and audited. |
+| Priority | Must have |
+| Frequency of use | Hundreds of times a day |
+| Business rules | BR-30, BR-31, BR-32, BR-33 |
+| Other information | Warnings cover a frozen plan, an expired plan, a plan ending within seven days and a plan with no sessions left. Walking through the gate never spends a session (BR-32) and never fills a class register (BR-33). |
+**Normal flow**
+1. The member opens Gate pass, which shows a short-lived QR code.
+2. The receptionist scans the code on the Gate screen.
+3. The system checks the code is a valid member code that has not been used.
+4. The system checks today's entitlement: a usable plan, a court booking or a class session today.
+5. The system records the check-in time, returns any warnings and shows a green pass.
+**Alternative flows**
+- 2a. The code cannot be scanned: the receptionist looks the member up by name, phone or member code and picks why: no phone, dead battery, QR failed, forgot, or other.
+- 5a. The member is not entitled: the system lists the reasons and asks for an override.
+- 5b. The receptionist picks a reason: expired but allowed, manager approval, guest pass, renewing, or other. The visit is flagged and audited, and the screen shows an amber pass (BR-31).
+- 5c. The member already checked in within 120 minutes: the system returns that visit instead of writing a second (BR-31).
+**Exceptions**
+- 3a. The code is invalid or already used: BR-30, and the member refreshes the code.
+- 3b. The desk's own self check-in code is scanned at the desk: BR-30.
+&#91;image: Figure 27 — Sequence diagram: check a member in at the gate\]
+#### 2.27 UC-27 Rent out gear and record its return
+| Field | Detail |
+| UC ID and name | UC-27 Rent out gear and record its return |
+| Created by / date | Arena3 team / 2026-10-12 |
+| Primary actor | Receptionist |
+| Secondary actors | Guest or member |
+| Trigger | The customer asks for gear at the desk, and the receptionist opens Gear (/desk/gear). |
+| Description | The receptionist rents out gear, charges the hire to the till with an e-invoice, and records the return. |
+| Preconditions | The receptionist is signed in with an open shift. The gear item exists. |
+| Postconditions | Rent: stock is lowered, a loan due in three hours is open, the hire is posted to the shift and an e-invoice is issued. Return: the loan is closed and stock is restored. |
+| Priority | Should have |
+| Frequency of use | Daily |
+| Business rules | BR-44, BR-50, BR-51 |
+**Normal flow**
+1. The receptionist selects the gear item and the quantity (1 to 99).
+2. The receptionist picks the member, or enters a guest's phone, and the payment method.
+3. The system checks the stock and the open shift.
+4. The system lowers the stock and opens the loan, due back in three hours.
+5. The system posts the hire (rent × quantity) to the shift, issues the e-invoice and sends the receipt.
+6. When the gear comes back, the receptionist selects Return; the system closes the loan and restores the stock.
+**Alternative flows**
+- 5a. The item's rent is 0đ: the loan opens without a payment or invoice.
+**Exceptions**
+- 2a. The member account is not active, or the guest phone is invalid: VALIDATION.
+- 3a. The quantity is more than the stock: BR-50.
+- 3b. No open shift: BR-44.
+- 6a. The loan is already returned: CONFLICT\_STATE.
+#### 2.28 UC-28 Handle maintenance work orders
+| Field | Detail |
+| UC ID and name | UC-28 Handle maintenance work orders |
+| Created by / date | Arena3 team / 2026-10-12 |
+| Primary actor | Receptionist, Manager |
+| Secondary actors | None |
+| Trigger | Staff notice a fault and open Maintenance (/desk/maintenance). |
+| Description | A receptionist reports a fault as a work order, and a manager tracks it to done with its cost. |
+| Preconditions | The user is signed in as a receptionist or a manager. |
+| Postconditions | A work order exists with its priority, status and, when done, its cost. An audit row is written. |
+| Priority | Should have |
+| Frequency of use | Weekly |
+| Business rules | BR-08, BR-53 |
+**Normal flow**
+1. The receptionist enters a title, the court or area, and a priority: low, normal or urgent.
+2. The system opens the work order.
+3. The manager opens the list, filtered by status.
+4. The manager moves the order to in progress, then to done, and records the cost.
+5. The system stores each change.
+**Alternative flows**
+- 1a. The fault takes a court out of use: the manager sets the court to maintenance, so no booking can use it (BR-08).
+**Exceptions**
+- 1b. The title is empty or the priority is unknown: VALIDATION.
+- 4a. The cost is negative: VALIDATION.
+#### 2.29 UC-29 Reply to a support request
+| Field | Detail |
+| UC ID and name | UC-29 Reply to a support request |
+| Created by / date | Arena3 team / 2026-10-12 |
+| Primary actor | Receptionist |
+| Secondary actors | Member, who receives the reply |
+| Trigger | A support request appears in the desk queue on the desk home (/desk). |
+| Description | The receptionist answers a member's support request, which closes it and notifies the member. |
+| Preconditions | The receptionist is signed in. An open request exists. |
+| Postconditions | The request is closed with the reply, the member is notified, and an audit row is written. |
+| Priority | Should have |
+| Frequency of use | Daily |
+| Business rules | BR-53 |
+| Other information | A member who writes again opens a new request, so an answered request never stays in the open queue. |
+**Normal flow**
+1. The receptionist opens the queue of open requests, oldest first.
+2. The receptionist reads a request and writes a reply.
+3. The system saves the reply, closes the request and notifies the member.
+**Alternative flows**
+- 1a. The receptionist shows all requests to read back an earlier answer.
+- 2a. The request needs no reply: the receptionist closes it.
+**Exceptions**
+- 3a. The reply is empty: VALIDATION.
+#### 2.30 UC-30 View the teaching schedule and rosters
+| Field | Detail |
+| UC ID and name | UC-30 View the teaching schedule and rosters |
+| Created by / date | Arena3 team / 2026-10-12 |
+| Primary actor | Coach |
+| Secondary actors | None |
+| Trigger | The coach opens the coach home (/coach) or My classes (/coach/classes). |
+| Description | The coach sees the week's sessions and the roster of each class taught. |
+| Preconditions | The coach is signed in. |
+| Postconditions | No data changes. |
+| Priority | Must have |
+| Frequency of use | Daily |
+| Business rules | BR-45, BR-46 |
+**Normal flow**
+1. The coach opens the coach home.
+2. The system lists the coach's sessions for the week, with court and time.
+3. The coach opens a class.
+4. The system shows the roster with each student's level and attendance.
+5. The coach opens a student to see the profile (UC-34).
+**Exceptions**
+- 3a. The coach opens a class the coach neither leads nor assists: FORBIDDEN (BR-45).
+#### 2.31 UC-31 Take session attendance
+| Field | Detail |
+| UC ID and name | UC-31 Take session attendance |
+| Created by / date | Arena3 team / 2026-10-12 |
+| Primary actor | Coach |
+| Secondary actors | Manager, who corrects closed registers |
+| Trigger | The session starts and the coach opens Attendance (/coach/attendance). |
+| Description | The coach marks each student present, late, absent or excused for a session. |
+| Preconditions | The coach leads or assists the class. The register is not locked. |
+| Postconditions | The register is saved. Three absences in a row raise an alert. |
+| Priority | Must have |
+| Frequency of use | Every session |
+| Business rules | BR-33, BR-34, BR-35, BR-36, BR-45 |
+**Normal flow**
+1. The coach selects the session.
+2. The system lists the enrolled students.
+3. The coach marks each one present, late, absent or excused.
+4. The system saves the register and checks for absence streaks.
+**Alternative flows**
+- 1a. A manager corrects a locked register: the manager enters a reason, and the change is audited (BR-35).
+- 4a. A student reaches three absences in a row: the system alerts the coach and the managers (BR-36).
+**Exceptions**
+- 1b. More than 2 hours have passed since the session: BR-35.
+- 1c. The session belongs to another coach's class: FORBIDDEN (BR-45).
+- 3a. A result other than present, late, absent or excused: VALIDATION.
+#### 2.32 UC-32 Plan a training session
+| Field | Detail |
+| UC ID and name | UC-32 Plan a training session |
+| Created by / date | Arena3 team / 2026-10-12 |
+| Primary actor | Coach |
+| Secondary actors | Gemini AI service |
+| Trigger | The coach opens a session in Training plans (/coach/classes). |
+| Description | The coach builds the plan of a session from blocks, a saved template or an AI suggestion. |
+| Preconditions | The coach teaches the class. The training module is switched on. |
+| Postconditions | The session plan is saved as a new version. |
+| Priority | Should have |
+| Frequency of use | Weekly |
+| Business rules | BR-45, BR-47, BR-48, BR-49, BR-52 |
+**Normal flow**
+1. The coach opens the session and selects Plan.
+2. The coach adds blocks, each with a title, type, intensity, minutes and description.
+3. The system checks the blocks and saves the plan.
+**Alternative flows**
+- 2a. The coach starts from a saved template, then edits the blocks.
+- 2b. The coach asks for an AI suggestion: the system sends the class sport and level to Gemini and fills the blocks, which the coach reviews.
+- 3a. The coach saves the plan as a template, or copies a week of plans to the next week.
+**Exceptions**
+- 1a. The training module is switched off: BR-52.
+- 3b. A block breaks BR-49: VALIDATION, and the block is marked.
+- 3c. The session already has results: BR-48, and the coach copies the plan instead.
+#### 2.33 UC-33 Record session results and homework
+| Field | Detail |
+| UC ID and name | UC-33 Record session results and homework |
+| Created by / date | Arena3 team / 2026-10-12 |
+| Primary actor | Coach |
+| Secondary actors | Member, who receives homework |
+| Trigger | The session ends and the coach opens it in Training plans. |
+| Description | The coach records how each student did in the session and sets homework. |
+| Preconditions | The coach teaches the class. The training module is switched on. |
+| Postconditions | Results and homework are saved; students see them in Training. |
+| Priority | Should have |
+| Frequency of use | Every session |
+| Business rules | BR-45, BR-47, BR-48 |
+**Normal flow**
+1. The coach opens the session results.
+2. The coach records a score and a note for each student.
+3. The system saves the results.
+4. The coach sets homework with a title, a checklist and a due date, for the class or one student.
+5. The system saves the homework and notifies the students.
+**Exceptions**
+- 3a. The session belongs to another coach's class: FORBIDDEN (BR-45).
+- 4a. The title is longer than 120 characters, the checklist has more than 20 items, or the due date is past: VALIDATION.
+#### 2.34 UC-34 Assess a student's progress
+| Field | Detail |
+| UC ID and name | UC-34 Assess a student's progress |
+| Created by / date | Arena3 team / 2026-10-12 |
+| Primary actor | Coach |
+| Secondary actors | Member |
+| Trigger | The coach opens a student profile (/coach/student/$id). |
+| Description | The coach sets a student's level, writes a 2- or 4-week review and keeps private notes. |
+| Preconditions | The student is in a class the coach teaches. |
+| Postconditions | The level, review or note is saved and the student sees the review. |
+| Priority | Should have |
+| Frequency of use | Weekly |
+| Business rules | BR-45, BR-46 |
+**Normal flow**
+1. The coach opens the student profile.
+2. The system shows level, attendance, results, homework progress and health notes in scope.
+3. The coach writes a review covering 2 or 4 weeks with scores from 1 to 5.
+4. The system saves the review and shows it to the student.
+**Alternative flows**
+- 3a. The coach changes the student's level.
+- 3b. The coach adds a private note of under 2,000 characters.
+**Exceptions**
+- 1a. The student is not in the coach's classes: FORBIDDEN (BR-45).
+- 3c. A score outside 1 to 5, or a period other than 2 or 4 weeks: VALIDATION.
+#### 2.35 UC-35 View monthly earnings
+| Field | Detail |
+| UC ID and name | UC-35 View monthly earnings |
+| Created by / date | Arena3 team / 2026-10-12 |
+| Primary actor | Coach |
+| Secondary actors | None |
+| Trigger | The coach opens Earnings (/coach/earnings). |
+| Description | The coach sees the sessions taught and the commission earned for a month, and whether it is paid. |
+| Preconditions | The coach is signed in. |
+| Postconditions | No data changes. |
+| Priority | Could have |
+| Frequency of use | Monthly |
+| Business rules | None |
+**Normal flow**
+1. The coach opens Earnings and picks a month.
+2. The system shows the sessions taught, the students taught, the rate and the amount.
+3. The system shows whether the month is open, closed or paid.
+**Exceptions**
+- 1a. The month has no sessions: the system shows zero.
+#### 2.36 UC-36 Manage user accounts
+| Field | Detail |
+| UC ID and name | UC-36 Manage user accounts |
+| Created by / date | Arena3 team / 2026-10-12 |
+| Primary actor | Manager |
+| Secondary actors | None |
+| Trigger | The manager opens Staff (/manager/staff) or Members (/manager/members). |
+| Description | The manager creates and maintains staff accounts and looks after member accounts. |
+| Preconditions | The manager is signed in. |
+| Postconditions | An account is created or changed, sessions may be revoked, and an audit row is written. |
+| Priority | Must have |
+| Frequency of use | Weekly |
+| Business rules | BR-01, BR-25, BR-53 |
+**Normal flow**
+1. The manager selects Add staff.
+2. The manager enters name, phone, email and role: receptionist or coach, with the sports for a coach.
+3. The system creates the account with a temporary password.
+4. The manager passes the temporary password to the new staff member, who changes it on first sign-in.
+**Alternative flows**
+- 1a. The manager locks or unlocks an account, resets its password, or signs it out everywhere.
+- 1b. The manager searches the member directory by status, sport or plan and opens a member.
+**Exceptions**
+- 1c. The manager tries to change their own account here: FORBIDDEN.
+- 1d. A coach with running classes is given another role: CONFLICT\_STATE.
+- 2a. The phone or email already has an account: BR-01.
+- 2b. A coach has no sport: VALIDATION.
+#### 2.37 UC-37 Manage membership plans and prices
+| Field | Detail |
+| UC ID and name | UC-37 Manage membership plans and prices |
+| Created by / date | Arena3 team / 2026-10-12 |
+| Primary actor | Manager |
+| Secondary actors | None |
+| Trigger | The manager opens Plans (/manager/plans) or Prices (/manager/prices). |
+| Description | The manager sets up the plans on sale and the court price rules. |
+| Preconditions | The manager is signed in. |
+| Postconditions | Plans or price rules are saved and apply to new orders and bookings. An audit row is written. |
+| Priority | Must have |
+| Frequency of use | Monthly |
+| Business rules | BR-16, BR-17, BR-37, BR-38, BR-53 |
+**Normal flow**
+1. The manager creates or edits a plan: name, sport, length, sessions, court hours, discount and price.
+2. The system checks and saves the plan.
+3. The manager opens Prices and edits the price rules by sport, court, weekday and hour.
+4. The system saves the rules.
+**Alternative flows**
+- 2a. The manager withdraws a plan: it stays on existing members but can no longer be ordered (BR-16).
+**Exceptions**
+- 2b. The discount is not a whole number from 0 to 100: BR-17.
+- 4a. A rule has no price, or overlaps another rule: VALIDATION.
+#### 2.38 UC-38 Manage promo codes
+| Field | Detail |
+| UC ID and name | UC-38 Manage promo codes |
+| Created by / date | Arena3 team / 2026-10-12 |
+| Primary actor | Manager |
+| Secondary actors | None |
+| Trigger | The manager opens Promo codes (/manager/promos). |
+| Description | The manager creates promo codes with their scope, limits and dates, and pauses them. |
+| Preconditions | The manager is signed in. |
+| Postconditions | The code is saved or paused. An audit row is written. |
+| Priority | Should have |
+| Frequency of use | Monthly |
+| Business rules | BR-40, BR-41, BR-42, BR-43 |
+**Normal flow**
+1. The manager enters the code, a percent or fixed amount, the scope, the dates and the limits.
+2. The system checks and saves the code.
+3. The manager views how many times each code has been used.
+**Alternative flows**
+- 3a. The manager pauses or resumes a code.
+**Exceptions**
+- 2a. The code is not 3 to 24 characters, a percent is over 100, or a fixed amount is not a multiple of 1,000đ: VALIDATION.
+- 2b. The manager renames a code that has been used: BR-43.
+#### 2.39 UC-39 Schedule classes and sessions
+| Field | Detail |
+| UC ID and name | UC-39 Schedule classes and sessions |
+| Created by / date | Arena3 team / 2026-10-12 |
+| Primary actor | Manager |
+| Secondary actors | Coach, who is assigned |
+| Trigger | The manager opens Classes (/manager/classes). |
+| Description | The manager creates a class with its coach, court, schedule and capacity, opens it, and changes or cancels sessions. |
+| Preconditions | The manager is signed in. |
+| Postconditions | The class and its sessions exist and hold their court times. Enrolled members are notified of changes. |
+| Priority | Must have |
+| Frequency of use | Weekly |
+| Business rules | BR-08, BR-21, BR-25, BR-26, BR-27, BR-28, BR-29 |
+**Normal flow**
+1. The manager enters the sport, coach, court, weekdays, time, length (60, 120 or 180 minutes), capacity and dates.
+2. The system checks the coach and the court times and creates the sessions.
+3. The manager publishes the class, which opens it for enrolment.
+**Alternative flows**
+- 3a. The manager moves a session to a future time, with a reason when it is under 12 hours away (BR-27).
+- 3b. The manager cancels a session with a reason; session-based plans get the session back once (BR-29).
+- 3c. The manager hands the class to a substitute coach from a date onward (BR-28).
+- 3d. The manager changes the capacity.
+**Exceptions**
+- 2a. The coach is inactive or not qualified for the sport: BR-25.
+- 2b. The court or the coach is busy at a session time: BR-26 or CONFLICT\_SLOT.
+- 3e. The capacity is outside 1 to 200, or below the number enrolled: BR-21.
+#### 2.40 UC-40 Configure the centre
+| Field | Detail |
+| UC ID and name | UC-40 Configure the centre |
+| Created by / date | Arena3 team / 2026-10-12 |
+| Primary actor | Manager |
+| Secondary actors | None |
+| Trigger | The manager opens Centre settings (/manager/settings). |
+| Description | The manager sets the centre's hours, booking limits, refund tiers, check-in and other settings, and switches modules on or off. |
+| Preconditions | The manager is signed in. |
+| Postconditions | The settings apply to every later request. An audit row is written. |
+| Priority | Must have |
+| Frequency of use | Rarely |
+| Business rules | BR-52, BR-53 |
+**Normal flow**
+1. The manager opens Centre settings.
+2. The system shows the settings in groups with their current values.
+3. The manager edits values and saves.
+4. The system checks each value's range and stores them.
+**Alternative flows**
+- 3a. The manager switches a module off: every route of that module answers 403 with BR-52 until it is switched on.
+**Exceptions**
+- 4a. A value is out of range: VALIDATION, naming the setting.
+#### 2.41 UC-41 View reports and export data
+| Field | Detail |
+| UC ID and name | UC-41 View reports and export data |
+| Created by / date | Arena3 team / 2026-10-12 |
+| Primary actor | Manager |
+| Secondary actors | None |
+| Trigger | The manager opens Reports (/manager), Attendance (/manager/attendance) or Invoices (/manager/invoices). |
+| Description | The manager reviews revenue, occupancy, capacity, members and attendance, and exports reports and e-invoices. |
+| Preconditions | The manager is signed in. |
+| Postconditions | No data changes; an export file is downloaded. |
+| Priority | Must have |
+| Frequency of use | Daily |
+| Business rules | BR-35, BR-38 |
+**Normal flow**
+1. The manager picks a report and a date range.
+2. The system builds the report from the same queries as the screens.
+3. The manager selects Export and a format: xlsx or pdf.
+4. The system builds the file on request and the browser downloads it.
+**Alternative flows**
+- 1a. The manager opens Invoices and exports the e-invoices of a period as XML.
+**Exceptions**
+- 2a. The date range is invalid: VALIDATION.
+#### 2.42 UC-42 Approve or reject a refund
+| Field | Detail |
+| UC ID and name | UC-42 Approve or reject a refund |
+| Created by / date | Arena3 team / 2026-10-12 |
+| Primary actor | Manager |
+| Secondary actors | Receptionist, who raised the refund; Member, who is notified |
+| Trigger | A refund pending approval appears in Refund sign-off (/desk/payments). |
+| Description | A manager other than the person who raised a large refund approves or rejects it. |
+| Preconditions | The manager is signed in. The refund is pending approval. |
+| Postconditions | Approve: the refund is posted and the member notified. Reject: it is closed with a reason. An audit row is written. |
+| Priority | Must have |
+| Frequency of use | A few times a week |
+| Business rules | BR-53 |
+**Normal flow**
+1. The manager opens the pending refunds.
+2. The manager reviews the payment, the amount and the reason.
+3. The manager selects Approve.
+4. The system posts the refund and notifies the member.
+**Alternative flows**
+- 3a. The manager selects Reject and gives a reason; the system closes the refund and notifies the member.
+**Exceptions**
+- 3b. The manager raised this refund: FORBIDDEN, and another manager must sign it off.
+- 3c. Another manager decided it first: CONFLICT\_STATE.
+#### 2.43 UC-43 Close and pay coach commission
+| Field | Detail |
+| UC ID and name | UC-43 Close and pay coach commission |
+| Created by / date | Arena3 team / 2026-10-12 |
+| Primary actor | Manager |
+| Secondary actors | Coach, who is paid |
+| Trigger | A month ends and the manager opens Commission (/manager/commission). |
+| Description | The manager sets coach rates, closes a finished month so its figures are frozen, and marks each coach paid. |
+| Preconditions | The manager is signed in. |
+| Postconditions | Close: one payout row per coach with sessions. Pay: the payout is paid. An audit row is written. |
+| Priority | Should have |
+| Frequency of use | Monthly |
+| Business rules | BR-53 |
+**Normal flow**
+1. The manager picks a month and reviews each coach's sessions, students and amount.
+2. The manager selects Close month; the system copies the figures into payout rows.
+3. The manager pays a coach outside the system and selects Mark paid.
+**Alternative flows**
+- 1a. The manager changes a coach's rate; closed months keep their figures.
+**Exceptions**
+- 2a. The month has not ended: CONFLICT\_STATE.
+- 3a. The month is not closed, or already paid: CONFLICT\_STATE.
+#### 2.44 UC-44 Review the audit log
+| Field | Detail |
+| UC ID and name | UC-44 Review the audit log |
+| Created by / date | Arena3 team / 2026-10-12 |
+| Primary actor | Manager |
+| Secondary actors | None |
+| Trigger | The manager opens Audit log (/manager/audit). |
+| Description | The manager reviews who changed what and when, to investigate a dispute or a mistake. |
+| Preconditions | The manager is signed in. |
+| Postconditions | No data changes. |
+| Priority | Must have |
+| Frequency of use | Weekly |
+| Business rules | BR-53 |
+**Normal flow**
+1. The manager opens Audit log.
+2. The system lists audit rows, newest first, with actor, action, record and time.
+3. The manager filters by actor, action or date.
+4. The manager opens a row to see the values before and after.
+**Exceptions**
+- 3a. No rows match: the system shows an empty list.
+## IV. Non-functional requirements
+Arena 3 must keep money and schedules correct under concurrency, respond quickly on a phone, and protect member data. This section names the external interfaces and the quality attributes that make this so.
+### 1. External interfaces
+#### 1.1 User interfaces
+Arena 3 is one responsive web application with four portals, and every screen works from a 375 px phone width.
+- The interface is available in English and Vietnamese, and the user switches language in the header.
+- Running text uses Be Vietnam Pro, which renders Vietnamese diacritics correctly. Headings use Newsreader and figures use Anton.
+- Amounts are written in VND with a lowercase đ, for example 1,500,000đ.
+- A refusal is shown as a sentence that says what to do instead. The error code travels with it for support.
+- Motion is decorative only, and no action is discoverable only through animation.
+#### 1.2 Software interfaces
+The application talks to five outside systems, and each has a defined fallback.
+| Interface | Purpose | Protocol and data | Failure behaviour |
+| Arena 3 API (`/v1`) | Every screen reads and writes through it | JSON over HTTPS with a bearer token; served inside the web app | Errors return `{ code, message }`, plus `field` or `br` where one applies |
+| payOS | Payment links, VietQR codes, link status and payment webhooks | HTTPS REST; the webhook is signed with the checksum key | A payment posts only when payOS confirms it, and the amount must equal the amount due |
+| Google Gemini (`gemini-2.5-flash`) | Answers in the AI assistant | HTTPS; the prompt carries centre data only, never member data | 12-second timeout, then xAI Grok, then rule-based answers |
+| Email (SMTP through nodemailer) | One-time codes and notifications | SMTP with the centre's sender address | Codes are sent at once; notifications are queued and retried up to five times |
+| PostgreSQL 16 | All records | Neon in production; embedded PGLite when no `DATABASE_URL` is set | Schema changes are forward-only numbered migrations, each run in one transaction |
+The application is hosted on Vercel. Background jobs start with the first API request and run in a loop every 15 seconds.
+#### 1.3 API error codes
+Every API error uses one of these codes, so a screen can react to the code rather than parse the text.
+| HTTP | Code | Meaning |
+| 400 | `VALIDATION` | A value is malformed; `field` names the input to correct |
+| 401 | `UNAUTHENTICATED` | No session, or the session has expired |
+| 403 | `FORBIDDEN` | Wrong role, or another member's data. With `br: "BR-52"`, the module is switched off |
+| 404 | `NOT_FOUND` | The record does not exist |
+| 409 | `CONFLICT_SLOT` | Another person took that court time first |
+| 409 | `HOLD_EXPIRED` | The five-minute hold ran out |
+| 409 | `CONFLICT_STATE` | The record is in the wrong state for this action |
+| 422 | `BR_VIOLATION` | A named business rule refused the request; `br` carries the rule code |
+| 422 | `VALIDATION` | The request is well formed but not acceptable in the current state |
+| 429 | `RATE_LIMITED` | Too many attempts in a short time |
+### 2. Quality attributes
+#### 2.1 Correctness and reliability
+Two bookings can never own the same court time, and money never disagrees with the schedule.
+| ID | Requirement |
+| NFR-01 | No two bookings may own the same court time, under any concurrency. Both booking paths lock the court row, and a database trigger rejects any overlap. |
+| NFR-02 | No coach may be scheduled into two overlapping sessions. |
+| NFR-03 | A confirmed booking always has its payment and invoice, written in the same transaction. |
+| NFR-08 | Any request that takes money or changes a schedule accepts an `Idempotency-Key`. A replay returns the first result and never charges twice. |
+| NFR-09 | With no `DATABASE_URL`, the application migrates and seeds an embedded PGLite database, so a fresh copy runs offline. |
+| NFR-10 | Losing the assistant's model degrades only the assistant, which falls back to rule-based answers. |
+#### 2.2 Performance
+The screens staff and members open most often must cost as few database round trips as possible.
+| ID | Requirement |
+| NFR-04 | `GET /v1/me` issues its independent reads concurrently, so a sign-in costs one round trip rather than seven. |
+| NFR-05 | Read-only endpoints open no transaction, which saves two round trips to a remote database. |
+| NFR-06 | The front desk badge asks for a count only (`?brief=1`), which runs one aggregate query. |
+| NFR-07 | The job loop first checks, in one query, which jobs are due. A pass with nothing due costs one query. |
+#### 2.3 Usability
+| ID | Requirement |
+| NFR-11 | Every screen works at a width of 375 px. |
+| NFR-12 | A refusal tells the user what to do instead, as a sentence rather than a code. |
+| NFR-13 | Text renders Vietnamese diacritics correctly, and currency is never upper-cased (1,500,000đ, never 1,500,000Đ). |
+| NFR-14 | Motion is decorative and never carries meaning on its own. |
+#### 2.4 Auditability
+| ID | Requirement |
+| NFR-15 | Every staff-only change writes an audit row naming the actor, action, record and time. This covers refunds, reconciliation, shift closes, settings, sessions, classes, staff accounts, attendance corrections and payment links. No endpoint deletes an audit row. |
+| NFR-16 | Member, payment and invoice codes come from a counter table and have no gaps within each kind. |
+#### 2.5 Security and privacy
+Authorisation is decided on the server for every request, and member data stays inside the centre.
+| ID | Requirement |
+| NFR-17 | Passwords are stored only as salted hashes and are never written to logs. |
+| NFR-18 | Session tokens are stored as SHA-256 hashes. Member sessions last seven days and staff sessions twelve hours. |
+| NFR-19 | Every request is authorised on the server. Hiding a button is not a control. |
+| NFR-20 | A member can read only their own bookings, receipts and profile. A read of another member's data returns `403`. |
+| NFR-21 | Health notes and guardian details are shown only to those who need them and are never sent to the assistant's model. |
+| NFR-22 | In production, one-tap demo sign-in and on-screen codes are off unless `VITE_DEMO_LOGINS` or `OTP_ECHO` is set explicitly. |
+| NFR-23 | A switched-off module (F4 training) answers `403` with `BR-52` on every route. |
+| NFR-24 | Report exports are built on request from the same queries as the screens, and are not stored. |
+| NFR-25 | An online payment is trusted only when read from payOS or carried by a verified webhook signature. |
+| NFR-26 | Sign-in locks for 15 minutes after five wrong passwords, and a one-time code after five wrong attempts. |
+#### 2.6 Maintainability
+The requirements in this document are checked by executable tests, so a change that breaks one fails before release.
+- `npm test` runs the unit tests for pricing, refunds, check-in windows and other rules.
+- `npm run check:api` drives the real API against a real database and checks the money and schedule rules end to end.
+- `npm run typecheck` checks the TypeScript types across the application.
+## V. Requirement appendix
+This appendix lists every business rule, configurable setting, shared requirement and user message that the sections above refer to. Each entry matches the running application.
+### 1. Business rules
+Rules are grouped by business area and typed by the standard business-rule taxonomy. A Fact states what is true; a Constraint limits what may be done; an Action enabler lets one action start, or makes it require another; a Computation derives a value; an Inference draws a conclusion from other facts. A refused request returns `422 BR_VIOLATION` with the rule code in `br`, so any refusal on screen traces to one row below.
+| ID | Category | Rule statement | Type | Applies to |
+| BR-01 | Accounts and access | Each user account must have a phone number and an email address that no other account uses. | Constraint | UC-02, UC-19, UC-36 |
+| BR-02 | Accounts and access | A password must contain at least 8 characters, including at least one letter and one digit. | Constraint | UC-02, UC-04, UC-05 |
+| BR-03 | Accounts and access | A member under 16 years of age must have a guardian's name and phone number on record. | Constraint | UC-02, UC-19 |
+| BR-04 | Accounts and access | A member account may be created only after the person accepts the terms of use and the data-privacy notice. | Action enabler | UC-02, UC-19 |
+| BR-05 | Court booking | A member may book a court at most 7 days ahead and may hold at most 2 court slots on the same day. | Constraint | UC-08, UC-21 |
+| BR-06 | Court booking | A court booking must lie within opening hours, on a court whose status is ready. | Constraint | UC-08, UC-09, UC-21 |
+| BR-07 | Court booking | A court booking must not start in the past. A walk-in booking must have at least 20 minutes left in its slot. | Constraint | UC-08, UC-21 |
+| BR-08 | Court booking | Each court time must have exactly one owner: a booking, a class session or a maintenance block. | Constraint | UC-08, UC-21, UC-39 |
+| BR-09 | Court booking | A slot that overlaps one of the member's classes may be held only after the member confirms the clash. | Action enabler | UC-08, UC-09 |
+| BR-10 | Court booking | A replacement hold must pass every booking check before the hold it replaces is released. | Constraint | UC-08 |
+| BR-11 | Court booking | Court check-in is allowed from 15 minutes before the start until 10 minutes after it. A booking not checked in by then is a no-show. | Inference | UC-25 |
+| BR-12 | Membership plans | A plan grants its benefits only between its start date and its end date. | Inference | UC-08, UC-13, UC-20 |
+| BR-13 | Membership plans | A court booking paid from plan hours requires enough court hours left on that plan. | Constraint | UC-08 |
+| BR-14 | Membership plans | A frozen plan must be resumed before it is frozen again or paid for. | Constraint | UC-10, UC-20 |
+| BR-15 | Membership plans | A plan may be frozen for no more than the yearly freeze allowance (30 days by default). | Constraint | UC-20 |
+| BR-16 | Membership plans | A withdrawn plan must not be ordered or sold. | Constraint | UC-10, UC-20, UC-37 |
+| BR-17 | Membership plans | A plan discount is a whole-number percentage from 0 to 100. | Constraint | UC-37 |
+| BR-18 | Classes and enrolment | A member may enrol only in a class whose status is open. | Constraint | UC-13 |
+| BR-19 | Classes and enrolment | Class enrolment requires an active plan that covers the class sport. | Action enabler | UC-13, UC-14 |
+| BR-20 | Classes and enrolment | Enrolment through a session-based plan requires sessions left on that plan. | Constraint | UC-13 |
+| BR-21 | Classes and enrolment | Enrolments must not exceed class capacity, and capacity must not be set below the number already enrolled. | Constraint | UC-13, UC-14, UC-39 |
+| BR-22 | Classes and enrolment | A member must not hold a duplicate enrolment or two enrolments whose sessions overlap. | Constraint | UC-13 |
+| BR-23 | Classes and enrolment | A waitlist offer expires 2 hours after it is sent; the seat then passes to the next member in line. | Inference | UC-14 |
+| BR-24 | Classes and enrolment | A member may leave a class only up to 4 hours before its next session. | Constraint | UC-15 |
+| BR-25 | Classes and enrolment | A class coach must hold an active account and be qualified for the class sport. | Constraint | UC-39 |
+| BR-26 | Classes and enrolment | A session must not be moved, or its coach changed, to a time when the court or the coach is already busy. | Constraint | UC-39 |
+| BR-27 | Classes and enrolment | Moving a session less than 12 hours before its original start requires a reason. | Constraint | UC-39 |
+| BR-28 | Classes and enrolment | A substitute coach takes over a class from the date of the change onward; past sessions keep their coach. | Inference | UC-39 |
+| BR-29 | Classes and enrolment | When the centre cancels a session, a member on a session-based plan receives that session back once. | Computation | UC-39 |
+| BR-30 | Check-in and attendance | A gate code must be a valid member code that has not been used before. | Constraint | UC-12, UC-26 |
+| BR-31 | Check-in and attendance | A member with no entitlement today is admitted only with an override reason, and the visit is flagged. A repeat scan within 120 minutes returns the first visit. | Action enabler | UC-26 |
+| BR-32 | Check-in and attendance | A gate check-in never spends a session or changes any balance. | Constraint | UC-12, UC-26 |
+| BR-33 | Check-in and attendance | A gate check-in never marks class attendance; only the session register does. | Constraint | UC-26, UC-31 |
+| BR-34 | Check-in and attendance | A student is marked late only by the coach in the session register. | Constraint | UC-31 |
+| BR-35 | Check-in and attendance | A session register locks 2 hours after the session; afterwards only a manager may correct it, and must give a reason. | Constraint | UC-31, UC-41 |
+| BR-36 | Check-in and attendance | Three absences in a row alert the coach and the managers; an excused absence breaks the streak. | Inference | UC-19, UC-31 |
+| BR-37 | Pricing, promotions and payment | A price is quoted only from a matching price rule; the system never invents a price. | Constraint | UC-08, UC-21, UC-37 |
+| BR-38 | Pricing, promotions and payment | Every price shown includes VAT. | Fact | UC-37, UC-41 |
+| BR-39 | Pricing, promotions and payment | Money is rounded once, half up, to the nearest 1,000đ after every discount is applied. | Computation | UC-08, UC-20, UC-22 |
+| BR-40 | Pricing, promotions and payment | A promo code must be active, within its dates, and match the order's scope, sport, plan and minimum spend. | Constraint | UC-08, UC-10, UC-38 |
+| BR-41 | Pricing, promotions and payment | A promo code must not be used beyond its total limit or its per-member limit. | Constraint | UC-08, UC-38 |
+| BR-42 | Pricing, promotions and payment | A promo code that does not stack never combines with a plan discount; the larger of the two applies. | Computation | UC-08 |
+| BR-43 | Pricing, promotions and payment | A promo code that has been used must keep its code; staff pause it and create a new one instead. | Constraint | UC-38 |
+| BR-44 | Pricing, promotions and payment | Money may be taken at the desk only within the receptionist's open cashier shift. | Action enabler | UC-18, UC-20, UC-21, UC-22, UC-24, UC-27 |
+| BR-45 | Coaching and training | A coach may act only on classes that the coach leads or assists. | Constraint | UC-30, UC-31, UC-32, UC-33, UC-34 |
+| BR-46 | Coaching and training | A student's health notes are shown only to staff whose role or class gives them a need to know. | Constraint | UC-19, UC-34 |
+| BR-47 | Coaching and training | Training records never take money or change a plan balance. | Constraint | UC-32, UC-33 |
+| BR-48 | Coaching and training | A training session that has results cannot change or add a plan; the coach copies the plan instead. | Constraint | UC-32, UC-33 |
+| BR-49 | Coaching and training | A training plan has 1 to 12 blocks, and each block carries a type, an intensity, a description and a length of 1 to 180 minutes. | Constraint | UC-32 |
+| BR-50 | Equipment and system | Gear may not be rented out beyond the stock on hand. | Constraint | UC-27 |
+| BR-51 | Equipment and system | Gear hire is charged to the open cashier shift and issues an e-invoice; a return puts the gear back in stock. | Action enabler | UC-27 |
+| BR-52 | Equipment and system | A module that a manager has switched off answers every request with 403 and BR-52. | Constraint | UC-40 |
+| BR-53 | Equipment and system | Every change to money, plans, prices, accounts or settings writes an audit row, and no audit row is ever deleted. | Action enabler | UC-44 |
+Version 2.1 renumbered the rules by category, from 75 codes to 53. Codes that only described a screen, or repeated another rule, were folded into the rule they belong to, and the API returns the new codes. BR-49, BR-51 and BR-53 state rules the application already enforced without a code.
+### 2. Centre settings
+Managers change these values on Centre settings (`/manager/settings`), and the rules above read them on every request.
+| Group | Setting | Default |
+| Locale | Time zone; currency | Asia/Ho\_Chi\_Minh; VND (both fixed) |
+| Opening hours | Open; close; slot length | 06:00; 22:00; 60 minutes |
+| Booking | Hold time; days ahead; slots per member per day | 5 minutes; 7 days; 2 |
+| Cancellation | Court booking notice; class notice | 2 hours; 4 hours |
+| Court refunds by notice | 24 hours or more; 4 to 24 hours; under 4 hours | 100%; 50%; 0% |
+| Check-in | Court check-in window; no-show grace | 15 minutes before; 10 minutes after |
+| Deposit | Deposit share; peak slots only | 30%; yes |
+| Fixed weekly bookings | Length; discount | 4 to 12 weeks; 10% |
+| Money | Refund limit without a manager; VAT rate; rounding | 1,000,000đ; 0%; nearest 1,000đ |
+| Members | Freeze days a year; minor age; waitlist offer | 30 days; under 16; 2 hours |
+| Transfers | Bank transfer hold | 120 minutes |
+| Loyalty | Spend per point; value per point | 10,000đ; 100đ |
+| Gate | Self check-in; repeat-scan window | Off; 120 minutes |
+### 3. Common requirements
+These requirements apply to every function, so the use cases do not repeat them.
+| Area | Requirement |
+| Idempotency | Requests that take money or change a schedule accept an `Idempotency-Key`; a replay returns the first result. |
+| Audit | Every staff-only change writes an audit row, and no endpoint deletes one. |
+| Money | Amounts are whole VND, rounded once to the nearest 1,000đ after discounts. Payments are never deleted; a refund is a new negative payment. |
+| Codes | Member, payment and invoice codes have no gaps within each kind. |
+| Time | All times are stored with a time zone and shown in Asia/Ho\_Chi\_Minh time. |
+| Sessions | Member sessions last seven days and staff sessions twelve hours. |
+| Lockout | Five wrong passwords, or five wrong one-time codes, lock that path for 15 minutes. |
+| Rate limits | Assistant questions: 800 characters each, 20 a minute. Plan orders: 3 a minute, 10 an hour. |
+| Notifications | Notifications are queued and sent in batches of 50, with up to five attempts each. Plan reminders go 7, 3 and 0 days before the end date. |
+| Background jobs | The jobs listed in III.1.4 run in one loop every 15 seconds. |
+| Language | Every screen is available in English and Vietnamese, and Vietnamese diacritics render correctly. |
+| Layout | Every screen works at a width of 375 px. |
+### 4. Application messages
+Each message below is the text the application shows today. The code travels alongside it so support can trace the refusal.
+| # | Code | Type | Message |
+| MSG01 | BR-01 | Error | That phone or email already has an account. |
+| MSG02 | BR-02 | Error | Password needs at least 8 characters, with letters and numbers. |
+| MSG03 | RATE\_LIMITED | Error | Too many OTP attempts — locked for 15 minutes. |
+| MSG04 | RATE\_LIMITED | Error | 5 wrong passwords — locked for 15 minutes. |
+| MSG05 | BR-05 | Error | You can book at most 7 days ahead. |
+| MSG06 | BR-09 | Confirmation | This slot clashes with a class you are in. Confirm to hold it anyway. |
+| MSG07 | CONFLICT\_SLOT | Error | Someone just took that slot. |
+| MSG08 | HOLD\_EXPIRED | Error | Your hold has expired. |
+| MSG09 | BR-37 | Error | There is no price for that slot yet — ask the desk. |
+| MSG10 | BR-40 | Error | That code has expired. |
+| MSG11 | BR-19 | Error | You need an active plan covering this sport. |
+| MSG12 | BR-23 | Error | That offer has expired. |
+| MSG13 | BR-44 | Error | Open a till shift before taking payment. |
+| MSG14 | BR-30 | Error | That code was already used — ask the member to refresh it. |
+| MSG15 | VALIDATION | Error | This payment has already been refunded in full. |
+| MSG16 | FORBIDDEN | Error | You raised this refund, so someone else has to sign it off. |
+| MSG17 | CONFLICT\_STATE | Error | That refund is no longer waiting for a decision. |
+| MSG18 | BR-35 | Error | This register closed 2 hours after the session. Ask a manager to correct it. |
+| MSG19 | FORBIDDEN | Error | You do not have permission. |
+| MSG20 | RATE\_LIMITED | Error | Too many attempts — try again later. |
+| MSG21 | BR-50 | Error | Only {stock} {item} left — you asked for {quantity}. |
