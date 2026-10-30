@@ -1,0 +1,654 @@
+[
+  {
+    "role": "manager",
+    "route": "/manager",
+    "vp": "desktop",
+    "violations": [],
+    "overflow": 0,
+    "small": 0,
+    "noName": 0,
+    "errors": [
+      "Failed to load resource: net::ERR_BLOCKED_BY_RESPONSE.NotSameOrigin"
+    ]
+  },
+  {
+    "role": "manager",
+    "route": "/manager/members",
+    "vp": "desktop",
+    "violations": [],
+    "overflow": 0,
+    "small": 0,
+    "noName": 0,
+    "errors": [
+      "Failed to load resource: net::ERR_BLOCKED_BY_RESPONSE.NotSameOrigin"
+    ]
+  },
+  {
+    "role": "manager",
+    "route": "/manager/classes",
+    "vp": "desktop",
+    "violations": [],
+    "overflow": 0,
+    "small": 0,
+    "noName": 0,
+    "errors": [
+      "Failed to load resource: net::ERR_BLOCKED_BY_RESPONSE.NotSameOrigin"
+    ]
+  },
+  {
+    "role": "manager",
+    "route": "/manager/staff",
+    "vp": "desktop",
+    "violations": [],
+    "overflow": 0,
+    "small": 0,
+    "noName": 0,
+    "errors": [
+      "Failed to load resource: net::ERR_BLOCKED_BY_RESPONSE.NotSameOrigin"
+    ]
+  },
+  {
+    "role": "manager",
+    "route": "/manager/audit",
+    "vp": "desktop",
+    "violations": [],
+    "overflow": 0,
+    "small": 0,
+    "noName": 0,
+    "errors": [
+      "Failed to load resource: net::ERR_BLOCKED_BY_RESPONSE.NotSameOrigin"
+    ]
+  },
+  {
+    "role": "manager",
+    "route": "/manager/attendance",
+    "vp": "desktop",
+    "violations": [],
+    "overflow": 0,
+    "small": 0,
+    "noName": 0,
+    "errors": [
+      "Failed to load resource: net::ERR_BLOCKED_BY_RESPONSE.NotSameOrigin"
+    ]
+  },
+  {
+    "role": "manager",
+    "route": "/manager/plans",
+    "vp": "desktop",
+    "violations": [],
+    "overflow": 0,
+    "small": 0,
+    "noName": 0,
+    "errors": [
+      "Failed to load resource: net::ERR_BLOCKED_BY_RESPONSE.NotSameOrigin"
+    ]
+  },
+  {
+    "role": "manager",
+    "route": "/manager/promos",
+    "vp": "desktop",
+    "violations": [],
+    "overflow": 0,
+    "small": 0,
+    "noName": 0,
+    "errors": [
+      "Failed to load resource: net::ERR_BLOCKED_BY_RESPONSE.NotSameOrigin"
+    ]
+  },
+  {
+    "role": "manager",
+    "route": "/manager/prices",
+    "vp": "desktop",
+    "violations": [],
+    "overflow": 0,
+    "small": 2,
+    "noName": 0,
+    "errors": [
+      "Failed to load resource: net::ERR_BLOCKED_BY_RESPONSE.NotSameOrigin"
+    ]
+  },
+  {
+    "role": "manager",
+    "route": "/manager/settings",
+    "vp": "desktop",
+    "violations": [],
+    "overflow": 0,
+    "small": 1,
+    "noName": 0,
+    "errors": [
+      "Failed to load resource: net::ERR_BLOCKED_BY_RESPONSE.NotSameOrigin"
+    ]
+  },
+  {
+    "role": "manager",
+    "route": "/manager",
+    "vp": "mobile",
+    "violations": [],
+    "overflow": 0,
+    "small": 0,
+    "noName": 0,
+    "errors": [
+      "Failed to load resource: net::ERR_BLOCKED_BY_RESPONSE.NotSameOrigin"
+    ]
+  },
+  {
+    "role": "manager",
+    "route": "/manager/members",
+    "vp": "mobile",
+    "violations": [],
+    "overflow": 0,
+    "small": 0,
+    "noName": 0,
+    "errors": [
+      "Failed to load resource: net::ERR_BLOCKED_BY_RESPONSE.NotSameOrigin"
+    ]
+  },
+  {
+    "role": "manager",
+    "route": "/manager/classes",
+    "vp": "mobile",
+    "violations": [],
+    "overflow": 0,
+    "small": 0,
+    "noName": 0,
+    "errors": [
+      "Failed to load resource: net::ERR_BLOCKED_BY_RESPONSE.NotSameOrigin"
+    ]
+  },
+  {
+    "role": "manager",
+    "route": "/manager/staff",
+    "vp": "mobile",
+    "violations": [],
+    "overflow": 0,
+    "small": 0,
+    "noName": 0,
+    "errors": [
+      "Failed to load resource: net::ERR_BLOCKED_BY_RESPONSE.NotSameOrigin"
+    ]
+  },
+  {
+    "role": "manager",
+    "route": "/manager/audit",
+    "vp": "mobile",
+    "violations": [],
+    "overflow": 0,
+    "small": 0,
+    "noName": 0,
+    "errors": [
+      "Failed to load resource: net::ERR_BLOCKED_BY_RESPONSE.NotSameOrigin"
+    ]
+  },
+  {
+    "role": "manager",
+    "route": "/manager/attendance",
+    "vp": "mobile",
+    "violations": [],
+    "overflow": 0,
+    "small": 0,
+    "noName": 0,
+    "errors": [
+      "Failed to load resource: net::ERR_BLOCKED_BY_RESPONSE.NotSameOrigin"
+    ]
+  },
+  {
+    "role": "manager",
+    "route": "/manager/plans",
+    "vp": "mobile",
+    "violations": [],
+    "overflow": 0,
+    "small": 0,
+    "noName": 0,
+    "errors": [
+      "Failed to load resource: net::ERR_BLOCKED_BY_RESPONSE.NotSameOrigin"
+    ]
+  },
+  {
+    "role": "manager",
+    "route": "/manager/promos",
+    "vp": "mobile",
+    "violations": [],
+    "overflow": 0,
+    "small": 0,
+    "noName": 0,
+    "errors": [
+      "Failed to load resource: net::ERR_BLOCKED_BY_RESPONSE.NotSameOrigin"
+    ]
+  },
+  {
+    "role": "manager",
+    "route": "/manager/prices",
+    "vp": "mobile",
+    "violations": [],
+    "overflow": 0,
+    "small": 1,
+    "noName": 0,
+    "errors": [
+      "Failed to load resource: net::ERR_BLOCKED_BY_RESPONSE.NotSameOrigin"
+    ]
+  },
+  {
+    "role": "manager",
+    "route": "/manager/settings",
+    "vp": "mobile",
+    "violations": [],
+    "overflow": 0,
+    "small": 1,
+    "noName": 0,
+    "errors": [
+      "Failed to load resource: net::ERR_BLOCKED_BY_RESPONSE.NotSameOrigin"
+    ]
+  },
+  {
+    "role": "receptionist",
+    "route": "/desk",
+    "vp": "desktop",
+    "violations": [],
+    "overflow": 0,
+    "small": 0,
+    "noName": 0,
+    "errors": [
+      "Failed to load resource: net::ERR_BLOCKED_BY_RESPONSE.NotSameOrigin",
+      "Failed to load resource: the server responded with a status of 404 ()"
+    ]
+  },
+  {
+    "role": "receptionist",
+    "route": "/desk/gate",
+    "vp": "desktop",
+    "violations": [],
+    "overflow": 0,
+    "small": 0,
+    "noName": 0,
+    "errors": [
+      "Failed to load resource: net::ERR_BLOCKED_BY_RESPONSE.NotSameOrigin"
+    ]
+  },
+  {
+    "role": "receptionist",
+    "route": "/desk/payments",
+    "vp": "desktop",
+    "violations": [],
+    "overflow": 0,
+    "small": 0,
+    "noName": 0,
+    "errors": [
+      "Failed to load resource: net::ERR_BLOCKED_BY_RESPONSE.NotSameOrigin",
+      "Failed to load resource: the server responded with a status of 404 ()"
+    ]
+  },
+  {
+    "role": "receptionist",
+    "route": "/desk/at-risk",
+    "vp": "desktop",
+    "violations": [],
+    "overflow": 0,
+    "small": 20,
+    "noName": 0,
+    "errors": [
+      "Failed to load resource: net::ERR_BLOCKED_BY_RESPONSE.NotSameOrigin"
+    ]
+  },
+  {
+    "role": "receptionist",
+    "route": "/desk/classes",
+    "vp": "desktop",
+    "violations": [],
+    "overflow": 0,
+    "small": 0,
+    "noName": 0,
+    "errors": [
+      "Failed to load resource: net::ERR_BLOCKED_BY_RESPONSE.NotSameOrigin"
+    ]
+  },
+  {
+    "role": "receptionist",
+    "route": "/desk/gear",
+    "vp": "desktop",
+    "violations": [],
+    "overflow": 0,
+    "small": 0,
+    "noName": 0,
+    "errors": [
+      "Failed to load resource: net::ERR_BLOCKED_BY_RESPONSE.NotSameOrigin"
+    ]
+  },
+  {
+    "role": "receptionist",
+    "route": "/desk",
+    "vp": "mobile",
+    "violations": [],
+    "overflow": 0,
+    "small": 0,
+    "noName": 0,
+    "errors": [
+      "Failed to load resource: net::ERR_BLOCKED_BY_RESPONSE.NotSameOrigin",
+      "Failed to load resource: the server responded with a status of 404 ()"
+    ]
+  },
+  {
+    "role": "receptionist",
+    "route": "/desk/gate",
+    "vp": "mobile",
+    "violations": [],
+    "overflow": 0,
+    "small": 0,
+    "noName": 0,
+    "errors": [
+      "Failed to load resource: net::ERR_BLOCKED_BY_RESPONSE.NotSameOrigin"
+    ]
+  },
+  {
+    "role": "receptionist",
+    "route": "/desk/payments",
+    "vp": "mobile",
+    "violations": [],
+    "overflow": 0,
+    "small": 0,
+    "noName": 0,
+    "errors": [
+      "Failed to load resource: net::ERR_BLOCKED_BY_RESPONSE.NotSameOrigin",
+      "Failed to load resource: the server responded with a status of 404 ()"
+    ]
+  },
+  {
+    "role": "receptionist",
+    "route": "/desk/at-risk",
+    "vp": "mobile",
+    "violations": [],
+    "overflow": 0,
+    "small": 20,
+    "noName": 0,
+    "errors": [
+      "Failed to load resource: net::ERR_BLOCKED_BY_RESPONSE.NotSameOrigin"
+    ]
+  },
+  {
+    "role": "receptionist",
+    "route": "/desk/classes",
+    "vp": "mobile",
+    "violations": [],
+    "overflow": 0,
+    "small": 0,
+    "noName": 0,
+    "errors": [
+      "Failed to load resource: net::ERR_BLOCKED_BY_RESPONSE.NotSameOrigin"
+    ]
+  },
+  {
+    "role": "receptionist",
+    "route": "/desk/gear",
+    "vp": "mobile",
+    "violations": [],
+    "overflow": 0,
+    "small": 0,
+    "noName": 0,
+    "errors": [
+      "Failed to load resource: net::ERR_BLOCKED_BY_RESPONSE.NotSameOrigin"
+    ]
+  },
+  {
+    "role": "coach",
+    "route": "/coach",
+    "vp": "desktop",
+    "violations": [],
+    "overflow": 0,
+    "small": 0,
+    "noName": 0,
+    "errors": [
+      "Failed to load resource: net::ERR_BLOCKED_BY_RESPONSE.NotSameOrigin"
+    ]
+  },
+  {
+    "role": "coach",
+    "route": "/coach/attendance",
+    "vp": "desktop",
+    "violations": [],
+    "overflow": 0,
+    "small": 10,
+    "noName": 0,
+    "errors": [
+      "Failed to load resource: net::ERR_BLOCKED_BY_RESPONSE.NotSameOrigin"
+    ]
+  },
+  {
+    "role": "coach",
+    "route": "/coach",
+    "vp": "mobile",
+    "violations": [],
+    "overflow": 0,
+    "small": 0,
+    "noName": 0,
+    "errors": [
+      "Failed to load resource: net::ERR_BLOCKED_BY_RESPONSE.NotSameOrigin"
+    ]
+  },
+  {
+    "role": "coach",
+    "route": "/coach/attendance",
+    "vp": "mobile",
+    "violations": [],
+    "overflow": 0,
+    "small": 10,
+    "noName": 0,
+    "errors": [
+      "Failed to load resource: net::ERR_BLOCKED_BY_RESPONSE.NotSameOrigin"
+    ]
+  },
+  {
+    "role": "member",
+    "route": "/app",
+    "vp": "desktop",
+    "violations": [],
+    "overflow": 0,
+    "small": 3,
+    "noName": 0,
+    "errors": [
+      "Failed to load resource: net::ERR_BLOCKED_BY_RESPONSE.NotSameOrigin"
+    ]
+  },
+  {
+    "role": "member",
+    "route": "/app/book",
+    "vp": "desktop",
+    "violations": [],
+    "overflow": 0,
+    "small": 1,
+    "noName": 0,
+    "errors": [
+      "Failed to load resource: net::ERR_BLOCKED_BY_RESPONSE.NotSameOrigin"
+    ]
+  },
+  {
+    "role": "member",
+    "route": "/app/plans",
+    "vp": "desktop",
+    "violations": [],
+    "overflow": 0,
+    "small": 0,
+    "noName": 0,
+    "errors": [
+      "Failed to load resource: net::ERR_BLOCKED_BY_RESPONSE.NotSameOrigin"
+    ]
+  },
+  {
+    "role": "member",
+    "route": "/app/train",
+    "vp": "desktop",
+    "violations": [],
+    "overflow": 0,
+    "small": 0,
+    "noName": 0,
+    "errors": [
+      "Failed to load resource: net::ERR_BLOCKED_BY_RESPONSE.NotSameOrigin"
+    ]
+  },
+  {
+    "role": "member",
+    "route": "/app/pass",
+    "vp": "desktop",
+    "violations": [],
+    "overflow": 0,
+    "small": 0,
+    "noName": 0,
+    "errors": [
+      "Failed to load resource: net::ERR_BLOCKED_BY_RESPONSE.NotSameOrigin"
+    ]
+  },
+  {
+    "role": "member",
+    "route": "/app/classes",
+    "vp": "desktop",
+    "violations": [],
+    "overflow": 0,
+    "small": 0,
+    "noName": 0,
+    "errors": [
+      "Failed to load resource: net::ERR_BLOCKED_BY_RESPONSE.NotSameOrigin"
+    ]
+  },
+  {
+    "role": "member",
+    "route": "/app/assistant",
+    "vp": "desktop",
+    "violations": [],
+    "overflow": 0,
+    "small": 2,
+    "noName": 0,
+    "errors": [
+      "Failed to load resource: net::ERR_BLOCKED_BY_RESPONSE.NotSameOrigin"
+    ]
+  },
+  {
+    "role": "member",
+    "route": "/app/notifications",
+    "vp": "desktop",
+    "violations": [],
+    "overflow": 0,
+    "small": 1,
+    "noName": 0,
+    "errors": [
+      "Failed to load resource: net::ERR_BLOCKED_BY_RESPONSE.NotSameOrigin"
+    ]
+  },
+  {
+    "role": "member",
+    "route": "/account",
+    "vp": "desktop",
+    "violations": [],
+    "overflow": 0,
+    "small": 0,
+    "noName": 0,
+    "errors": [
+      "Failed to load resource: net::ERR_BLOCKED_BY_RESPONSE.NotSameOrigin"
+    ]
+  },
+  {
+    "role": "member",
+    "route": "/app",
+    "vp": "mobile",
+    "violations": [],
+    "overflow": 0,
+    "small": 2,
+    "noName": 0,
+    "errors": [
+      "Failed to load resource: net::ERR_BLOCKED_BY_RESPONSE.NotSameOrigin"
+    ]
+  },
+  {
+    "role": "member",
+    "route": "/app/book",
+    "vp": "mobile",
+    "violations": [],
+    "overflow": 0,
+    "small": 1,
+    "noName": 0,
+    "errors": [
+      "Failed to load resource: net::ERR_BLOCKED_BY_RESPONSE.NotSameOrigin"
+    ]
+  },
+  {
+    "role": "member",
+    "route": "/app/plans",
+    "vp": "mobile",
+    "violations": [],
+    "overflow": 0,
+    "small": 0,
+    "noName": 0,
+    "errors": [
+      "Failed to load resource: net::ERR_BLOCKED_BY_RESPONSE.NotSameOrigin"
+    ]
+  },
+  {
+    "role": "member",
+    "route": "/app/train",
+    "vp": "mobile",
+    "violations": [],
+    "overflow": 0,
+    "small": 0,
+    "noName": 0,
+    "errors": [
+      "Failed to load resource: net::ERR_BLOCKED_BY_RESPONSE.NotSameOrigin"
+    ]
+  },
+  {
+    "role": "member",
+    "route": "/app/pass",
+    "vp": "mobile",
+    "violations": [],
+    "overflow": 0,
+    "small": 0,
+    "noName": 0,
+    "errors": [
+      "Failed to load resource: net::ERR_BLOCKED_BY_RESPONSE.NotSameOrigin"
+    ]
+  },
+  {
+    "role": "member",
+    "route": "/app/classes",
+    "vp": "mobile",
+    "violations": [],
+    "overflow": 0,
+    "small": 0,
+    "noName": 0,
+    "errors": [
+      "Failed to load resource: net::ERR_BLOCKED_BY_RESPONSE.NotSameOrigin"
+    ]
+  },
+  {
+    "role": "member",
+    "route": "/app/assistant",
+    "vp": "mobile",
+    "violations": [],
+    "overflow": 0,
+    "small": 2,
+    "noName": 0,
+    "errors": [
+      "Failed to load resource: net::ERR_BLOCKED_BY_RESPONSE.NotSameOrigin"
+    ]
+  },
+  {
+    "role": "member",
+    "route": "/app/notifications",
+    "vp": "mobile",
+    "violations": [],
+    "overflow": 0,
+    "small": 1,
+    "noName": 0,
+    "errors": [
+      "Failed to load resource: net::ERR_BLOCKED_BY_RESPONSE.NotSameOrigin"
+    ]
+  },
+  {
+    "role": "member",
+    "route": "/account",
+    "vp": "mobile",
+    "violations": [],
+    "overflow": 0,
+    "small": 0,
+    "noName": 0,
+    "errors": [
+      "Failed to load resource: net::ERR_BLOCKED_BY_RESPONSE.NotSameOrigin"
+    ]
+  }
+]
