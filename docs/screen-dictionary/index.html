@@ -1,0 +1,838 @@
+<!doctype html><html lang="vi"><head><meta charset="utf-8"><title>Arena3: Từ điển màn hình</title>
+<link rel="stylesheet" href="../../node_modules/@fontsource/be-vietnam-pro/400.css">
+<link rel="stylesheet" href="../../node_modules/@fontsource/be-vietnam-pro/600.css">
+<link rel="stylesheet" href="../../node_modules/@fontsource/be-vietnam-pro/700.css">
+<style>
+@page { size: A4 landscape; margin: 0 }
+* { box-sizing: border-box }
+body { margin: 0; font-family: "Be Vietnam Pro", "Segoe UI", system-ui, sans-serif; color: #1c2616; background: #fff; -webkit-print-color-adjust: exact; print-color-adjust: exact }
+.page { width: 297mm; height: 210mm; padding: 9mm 11mm; page-break-after: always; display: flex; flex-direction: column; gap: 4mm; overflow: hidden; background: #f6f5ee }
+.cover { justify-content: center; padding: 18mm 22mm; background: #141d0f; color: #f6f5ee }
+.cover .brand { display: flex; align-items: center; gap: 4mm; margin-bottom: 8mm; font-size: 14pt; font-weight: 700 }
+.cover .brand i { width: 11mm; height: 11mm; border-radius: 2.5mm; background: #3f7d20; display: inline-block }
+.cover h1 { font-size: 36pt; margin: 0 0 5mm; font-weight: 700; letter-spacing: -.5px; line-height: 1.1 }
+.cover p { font-size: 12.5pt; max-width: 205mm; line-height: 1.55; margin: 0 0 2.5mm; color: #e6eed9 }
+.cover .legend { display: flex; gap: 3mm; margin-top: 8mm; flex-wrap: wrap }
+.cover .legend span { padding: 1.8mm 4mm; border-radius: 99px; background: #ffffff; color: #1c2616; font-size: 10.5pt; font-weight: 600; border-left: 5mm solid }
+.cover .how { margin-top: 5mm; color: #f6f5ee } .cover .how .num { display: inline-block; vertical-align: middle; margin-right: 2mm }
+.idx { padding: 10mm 12mm }
+.idx h2 { margin: 0 0 5mm; font-size: 20pt; letter-spacing: -.3px; color: #1c2616 }
+.idx-wrap { columns: 3; column-gap: 8mm; font-size: 9pt }
+.idx-role { break-inside: avoid; margin-bottom: 4mm }
+.idx-role h3 { margin: 0 0 1.5mm; font-size: 11pt }
+.idx-role ul { list-style: none; margin: 0; padding: 0 }
+.idx-role li { border-bottom: .2mm solid #e4e1d3; padding: .8mm 0 }
+.idx-role a { color: inherit; text-decoration: none } .idx-role b { color: #5f6857; font-weight: 600; margin-right: 1.5mm }
+.gloss { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 3.5mm 7mm; margin: 0; font-size: 8.8pt; line-height: 1.4 }
+.gloss dt { font-weight: 700; color: #356b1b; margin-bottom: .5mm } .gloss dd { margin: 0; color: #4a5443 }
+.lead { font-size: 10.5pt; color: #4a5443; max-width: 230mm; margin: 0 0 6mm; line-height: 1.5 } .lead.small { margin-top: 6mm; font-size: 9.5pt }
+.key { display: grid; grid-template-columns: 1fr 1fr; gap: 4mm 10mm }
+.kc { display: flex; gap: 4mm; align-items: center; background: #ffffff; border-radius: 3mm; padding: 3.5mm 4mm; box-shadow: 0 0 0 .3mm #e4e1d3 }
+.sw { width: 16mm; height: 9mm; border-radius: 1.2mm; flex: none; display: grid; place-items: center; font-weight: 700; font-size: 13pt }
+.kc strong { display: block; font-size: 11pt; color: #1c2616 } .kc span { color: #4a5443; font-size: 9pt; line-height: 1.4 }
+.day header { margin-bottom: 5mm }
+.flow { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4mm }
+.flow li { display: flex; align-items: center; gap: 5mm; padding: 4mm 5mm; background: #ffffff; border-radius: 3mm; box-shadow: 0 0 0 .3mm #e4e1d3; position: relative }
+.flow li:not(:last-child)::after { content: "▼"; position: absolute; left: 11mm; bottom: -4.6mm; font-size: 8pt; color: #c9c4ae; background: #f6f5ee; line-height: 1 }
+.flow a { color: #fff; background: #141d0f; border-radius: 2mm; padding: 1.5mm 3mm; text-decoration: none; font-size: 12pt }
+.flow strong { display: block; font-size: 13pt; color: #1c2616 } .flow span { color: #4a5443; font-size: 10.5pt }
+.app-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 8mm; align-items: start }
+.app { border-collapse: collapse; width: 100%; font-size: 8pt; line-height: 1.25 } .app th, .app td { border-bottom: .2mm solid #e4e1d3; padding: 1mm 2mm; text-align: left } .app th { color: #5f6857; font-size: 7.6pt; font-weight: 600 }
+header { display: flex; align-items: center; gap: 4mm }
+.code { color: #fff; font-weight: 700; font-size: 13pt; padding: 1.5mm 3.2mm; border-radius: 2mm }
+.titles h2 { margin: 0; font-size: 20pt; line-height: 1.1; letter-spacing: -.3px; color: #1c2616 } .titles small { font-size: 11pt; color: #5f6857; font-weight: 400 }
+.meta { margin-left: auto }
+.role { border: .35mm solid; border-radius: 99px; padding: .6mm 3mm; font-size: 9pt; font-weight: 600; background: #ffffff }
+code { font-family: Consolas, monospace; font-size: 8pt; color: #4a5443 }
+.shots { display: flex; gap: 5mm; align-items: flex-start; flex: 1; min-height: 0 }
+figure { margin: 0 } figcaption { font-size: 7.5pt; color: #5f6857; text-align: center; margin-top: 1mm; font-weight: 600 }
+.desk img { width: 188mm; height: auto; display: block; border-radius: 2mm; box-shadow: 0 0 0 .3mm #c9c4ae, 0 1mm 3mm rgba(28,38,22,.1) }
+.desk.wide img { width: 260mm }
+.desk.narrow img { width: 110mm }
+.mob img { height: 113mm; width: auto; display: block; border-radius: 4mm; border: .6mm solid #141d0f; box-shadow: 0 1mm 3mm rgba(28,38,22,.18) }
+.info { display: grid; grid-template-columns: 1.4fr 1fr 1.1fr; gap: 6mm; font-size: 9pt; line-height: 1.42 }
+.info.two { grid-template-columns: 1fr 1.6fr }
+.info h4 { margin: 0 0 1mm; font-size: 8pt; font-weight: 700; color: #5f6857 }
+.info p { margin: 0 0 1mm } .info .from { color: #1c2616; margin-top: 1.5mm }
+.info .note { color: #7a4207; background: #efe5d4; border-radius: 1.5mm; padding: 1mm 2mm; font-size: 8.3pt }
+.info ul { margin: 0; padding: 0; list-style: none } .info li { margin-bottom: .8mm; display: flex; gap: 2mm; align-items: flex-start }
+.info li.plain::before { content: "•"; width: 5mm; text-align: center; flex: none; color: #c9c4ae }
+.num { background: #e11d74; color: #fff; width: 5mm; height: 5mm; flex: none; border-radius: 50%; text-align: center; font: 700 8pt/5mm Arial }
+</style></head><body>
+<section class="page cover">
+  <div class="brand"><i></i>Arena3</div>
+  <h1>Từ điển màn hình</h1>
+  <p>Ảnh chụp thật của từng màn hình trong giao diện mới (tiếng Việt), kèm lời giải thích: màn hình để làm gì, ai dùng, vào bằng đâu, và làm được gì ở đó.</p>
+  <p>Mỗi trang là một màn hình: bên trái là ảnh trên máy tính (1440×900), bên phải là ảnh trên điện thoại (390×844). Màn nào cần xem thêm có một trang tiếp theo. Tên người, gói và giá là dữ liệu mẫu.</p>
+  <p class="how"><b class="num">1</b> Số hồng trên ảnh chỉ đúng nút được nhắc ở cột «Làm được gì ở đây».</p>
+  <p><b>45 màn hình</b> · 5 nhóm người dùng · Ngày chụp: <b>15/10/2026</b> · Nhánh: <b>working</b> · <b>Theme xanh mạ + nâu</b></p>
+  <div class="legend"><span style="border-left-color:#5f6857">Khách (chưa đăng nhập)</span><span style="border-left-color:#3f7d20">Hội viên</span><span style="border-left-color:#7a4a24">Lễ tân</span><span style="border-left-color:#356b1b">Huấn luyện viên</span><span style="border-left-color:#4a2f17">Quản lý</span></div>
+</section>
+<section class="page idx"><h2>Mục lục</h2><div class="idx-wrap"><div class="idx-role"><h3 style="color:#5f6857">Khách (chưa đăng nhập)</h3><ul><li><a href="#S01"><b>S01</b> Trang chủ</a></li><li><a href="#S02"><b>S02</b> Đăng nhập</a></li><li><a href="#S03"><b>S03</b> Tạo tài khoản</a></li><li><a href="#S04"><b>S04</b> Quên mật khẩu</a></li><li><a href="#S44"><b>S44</b> Điều khoản sử dụng</a></li><li><a href="#S45"><b>S45</b> Thông báo về dữ liệu cá nhân</a></li></ul></div><div class="idx-role"><h3 style="color:#3f7d20">Hội viên</h3><ul><li><a href="#S05"><b>S05</b> Trang chủ hội viên</a></li><li><a href="#S06"><b>S06</b> Đặt sân</a></li><li><a href="#S07"><b>S07</b> Lớp học</a></li><li><a href="#S08"><b>S08</b> Tiến độ tập luyện</a></li><li><a href="#S09"><b>S09</b> Gói tập</a></li><li><a href="#S10"><b>S10</b> Điểm thưởng</a></li><li><a href="#S11"><b>S11</b> Mã QR vào cổng</a></li><li><a href="#S12"><b>S12</b> Trợ lý</a></li><li><a href="#S13"><b>S13</b> Thông báo</a></li><li><a href="#S14"><b>S14</b> Tài khoản</a></li><li><a href="#S15"><b>S15</b> Kết quả thanh toán online</a></li></ul></div><div class="idx-role"><h3 style="color:#7a4a24">Lễ tân</h3><ul><li><a href="#S16"><b>S16</b> Quầy lễ tân</a></li><li><a href="#S17"><b>S17</b> Cổng</a></li><li><a href="#S18"><b>S18</b> Sơ đồ sân</a></li><li><a href="#S19"><b>S19</b> Thanh toán</a></li><li><a href="#S20"><b>S20</b> Đặt sân cố định</a></li><li><a href="#S21"><b>S21</b> Sắp rời bỏ</a></li><li><a href="#S22"><b>S22</b> Lớp học (quầy)</a></li><li><a href="#S23"><b>S23</b> Dụng cụ</a></li><li><a href="#S24"><b>S24</b> Bảo trì</a></li><li><a href="#S25"><b>S25</b> Hồ sơ hội viên</a></li><li><a href="#S26"><b>S26</b> Cảnh báo</a></li></ul></div><div class="idx-role"><h3 style="color:#356b1b">Huấn luyện viên</h3><ul><li><a href="#S27"><b>S27</b> Lịch dạy</a></li><li><a href="#S28"><b>S28</b> Điểm danh</a></li><li><a href="#S29"><b>S29</b> Lớp học (huấn luyện viên)</a></li><li><a href="#S30"><b>S30</b> Hồ sơ học viên</a></li><li><a href="#S31"><b>S31</b> Thu nhập</a></li></ul></div><div class="idx-role"><h3 style="color:#4a2f17">Quản lý</h3><ul><li><a href="#S32"><b>S32</b> Báo cáo</a></li><li><a href="#S33"><b>S33</b> Lớp học (quản lý)</a></li><li><a href="#S34"><b>S34</b> Hội viên</a></li><li><a href="#S35"><b>S35</b> Điểm danh (báo cáo)</a></li><li><a href="#S36"><b>S36</b> Nhân viên</a></li><li><a href="#S37"><b>S37</b> Gói tập (quản lý)</a></li><li><a href="#S38"><b>S38</b> Khuyến mãi</a></li><li><a href="#S39"><b>S39</b> Bảng giá</a></li><li><a href="#S40"><b>S40</b> Hoa hồng huấn luyện viên</a></li><li><a href="#S41"><b>S41</b> Xuất hoá đơn điện tử</a></li><li><a href="#S42"><b>S42</b> Nhật ký thao tác</a></li><li><a href="#S43"><b>S43</b> Cài đặt trung tâm</a></li></ul></div><div class="idx-role"><h3 style="color:#5f6857">Trang hướng dẫn</h3><ul><li><a href="#GLOSS"><b>▶</b> Từ khó hiểu</a></li><li><a href="#GRID"><b>▶</b> Đọc lưới sân</a></li><li><a href="#DAYS"><b>▶</b> Một ngày của từng vai</a></li><li><a href="#MORE"><b>▶</b> Menu «Thêm»</a></li><li><a href="#DARK-APPENDIX"><b>▶</b> Phụ lục: Chế độ tối</a></li><li><a href="#APPENDIX"><b>▶</b> Phụ lục kỹ thuật</a></li></ul></div></div></section>
+
+<section class="page idx" id="GLOSS">
+  <h2>Từ khó hiểu, giải thích một lần</h2>
+  <dl class="gloss">
+    <div><dt>Giữ sân 5 phút</dt><dd>Khi hội viên chạm một giờ trống, sân được giữ riêng 5 phút để họ thanh toán. Hết 5 phút mà chưa trả thì sân trả lại cho người khác.</dd></div>
+    <div><dt>Giờ còn trống (điện thoại)</dt><dd>Dải giờ phía trên lưới sân: chạm một giờ là hệ thống tự chọn một sân còn trống trong giờ đó, không cần dò từng sân.</dd></div>
+    <div><dt>Mã QR vào cổng</dt><dd>Mã trên điện thoại hội viên, tự đổi mỗi phút. Lễ tân quét để cho vào. Chụp màn hình cũng không dùng lại được.</dd></div>
+    <div><dt>Mở ca, ca thu ngân</dt><dd>Mỗi lần lễ tân bắt đầu thu tiền thì mở ca (như mở két). Cuối ca đóng ca để đối chiếu tiền. Chưa mở ca thì không thu được tiền.</dd></div>
+    <div><dt>Đối soát chuyển khoản</dt><dd>Kiểm tra khoản khách nói đã chuyển có thật sự vào tài khoản trung tâm chưa. Có thì xác nhận, không thấy thì báo lại.</dd></div>
+    <div><dt>Hoàn tiền chờ quản lý</dt><dd>Lễ tân đề nghị trả lại tiền; vượt hạn mức thì quản lý phải đồng ý mới trả. Tránh trả nhầm.</dd></div>
+    <div><dt>Đặt sân cố định</dt><dd>Cùng sân, cùng giờ, mỗi tuần, trả trước cả đợt 4 đến 12 tuần và được giảm giá.</dd></div>
+    <div><dt>Danh sách chờ</dt><dd>Lớp đầy thì hội viên xếp hàng chờ; có người rời lớp thì người đầu hàng được mời vào.</dd></div>
+    <div><dt>Sắp rời bỏ</dt><dd>Hội viên vắng liên tiếp, lâu không đến hoặc gói sắp hết. Nhân viên gọi nhắc để giữ chân họ.</dd></div>
+    <div><dt>Điểm thưởng</dt><dd>Mỗi 10.000đ chi tiêu được 1 điểm, 1 điểm trị giá 100đ, đổi thành mã giảm giá.</dd></div>
+    <div><dt>Hoa hồng huấn luyện viên</dt><dd>Một khoản cho mỗi buổi đã dạy cộng thêm cho mỗi học viên có mặt, chốt theo tháng.</dd></div>
+    <div><dt>Mã xác nhận 6 số</dt><dd>Mã gửi qua email để chứng minh đúng người khi tạo tài khoản hoặc quên mật khẩu.</dd></div>
+    <div><dt>Trợ lý AI</dt><dd>Chat trả lời hội viên dựa trên dữ liệu thật của trung tâm. AI chỉ gợi ý; con người duyệt việc quan trọng.</dd></div>
+    <div><dt>Nhật ký thao tác</dt><dd>Sổ tự ghi ai làm gì lúc nào, kèm giá trị trước và sau. Không ai sửa hay xoá được.</dd></div>
+  </dl>
+</section>
+
+<section class="page idx" id="GRID">
+  <h2>Đọc lưới sân</h2>
+  <p class="lead">Lưới sân xuất hiện ở trang chủ (S01), màn Đặt sân của hội viên (S06) và Sơ đồ sân của lễ tân (S18). Mỗi hàng là một giờ, mỗi cột là một sân. Cả ba nơi dùng chung bảng màu dưới đây (theme xanh mạ + nâu).</p>
+  <div class="key"><div class="kc"><span class="sw" style="background:#ffffff;box-shadow:inset 0 0 0 1px rgba(63,125,32,.5);color:#3f7d20">+</span><div><strong>Trống</strong><span>Viền xanh mạ có dấu +. Bấm vào được. Đây là ô nổi bật nhất trên lưới.</span></div></div><div class="kc"><span class="sw" style="background:repeating-linear-gradient(45deg,rgba(28,38,22,.12) 0 3px,transparent 3px 7px),rgba(178,94,9,.15);border:1px dashed #b25e09"></span><div><strong>Đang giữ chỗ</strong><span>Ai đó đang giữ 5 phút để thanh toán. Viền cam hổ phách đứt nét vì trạng thái này tự hết.</span></div></div><div class="kc"><span class="sw" style="background:rgba(63,125,32,.18)"></span><div><strong>Đã đặt</strong><span>Đã có người đặt. Nền xanh mạ nhạt, lùi về sau để ô trống nổi lên.</span></div></div><div class="kc"><span class="sw" style="background:#2f6118"></span><div><strong>Đang dùng</strong><span>Đã đặt và đang có người chơi đúng giờ này. Màu đậm duy nhất.</span></div></div><div class="kc"><span class="sw" style="background:#6b4423"></span><div><strong>Lớp</strong><span>Giờ của một lớp có huấn luyện viên (màu nâu đất).</span></div></div><div class="kc"><span class="sw" style="background:repeating-linear-gradient(45deg,rgba(28,38,22,.12) 0 3px,transparent 3px 7px),#efe5d4"></span><div><strong>Bảo trì</strong><span>Sân đang sửa, không bán. Gạch chéo trên nền nâu gỗ.</span></div></div><div class="kc"><span class="sw" style="background:repeating-linear-gradient(45deg,rgba(28,38,22,.12) 0 3px,transparent 3px 7px),rgba(201,196,174,.45)"></span><div><strong>Đã đóng</strong><span>Sân tạm đóng, không bán. Gạch chéo đậm hơn.</span></div></div><div class="kc"><span class="sw" style="background:rgba(239,229,212,.5)"></span><div><strong>Đã qua</strong><span>Giờ đã kết thúc. Mặc định được thu gọn; bấm «Hiện … giờ đã qua» để xem lại.</span></div></div></div>
+  <p class="lead small">Trên điện thoại, lưới chuyển thành từng thẻ sân vuốt ngang, phía trên có dải «Giờ còn trống». Hàng giờ hiện tại có chấm xanh ở cột giờ.</p>
+</section>
+
+<section class="page idx day" id="DAYS">
+  <header><span class="code" style="background:#3f7d20">▶</span><div class="titles"><h2>Một ngày của hội viên</h2></div><div class="meta"><span class="role" style="color:#3f7d20;border-color:#3f7d20">Hội viên</span></div></header>
+  <ol class="flow"><li><a href="#S05"><b>S05</b></a><div><strong>Trang chủ hội viên</strong><span>Xem lịch hôm nay và gói đang dùng</span></div></li><li><a href="#S06"><b>S06</b></a><div><strong>Đặt sân</strong><span>Chạm giờ trống, giữ sân 5 phút, thanh toán</span></div></li><li><a href="#S11"><b>S11</b></a><div><strong>Mã QR vào cổng</strong><span>Đến trung tâm, đưa mã cho lễ tân quét</span></div></li><li><a href="#S07"><b>S07</b></a><div><strong>Lớp học</strong><span>Đăng ký lớp có huấn luyện viên</span></div></li><li><a href="#S08"><b>S08</b></a><div><strong>Tiến độ</strong><span>Làm bài tập, đọc nhận xét</span></div></li></ol>
+</section>
+<section class="page idx day">
+  <header><span class="code" style="background:#7a4a24">▶</span><div class="titles"><h2>Một ngày của lễ tân</h2></div><div class="meta"><span class="role" style="color:#7a4a24;border-color:#7a4a24">Lễ tân</span></div></header>
+  <ol class="flow"><li><a href="#S16"><b>S16</b></a><div><strong>Quầy</strong><span>Mở ca, xem «Ngay lúc này», tìm hội viên</span></div></li><li><a href="#S17"><b>S17</b></a><div><strong>Cổng</strong><span>Quét QR cho khách vào</span></div></li><li><a href="#S18"><b>S18</b></a><div><strong>Sơ đồ sân</strong><span>Bán giờ trống cho khách vãng lai</span></div></li><li><a href="#S19"><b>S19</b></a><div><strong>Thanh toán</strong><span>Thu tiền, đối soát chuyển khoản</span></div></li><li><a href="#S21"><b>S21</b></a><div><strong>Sắp rời bỏ</strong><span>Gọi nhắc hội viên lâu không đến</span></div></li></ol>
+</section>
+<section class="page idx day">
+  <header><span class="code" style="background:#356b1b">▶</span><div class="titles"><h2>Một ngày của huấn luyện viên</h2></div><div class="meta"><span class="role" style="color:#356b1b;border-color:#356b1b">Huấn luyện viên</span></div></header>
+  <ol class="flow"><li><a href="#S27"><b>S27</b></a><div><strong>Lịch dạy</strong><span>Xem buổi tiếp theo</span></div></li><li><a href="#S28"><b>S28</b></a><div><strong>Điểm danh</strong><span>Đánh dấu từng học viên, lưu sổ, lên giáo án</span></div></li><li><a href="#S30"><b>S30</b></a><div><strong>Hồ sơ học viên</strong><span>Xem ghi chú sức khoẻ, nhận xét tiến bộ</span></div></li><li><a href="#S31"><b>S31</b></a><div><strong>Thu nhập</strong><span>Đối chiếu buổi đã dạy trong tháng</span></div></li></ol>
+</section>
+<section class="page idx day">
+  <header><span class="code" style="background:#4a2f17">▶</span><div class="titles"><h2>Một ngày của quản lý</h2></div><div class="meta"><span class="role" style="color:#4a2f17;border-color:#4a2f17">Quản lý</span></div></header>
+  <ol class="flow"><li><a href="#S32"><b>S32</b></a><div><strong>Báo cáo</strong><span>Xem doanh thu, công suất sân, xuất file</span></div></li><li><a href="#S35"><b>S35</b></a><div><strong>Điểm danh</strong><span>Xem ai thực sự đến tập</span></div></li><li><a href="#S37"><b>S37</b></a><div><strong>Gói tập</strong><span>Tạo hoặc sửa gói đang bán</span></div></li><li><a href="#S36"><b>S36</b></a><div><strong>Nhân viên</strong><span>Cấp tài khoản lễ tân và huấn luyện viên</span></div></li><li><a href="#S42"><b>S42</b></a><div><strong>Nhật ký thao tác</strong><span>Kiểm tra ai đã làm gì</span></div></li></ol>
+</section>
+
+<section class="page" id="S01">
+  <header><span class="code" style="background:#5f6857">S01</span><div class="titles"><h2>Trang chủ</h2></div><div class="meta"><span class="role" style="color:#5f6857;border-color:#5f6857">Khách (chưa đăng nhập)</span></div></header>
+  <div class="shots">
+    <figure class="desk"><img src="img/S01-d.jpg" alt=""><figcaption>Trên máy tính</figcaption></figure>
+    <figure class="mob"><img src="img/S01-m.jpg" alt=""><figcaption>Trên điện thoại</figcaption></figure>
+  </div>
+  <div class="info">
+    <div><h4>Dùng để làm gì</h4><p>Trang giới thiệu cho người chưa có tài khoản. Phần đầu nói ngay điều quan trọng nhất: trung tâm đang mở cửa không, hôm nay còn bao nhiêu giờ sân trống, giá từ bao nhiêu. Cuộn xuống là lịch sân trống trực tiếp, bảng giá theo môn, gói hội viên (chia theo môn), lớp đang mở, huấn luyện viên, cảm nhận của hội viên và thông tin ghé trung tâm.</p><p class="note">Ảnh là phần đầu trang. Lịch sân, bảng giá, gói, lớp và huấn luyện viên nằm phía dưới (ảnh trang sau là lịch sân trống).</p></div>
+    <div><h4>Ai dùng, vào bằng đâu</h4><p>Bất kỳ ai vào website, chưa cần tài khoản.</p><p class="from"><b>Vào bằng đâu:</b> Mở website của trung tâm</p></div>
+    <div><h4>Làm được gì ở đây</h4><ul><li><b class="num">1</b><span>Bấm «Đặt sân» để xuống thẳng lịch sân trống</span></li><li class="plain"><span>Bấm «Xem bảng giá» để xem giá theo môn</span></li><li class="plain"><span>Chạm một giờ trống trên lưới: trang báo giá và mời đăng nhập để giữ sân</span></li><li><b class="num">2</b><span>Đăng nhập hoặc tạo tài khoản</span></li><li class="plain"><span>Đổi ngôn ngữ EN | VI</span></li></ul></div>
+  </div>
+</section>
+<section class="page" id="S01x">
+  <header><span class="code" style="background:#5f6857">S01</span><div class="titles"><h2>Trang chủ <small>(trang tiếp)</small></h2></div><div class="meta"><span class="role" style="color:#5f6857;border-color:#5f6857">Khách (chưa đăng nhập)</span></div></header>
+  <div class="shots"><figure class="desk wide"><img src="img/S01-x.jpg" alt=""><figcaption>Cuộn xuống: lịch sân trống trực tiếp</figcaption></figure></div>
+</section>
+
+<section class="page" id="S02">
+  <header><span class="code" style="background:#5f6857">S02</span><div class="titles"><h2>Đăng nhập</h2></div><div class="meta"><span class="role" style="color:#5f6857;border-color:#5f6857">Khách (chưa đăng nhập)</span></div></header>
+  <div class="shots">
+    <figure class="desk"><img src="img/S02-d.jpg" alt=""><figcaption>Trên máy tính</figcaption></figure>
+    <figure class="mob"><img src="img/S02-m.jpg" alt=""><figcaption>Trên điện thoại</figcaption></figure>
+  </div>
+  <div class="info">
+    <div><h4>Dùng để làm gì</h4><p>Cửa vào chung của mọi người. Nhập số điện thoại (hoặc email) và mật khẩu; hệ thống tự đưa bạn đến đúng khu theo vai trò: quản lý, lễ tân, huấn luyện viên hay hội viên.</p><p class="note">Hàng «Tài khoản demo» chỉ có ở bản xem thử để người xem đăng nhập nhanh. Bản chạy thật tắt hàng này (biến VITE_DEMO_LOGINS).</p></div>
+    <div><h4>Ai dùng, vào bằng đâu</h4><p>Hội viên và nhân viên đã có tài khoản.</p><p class="from"><b>Vào bằng đâu:</b> Bấm «Đăng nhập» ở trang chủ</p></div>
+    <div><h4>Làm được gì ở đây</h4><ul><li class="plain"><span>Nhập số điện thoại hoặc email, và mật khẩu</span></li><li><b class="num">1</b><span>Bấm «Quên mật khẩu?» nếu quên</span></li><li><b class="num">2</b><span>Bấm «Tạo tài khoản» nếu chưa có</span></li></ul></div>
+  </div>
+</section>
+
+<section class="page" id="S03">
+  <header><span class="code" style="background:#5f6857">S03</span><div class="titles"><h2>Tạo tài khoản</h2></div><div class="meta"><span class="role" style="color:#5f6857;border-color:#5f6857">Khách (chưa đăng nhập)</span></div></header>
+  <div class="shots">
+    <figure class="desk"><img src="img/S03-d.jpg" alt=""><figcaption>Trên máy tính</figcaption></figure>
+    <figure class="mob"><img src="img/S03-m.jpg" alt=""><figcaption>Trên điện thoại</figcaption></figure>
+  </div>
+  <div class="info">
+    <div><h4>Dùng để làm gì</h4><p>Người mới tự tạo tài khoản hội viên: họ tên, số điện thoại, email, ngày sinh, mật khẩu (từ 8 ký tự, có chữ và số). Người dưới 18 tuổi phải điền thêm người giám hộ. Hệ thống gửi mã 6 số qua email để xác nhận.</p><p class="note">C6: Ngày sinh để trống và ô đồng ý không tick sẵn; nút gửi mã chỉ bật khi người dùng tự chọn ngày sinh và tự đồng ý. Bước nhập mã chỉ hiện sau khi gửi mã.</p></div>
+    <div><h4>Ai dùng, vào bằng đâu</h4><p>Người chưa là hội viên.</p><p class="from"><b>Vào bằng đâu:</b> Bấm «Tạo tài khoản» ở trang đăng nhập</p></div>
+    <div><h4>Làm được gì ở đây</h4><ul><li class="plain"><span>Điền thông tin, tự chọn ngày sinh</span></li><li class="plain"><span>Tự tick ô đồng ý điều khoản và NĐ 13/2023</span></li><li><b class="num">1</b><span>Bấm «Gửi mã xác nhận»</span></li><li class="plain"><span>Nhập mã 6 số để hoàn tất</span></li></ul></div>
+  </div>
+</section>
+
+<section class="page" id="S04">
+  <header><span class="code" style="background:#5f6857">S04</span><div class="titles"><h2>Quên mật khẩu</h2></div><div class="meta"><span class="role" style="color:#5f6857;border-color:#5f6857">Khách (chưa đăng nhập)</span></div></header>
+  <div class="shots">
+    <figure class="desk"><img src="img/S04-d.jpg" alt=""><figcaption>Trên máy tính</figcaption></figure>
+    <figure class="mob"><img src="img/S04-m.jpg" alt=""><figcaption>Trên điện thoại</figcaption></figure>
+  </div>
+  <div class="info">
+    <div><h4>Dùng để làm gì</h4><p>Lấy lại mật khẩu: nhập số điện thoại, hệ thống gửi mã 6 số tới email đã đăng ký (hết hạn sau 5 phút), rồi đặt mật khẩu mới. Tài khoản không có email thì nhờ lễ tân đặt mật khẩu tạm.</p><p class="note">Ảnh là bước đầu. Bước nhập mã và mật khẩu mới chỉ hiện sau khi gửi mã.</p></div>
+    <div><h4>Ai dùng, vào bằng đâu</h4><p>Ai quên mật khẩu.</p><p class="from"><b>Vào bằng đâu:</b> Bấm «Quên mật khẩu?» ở trang đăng nhập</p></div>
+    <div><h4>Làm được gì ở đây</h4><ul><li><b class="num">1</b><span>Nhập số điện thoại, bấm «Gửi mã»</span></li><li class="plain"><span>Nhập mã 6 số và mật khẩu mới</span></li></ul></div>
+  </div>
+</section>
+
+<section class="page" id="S44">
+  <header><span class="code" style="background:#5f6857">S44</span><div class="titles"><h2>Điều khoản sử dụng</h2></div><div class="meta"><span class="role" style="color:#5f6857;border-color:#5f6857">Khách (chưa đăng nhập)</span></div></header>
+  <div class="shots">
+    <figure class="desk"><img src="img/S44-d.jpg" alt=""><figcaption>Trên máy tính</figcaption></figure>
+    <figure class="mob"><img src="img/S44-m.jpg" alt=""><figcaption>Trên điện thoại</figcaption></figure>
+  </div>
+  <div class="info">
+    <div><h4>Dùng để làm gì</h4><p>Quy định khi dùng app Arena3 và sử dụng dịch vụ tại trung tâm: tài khoản, đặt sân, lớp học, thanh toán và hoàn tiền.</p><p class="note">Trang văn bản pháp lý.</p></div>
+    <div><h4>Ai dùng, vào bằng đâu</h4><p>Bất kỳ ai vào website.</p><p class="from"><b>Vào bằng đâu:</b> Chân trang hoặc trang tạo tài khoản</p></div>
+    <div><h4>Làm được gì ở đây</h4><ul><li class="plain"><span>Đọc quy định sử dụng dịch vụ</span></li><li class="plain"><span>Bấm «Quay lại đăng ký» để tiếp tục tạo tài khoản</span></li><li class="plain"><span>Bấm «Thông báo về dữ liệu cá nhân» để đọc chính sách bảo mật</span></li></ul></div>
+  </div>
+</section>
+
+<section class="page" id="S45">
+  <header><span class="code" style="background:#5f6857">S45</span><div class="titles"><h2>Thông báo về dữ liệu cá nhân</h2></div><div class="meta"><span class="role" style="color:#5f6857;border-color:#5f6857">Khách (chưa đăng nhập)</span></div></header>
+  <div class="shots">
+    <figure class="desk"><img src="img/S45-d.jpg" alt=""><figcaption>Trên máy tính</figcaption></figure>
+    <figure class="mob"><img src="img/S45-m.jpg" alt=""><figcaption>Trên điện thoại</figcaption></figure>
+  </div>
+  <div class="info">
+    <div><h4>Dùng để làm gì</h4><p>Thông báo xử lý dữ liệu cá nhân theo Nghị định 13/2023/NĐ-CP: các dữ liệu thu thập, mục đích sử dụng, thời gian lưu trữ và quyền của chủ thể dữ liệu.</p><p class="note">Trang văn bản pháp lý.</p></div>
+    <div><h4>Ai dùng, vào bằng đâu</h4><p>Bất kỳ ai vào website.</p><p class="from"><b>Vào bằng đâu:</b> Chân trang hoặc trang tạo tài khoản</p></div>
+    <div><h4>Làm được gì ở đây</h4><ul><li class="plain"><span>Đọc thông báo dữ liệu cá nhân</span></li><li class="plain"><span>Bấm «Quay lại đăng ký» để tiếp tục tạo tài khoản</span></li><li class="plain"><span>Bấm «Điều khoản sử dụng» để đọc điều khoản</span></li></ul></div>
+  </div>
+</section>
+
+<section class="page" id="S05">
+  <header><span class="code" style="background:#3f7d20">S05</span><div class="titles"><h2>Trang chủ hội viên</h2></div><div class="meta"><span class="role" style="color:#3f7d20;border-color:#3f7d20">Hội viên</span></div></header>
+  <div class="shots">
+    <figure class="desk"><img src="img/S05-d.jpg" alt=""><figcaption>Trên máy tính</figcaption></figure>
+    <figure class="mob"><img src="img/S05-m.jpg" alt=""><figcaption>Trên điện thoại</figcaption></figure>
+  </div>
+  <div class="info">
+    <div><h4>Dùng để làm gì</h4><p>Màn hình đầu tiên sau khi đăng nhập. Trên cùng là các nhắc việc (gói sắp hết hạn, chỗ trống trong danh sách chờ). Sau đó là «Hôm nay» (sân và lớp trong ngày, có nút hủy), thẻ gói tập đang dùng, lối tắt và thông báo mới nhất.</p><p class="note">Trên điện thoại, lối tắt được ẩn vì thanh dưới đã có đủ các mục chính.</p></div>
+    <div><h4>Ai dùng, vào bằng đâu</h4><p>Hội viên.</p><p class="from"><b>Máy tính:</b> Thanh trên: «Lịch»<br><b>Điện thoại:</b> Thanh dưới: «Lịch»</p></div>
+    <div><h4>Làm được gì ở đây</h4><ul><li class="plain"><span>Bấm «Gia hạn» khi gói sắp hết</span></li><li><b class="num">1</b><span>Xem lịch hôm nay, bấm «Hủy» nếu cần</span></li><li class="plain"><span>Đọc thông báo, bấm «Mở hộp thư» để xem hết</span></li></ul></div>
+  </div>
+</section>
+
+<section class="page" id="S06">
+  <header><span class="code" style="background:#3f7d20">S06</span><div class="titles"><h2>Đặt sân</h2></div><div class="meta"><span class="role" style="color:#3f7d20;border-color:#3f7d20">Hội viên</span></div></header>
+  <div class="shots">
+    <figure class="desk"><img src="img/S06-d.jpg" alt=""><figcaption>Trên máy tính</figcaption></figure>
+    <figure class="mob"><img src="img/S06-m.jpg" alt=""><figcaption>Trên điện thoại</figcaption></figure>
+  </div>
+  <div class="info">
+    <div><h4>Dùng để làm gì</h4><p>Chọn ngày và môn, rồi chạm một giờ trống (ô viền xanh có dấu +) để giữ sân 5 phút. Thẻ giữ chỗ hiện đồng hồ đếm ngược, giá, và các cách trả: trừ giờ trong gói, thanh toán online hoặc chuyển khoản VietQR. Giờ đã qua được thu gọn. Trên điện thoại có dải «Giờ còn trống» để chọn theo giờ, hệ thống tự gán sân. Cột phải (máy tính) hoặc cuối trang (điện thoại) là các sân sắp tới của bạn, có «Đổi giờ» và «Hủy».</p><p class="note">C2, C4, C8, C10: Mã VietQR khi chuyển khoản (C2), giới hạn 2 lượt/ngày (C4), dải «Giờ còn trống» (C8), đếm ngược 5 phút (C10).</p></div>
+    <div><h4>Ai dùng, vào bằng đâu</h4><p>Hội viên muốn chơi.</p><p class="from"><b>Máy tính:</b> Thanh trên: «Đặt sân»<br><b>Điện thoại:</b> Thanh dưới: «Đặt sân»</p></div>
+    <div><h4>Làm được gì ở đây</h4><ul><li class="plain"><span>Chọn ngày, chọn môn</span></li><li class="plain"><span>Chạm một giờ trống để giữ sân</span></li><li><b class="num">1</b><span>Bấm «Có mã khuyến mãi?» trước khi chọn giờ nếu có mã</span></li><li class="plain"><span>Chọn cách trả tiền trên thẻ giữ chỗ</span></li><li><b class="num">2</b><span>Bấm «Đổi giờ» ở sân đã đặt</span></li></ul></div>
+  </div>
+</section>
+
+<section class="page" id="S07">
+  <header><span class="code" style="background:#3f7d20">S07</span><div class="titles"><h2>Lớp học</h2></div><div class="meta"><span class="role" style="color:#3f7d20;border-color:#3f7d20">Hội viên</span></div></header>
+  <div class="shots">
+    <figure class="desk"><img src="img/S07-d.jpg" alt=""><figcaption>Trên máy tính</figcaption></figure>
+    <figure class="mob"><img src="img/S07-m.jpg" alt=""><figcaption>Trên điện thoại</figcaption></figure>
+  </div>
+  <div class="info">
+    <div><h4>Dùng để làm gì</h4><p>Các lớp do huấn luyện viên dạy, lọc theo môn. Mỗi thẻ cho biết trình độ, huấn luyện viên, sân, lịch trong tuần và số chỗ còn lại. Lớp đầy thì vào danh sách chờ. Cuối trang là sổ «Điểm danh của tôi».</p><p class="note">C5: Chi tiết lớp ghi rõ điều kiện gói tập và số buổi sử dụng.</p></div>
+    <div><h4>Ai dùng, vào bằng đâu</h4><p>Hội viên muốn học có người dạy.</p><p class="from"><b>Máy tính:</b> Thanh trên: «Lớp học»<br><b>Điện thoại:</b> Thanh dưới: «Lớp học»</p></div>
+    <div><h4>Làm được gì ở đây</h4><ul><li class="plain"><span>Lọc theo môn</span></li><li class="plain"><span>Bấm «Đăng ký»</span></li><li class="plain"><span>Bấm «Rời lớp này» để thôi học</span></li><li class="plain"><span>Cuộn xuống xem sổ điểm danh của mình</span></li></ul></div>
+  </div>
+</section>
+<section class="page" id="S07x">
+  <header><span class="code" style="background:#3f7d20">S07</span><div class="titles"><h2>Lớp học <small>(trang tiếp)</small></h2></div><div class="meta"><span class="role" style="color:#3f7d20;border-color:#3f7d20">Hội viên</span></div></header>
+  <div class="shots"><figure class="desk wide"><img src="img/S07-x.jpg" alt=""><figcaption>Cuộn xuống: sổ điểm danh của tôi</figcaption></figure></div>
+</section>
+
+<section class="page" id="S08">
+  <header><span class="code" style="background:#3f7d20">S08</span><div class="titles"><h2>Tiến độ tập luyện</h2></div><div class="meta"><span class="role" style="color:#3f7d20;border-color:#3f7d20">Hội viên</span></div></header>
+  <div class="shots">
+    <figure class="desk"><img src="img/S08-d.jpg" alt=""><figcaption>Trên máy tính</figcaption></figure>
+    <figure class="mob"><img src="img/S08-m.jpg" alt=""><figcaption>Trên điện thoại</figcaption></figure>
+  </div>
+  <div class="info">
+    <div><h4>Dùng để làm gì</h4><p>Mục tiêu cá nhân, trình độ hiện tại, các buổi sắp tới kèm giáo án, bài tập về nhà và nhận xét của huấn luyện viên. AI chỉ gợi ý; huấn luyện viên duyệt thì hội viên mới thấy.</p><p class="note">Mục nào chưa có nội dung thì hiện một dòng giải thích thay vì để trống.</p></div>
+    <div><h4>Ai dùng, vào bằng đâu</h4><p>Hội viên đang học lớp.</p><p class="from"><b>Máy tính:</b> Thanh trên: «Tiến độ»<br><b>Điện thoại:</b> Thanh dưới: «Thêm» → «Tiến độ»</p></div>
+    <div><h4>Làm được gì ở đây</h4><ul><li class="plain"><span>Chọn mục tiêu của mình</span></li><li class="plain"><span>Đánh dấu bài tập đã làm (khi có bài)</span></li><li class="plain"><span>Đọc nhận xét của huấn luyện viên</span></li></ul></div>
+  </div>
+</section>
+
+<section class="page" id="S09">
+  <header><span class="code" style="background:#3f7d20">S09</span><div class="titles"><h2>Gói tập</h2></div><div class="meta"><span class="role" style="color:#3f7d20;border-color:#3f7d20">Hội viên</span></div></header>
+  <div class="shots">
+    <figure class="desk"><img src="img/S09-d.jpg" alt=""><figcaption>Trên máy tính</figcaption></figure>
+    <figure class="mob"><img src="img/S09-m.jpg" alt=""><figcaption>Trên điện thoại</figcaption></figure>
+  </div>
+  <div class="info">
+    <div><h4>Dùng để làm gì</h4><p>Các gói đang bán: môn, giá, thời hạn và quyền lợi (chỉ ghi những gì gói thật sự có). Bấm «Mua hoặc gia hạn» để đặt gói, trước khi trả tiền đã thấy ngày hết hạn mới; tiền trả tại quầy lễ tân.</p><p class="note">Trang này không thu tiền online. Lễ tân thu ở màn «Thanh toán» (S19) hoặc trong hồ sơ hội viên (S25).</p></div>
+    <div><h4>Ai dùng, vào bằng đâu</h4><p>Hội viên muốn mua hoặc gia hạn gói.</p><p class="from"><b>Máy tính:</b> Thanh trên: «Gói tập»<br><b>Điện thoại:</b> Thanh dưới: «Thêm» → «Gói tập»</p></div>
+    <div><h4>Làm được gì ở đây</h4><ul><li class="plain"><span>Nhập mã khuyến mãi nếu có</span></li><li class="plain"><span>So sánh các gói</span></li><li><b class="num">1</b><span>Bấm «Mua hoặc gia hạn»</span></li></ul></div>
+  </div>
+</section>
+
+<section class="page" id="S10">
+  <header><span class="code" style="background:#3f7d20">S10</span><div class="titles"><h2>Điểm thưởng</h2></div><div class="meta"><span class="role" style="color:#3f7d20;border-color:#3f7d20">Hội viên</span></div></header>
+  <div class="shots">
+    <figure class="desk"><img src="img/S10-d.jpg" alt=""><figcaption>Trên máy tính</figcaption></figure>
+    <figure class="mob"><img src="img/S10-m.jpg" alt=""><figcaption>Trên điện thoại</figcaption></figure>
+  </div>
+  <div class="info">
+    <div><h4>Dùng để làm gì</h4><p>Số dư điểm, hạng hội viên và giá trị quy đổi. Mỗi 10.000đ chi tiêu được 1 điểm, 1 điểm trị giá 100đ. Đổi điểm lấy mã giảm giá (tối thiểu 50 điểm) và xem lịch sử đổi.</p></div>
+    <div><h4>Ai dùng, vào bằng đâu</h4><p>Hội viên.</p><p class="from"><b>Máy tính:</b> Thanh trên: «Điểm»<br><b>Điện thoại:</b> Thanh dưới: «Thêm» → «Điểm»</p></div>
+    <div><h4>Làm được gì ở đây</h4><ul><li class="plain"><span>Xem số dư và hạng</span></li><li><b class="num">1</b><span>Nhập số điểm, bấm «Nhận mã»</span></li><li class="plain"><span>Xem lịch sử đổi điểm</span></li></ul></div>
+  </div>
+</section>
+
+<section class="page" id="S11">
+  <header><span class="code" style="background:#3f7d20">S11</span><div class="titles"><h2>Mã QR vào cổng</h2></div><div class="meta"><span class="role" style="color:#3f7d20;border-color:#3f7d20">Hội viên</span></div></header>
+  <div class="shots">
+    <figure class="desk"><img src="img/S11-d.jpg" alt=""><figcaption>Trên máy tính</figcaption></figure>
+    <figure class="mob"><img src="img/S11-m.jpg" alt=""><figcaption>Trên điện thoại</figcaption></figure>
+  </div>
+  <div class="info">
+    <div><h4>Dùng để làm gì</h4><p>Mã QR tự đổi mỗi phút để lễ tân quét khi vào trung tâm (chụp màn hình lại cũng vô dụng). Nếu trung tâm bật chế độ tự vào cổng, hội viên quét mã trên màn hình lễ tân hoặc dán vào ô «Mã từ màn hình lễ tân» rồi bấm «Vào cổng».</p></div>
+    <div><h4>Ai dùng, vào bằng đâu</h4><p>Hội viên khi đến trung tâm.</p><p class="from"><b>Máy tính:</b> Thanh trên: «Mã QR»<br><b>Điện thoại:</b> Thanh dưới: «Mã QR»</p></div>
+    <div><h4>Làm được gì ở đây</h4><ul><li class="plain"><span>Đưa mã QR cho lễ tân quét</span></li><li><b class="num">1</b><span>Bấm «Mã mới» nếu mã hết hạn</span></li><li class="plain"><span>Tự vào cổng bằng mã (chỉ khi quản lý bật)</span></li></ul></div>
+  </div>
+</section>
+
+<section class="page" id="S12">
+  <header><span class="code" style="background:#3f7d20">S12</span><div class="titles"><h2>Trợ lý</h2></div><div class="meta"><span class="role" style="color:#3f7d20;border-color:#3f7d20">Hội viên</span></div></header>
+  <div class="shots">
+    <figure class="desk"><img src="img/S12-d.jpg" alt=""><figcaption>Trên máy tính</figcaption></figure>
+    <figure class="mob"><img src="img/S12-m.jpg" alt=""><figcaption>Trên điện thoại</figcaption></figure>
+  </div>
+  <div class="info">
+    <div><h4>Dùng để làm gì</h4><p>Chat hỏi nhanh: giờ mở cửa, gói nào đang bán, ai dạy cầu lông, hủy sân thế nào. Trả lời dựa trên dữ liệu thật của trung tâm. Gõ «ticket:» ở đầu câu để gửi ghi chú cho lễ tân.</p><p class="note">Trợ lý không tư vấn y tế. Việc đặt sân và đăng ký lớp vẫn làm ở màn tương ứng.</p></div>
+    <div><h4>Ai dùng, vào bằng đâu</h4><p>Hội viên có thắc mắc.</p><p class="from"><b>Vào bằng đâu:</b> Nút trợ lý (biểu tượng chat) ở thanh trên</p></div>
+    <div><h4>Làm được gì ở đây</h4><ul><li class="plain"><span>Bấm câu hỏi gợi ý hoặc tự gõ</span></li><li class="plain"><span>Gõ «ticket: …» để nhắn lễ tân</span></li></ul></div>
+  </div>
+</section>
+
+<section class="page" id="S13">
+  <header><span class="code" style="background:#3f7d20">S13</span><div class="titles"><h2>Thông báo</h2></div><div class="meta"><span class="role" style="color:#3f7d20;border-color:#3f7d20">Hội viên</span></div></header>
+  <div class="shots">
+    <figure class="desk"><img src="img/S13-d.jpg" alt=""><figcaption>Trên máy tính</figcaption></figure>
+    <figure class="mob"><img src="img/S13-m.jpg" alt=""><figcaption>Trên điện thoại</figcaption></figure>
+  </div>
+  <div class="info">
+    <div><h4>Dùng để làm gì</h4><p>Hộp thư của hội viên trong một bảng: mỗi dòng có tiêu đề, một dòng tóm tắt nội dung và thời gian. Dòng chưa đọc có chấm xanh và chữ đậm. Mở một dòng để xem đầy đủ và đi tới màn liên quan.</p></div>
+    <div><h4>Ai dùng, vào bằng đâu</h4><p>Hội viên.</p><p class="from"><b>Vào bằng đâu:</b> Biểu tượng chuông ở thanh trên</p></div>
+    <div><h4>Làm được gì ở đây</h4><ul><li class="plain"><span>Mở một thông báo</span></li><li><b class="num">1</b><span>Bấm «Đánh dấu tất cả đã đọc»</span></li></ul></div>
+  </div>
+</section>
+
+<section class="page" id="S14">
+  <header><span class="code" style="background:#3f7d20">S14</span><div class="titles"><h2>Tài khoản</h2></div><div class="meta"><span class="role" style="color:#3f7d20;border-color:#3f7d20">Hội viên</span></div></header>
+  <div class="shots">
+    <figure class="desk"><img src="img/S14-d.jpg" alt=""><figcaption>Trên máy tính</figcaption></figure>
+    <figure class="mob"><img src="img/S14-m.jpg" alt=""><figcaption>Trên điện thoại</figcaption></figure>
+  </div>
+  <div class="info">
+    <div><h4>Dùng để làm gì</h4><p>Bốn tab: Hồ sơ (thông tin cá nhân, ghi chú sức khoẻ), Bảo mật (đổi mật khẩu), Biên lai (mở PDF), Hỗ trợ (gửi tin cho lễ tân và đọc phản hồi). Số điện thoại và email không tự đổi được ở đây.</p><p class="note">Muốn đổi số điện thoại hay email thì nhờ lễ tân.</p></div>
+    <div><h4>Ai dùng, vào bằng đâu</h4><p>Mọi người đã đăng nhập (hội viên, lễ tân, huấn luyện viên, quản lý).</p><p class="from"><b>Vào bằng đâu:</b> Bấm avatar góc trên phải → «Cài đặt tài khoản»</p></div>
+    <div><h4>Làm được gì ở đây</h4><ul><li><b class="num">1</b><span>Sửa hồ sơ</span></li><li><b class="num">2</b><span>Đổi mật khẩu</span></li><li><b class="num">3</b><span>Xem biên lai</span></li><li><b class="num">4</b><span>Nhắn lễ tân</span></li></ul></div>
+  </div>
+</section>
+
+<section class="page" id="S15">
+  <header><span class="code" style="background:#3f7d20">S15</span><div class="titles"><h2>Kết quả thanh toán online</h2></div><div class="meta"><span class="role" style="color:#3f7d20;border-color:#3f7d20">Hội viên</span></div></header>
+  <div class="shots">
+    <figure class="desk"><img src="img/S15-d.jpg" alt=""><figcaption>Trên máy tính</figcaption></figure>
+    <figure class="mob"><img src="img/S15-m.jpg" alt=""><figcaption>Trên điện thoại</figcaption></figure>
+  </div>
+  <div class="info">
+    <div><h4>Dùng để làm gì</h4><p>Trang hội viên thấy khi quay lại từ cổng thanh toán online. Nó tự kiểm tra và báo một trong các kết quả: đang chờ ngân hàng, đã thanh toán (sân hoặc gói được xác nhận, có biên lai), đã hủy, hoặc chưa rõ.</p><p class="note">Ảnh là trang mở thẳng, không qua cổng thanh toán, nên hiện trạng thái «chưa rõ».</p></div>
+    <div><h4>Ai dùng, vào bằng đâu</h4><p>Hội viên vừa trả tiền online.</p><p class="from"><b>Vào bằng đâu:</b> Tự chuyển về sau khi trả tiền online</p></div>
+    <div><h4>Làm được gì ở đây</h4><ul><li class="plain"><span>Đọc kết quả</span></li><li class="plain"><span>Quay lại xem sân hoặc gói đã đặt</span></li></ul></div>
+  </div>
+</section>
+
+<section class="page" id="S16">
+  <header><span class="code" style="background:#7a4a24">S16</span><div class="titles"><h2>Quầy lễ tân</h2></div><div class="meta"><span class="role" style="color:#7a4a24;border-color:#7a4a24">Lễ tân</span></div></header>
+  <div class="shots">
+    <figure class="desk"><img src="img/S16-d.jpg" alt=""><figcaption>Trên máy tính</figcaption></figure>
+    <figure class="mob"><img src="img/S16-m.jpg" alt=""><figcaption>Trên điện thoại</figcaption></figure>
+  </div>
+  <div class="info">
+    <div><h4>Dùng để làm gì</h4><p>Màn làm việc chính của lễ tân. Thanh trên cùng: mở hoặc đóng ca thu ngân, số khoản chờ thu, lối sang sơ đồ sân. Cột trái: tìm hội viên và thêm hội viên mới (3 bước: hồ sơ, gói tập, thanh toán). Cột phải: khối «Ngay lúc này» (C9: số sân đang chơi, số khách vào trong 1 giờ tới, số sân trống giờ này), lối tắt và yêu cầu hỗ trợ từ ứng dụng.</p><p class="note">C9: Khối «Ngay lúc này» hiển thị tình trạng sân theo thời gian thực. Trên điện thoại, cột phải xếp xuống dưới cột trái.</p></div>
+    <div><h4>Ai dùng, vào bằng đâu</h4><p>Lễ tân.</p><p class="from"><b>Máy tính:</b> Thanh trên: «Quầy»<br><b>Điện thoại:</b> Thanh dưới: «Quầy»</p></div>
+    <div><h4>Làm được gì ở đây</h4><ul><li><b class="num">1</b><span>Bấm «Mở ca» trước khi thu tiền</span></li><li class="plain"><span>Tìm hội viên theo tên, số điện thoại hoặc mã</span></li><li><b class="num">2</b><span>Thêm hội viên mới: bấm «Tạo hồ sơ»</span></li><li><b class="num">3</b><span>Xem «Ngay lúc này» (C9), bấm «Sơ đồ sân» để mở lưới</span></li><li><b class="num">4</b><span>Trả lời yêu cầu hỗ trợ</span></li></ul></div>
+  </div>
+</section>
+
+<section class="page" id="S17">
+  <header><span class="code" style="background:#7a4a24">S17</span><div class="titles"><h2>Cổng</h2></div><div class="meta"><span class="role" style="color:#7a4a24;border-color:#7a4a24">Lễ tân</span></div></header>
+  <div class="shots">
+    <figure class="desk"><img src="img/S17-d.jpg" alt=""><figcaption>Trên máy tính</figcaption></figure>
+    <figure class="mob"><img src="img/S17-m.jpg" alt=""><figcaption>Trên điện thoại</figcaption></figure>
+  </div>
+  <div class="info">
+    <div><h4>Dùng để làm gì</h4><p>Quét mã QR của hội viên để cho vào. Máy quét cầm tay tự gõ vào ô đang chọn; không có mã thì chuyển sang «Không có mã» và nhập số điện thoại. Kết quả hợp lệ hay không và lý do hiện ngay. Bên dưới là danh sách người đã qua cổng hôm nay.</p><p class="note">Ghi nhận vào cổng không trừ buổi và không đổi gói tập.</p></div>
+    <div><h4>Ai dùng, vào bằng đâu</h4><p>Lễ tân đứng cổng.</p><p class="from"><b>Máy tính:</b> Thanh trên: «Cổng»<br><b>Điện thoại:</b> Thanh dưới: «Cổng»</p></div>
+    <div><h4>Làm được gì ở đây</h4><ul><li><b class="num">1</b><span>Quét QR bằng máy quét</span></li><li><b class="num">2</b><span>Nhập số điện thoại khi không có mã</span></li><li><b class="num">3</b><span>Bấm «Hiện» để hiện mã tự vào cổng</span></li></ul></div>
+  </div>
+</section>
+
+<section class="page" id="S18">
+  <header><span class="code" style="background:#7a4a24">S18</span><div class="titles"><h2>Sơ đồ sân</h2></div><div class="meta"><span class="role" style="color:#7a4a24;border-color:#7a4a24">Lễ tân</span></div></header>
+  <div class="shots">
+    <figure class="desk"><img src="img/S18-d.jpg" alt=""><figcaption>Trên máy tính</figcaption></figure>
+    <figure class="mob"><img src="img/S18-m.jpg" alt=""><figcaption>Trên điện thoại</figcaption></figure>
+  </div>
+  <div class="info">
+    <div><h4>Dùng để làm gì</h4><p>Lưới cả ngày của mọi sân, bắt đầu từ giờ hiện tại (giờ đã qua được thu gọn, bấm để hiện lại). Ô trống có viền xanh và dấu +, bấm để bán cho khách vãng lai ngay tại quầy. Bấm ô đã đặt để xem ai đang giữ sân và đến khi nào.</p><p class="note">Màu các ô xem ở trang «Đọc lưới sân» đầu tài liệu.</p></div>
+    <div><h4>Ai dùng, vào bằng đâu</h4><p>Lễ tân.</p><p class="from"><b>Máy tính:</b> Thanh trên: «Sân»<br><b>Điện thoại:</b> Thanh dưới: «Sân»</p></div>
+    <div><h4>Làm được gì ở đây</h4><ul><li class="plain"><span>Chọn ngày và môn</span></li><li class="plain"><span>Bấm ô trống để bán cho khách vãng lai</span></li><li class="plain"><span>Bấm ô đã đặt để xem chi tiết</span></li></ul></div>
+  </div>
+</section>
+
+<section class="page" id="S19">
+  <header><span class="code" style="background:#7a4a24">S19</span><div class="titles"><h2>Thanh toán</h2></div><div class="meta"><span class="role" style="color:#7a4a24;border-color:#7a4a24">Lễ tân</span></div></header>
+  <div class="shots">
+    <figure class="desk"><img src="img/S19-d.jpg" alt=""><figcaption>Trên máy tính</figcaption></figure>
+    <figure class="mob"><img src="img/S19-m.jpg" alt=""><figcaption>Trên điện thoại</figcaption></figure>
+  </div>
+  <div class="info">
+    <div><h4>Dùng để làm gì</h4><p>Hàng việc tiền tại quầy: gói đặt trong ứng dụng đang chờ thu, chuyển khoản cần đối soát, hoàn tiền chờ quản lý duyệt, và toàn bộ biên lai (lọc theo cách trả và khoảng ngày). Phải mở ca thu ngân mới thu được tiền.</p><p class="note">C1: Bảng biên lai có phân trang 10/25/50/100 dòng. Ảnh chụp khi chưa mở ca nên nút thu tiền đang mờ. Chúng tôi không mở ca giả để chụp.</p></div>
+    <div><h4>Ai dùng, vào bằng đâu</h4><p>Lễ tân (thu tiền) và quản lý (duyệt hoàn tiền).</p><p class="from"><b>Máy tính:</b> Thanh trên: «Thanh toán»<br><b>Điện thoại:</b> Thanh dưới: «Thanh toán»</p></div>
+    <div><h4>Làm được gì ở đây</h4><ul><li><b class="num">1</b><span>Chọn cách trả, bấm thu tiền (cần mở ca trước)</span></li><li class="plain"><span>Đối soát chuyển khoản: xác nhận đã nhận hoặc báo không thấy</span></li><li class="plain"><span>Tìm và mở biên lai</span></li></ul></div>
+  </div>
+</section>
+
+<section class="page" id="S20">
+  <header><span class="code" style="background:#7a4a24">S20</span><div class="titles"><h2>Đặt sân cố định</h2></div><div class="meta"><span class="role" style="color:#7a4a24;border-color:#7a4a24">Lễ tân</span></div></header>
+  <div class="shots">
+    <figure class="desk"><img src="img/S20-d.jpg" alt=""><figcaption>Trên máy tính</figcaption></figure>
+    <figure class="mob"><img src="img/S20-m.jpg" alt=""><figcaption>Trên điện thoại</figcaption></figure>
+  </div>
+  <div class="info">
+    <div><h4>Dùng để làm gì</h4><p>Đặt cùng sân, cùng giờ, mỗi tuần, trả trước cả đợt và được giảm giá. Chọn khách, sân, ngày đầu tiên, giờ bắt đầu và số tuần (4 đến 12), hệ thống kiểm tra từng tuần có trống không. Bên dưới là các đợt đang chạy.</p><p class="note">Cần mở ca thu ngân trước khi thu tiền cả đợt.</p></div>
+    <div><h4>Ai dùng, vào bằng đâu</h4><p>Lễ tân.</p><p class="from"><b>Máy tính:</b> Thanh trên: «Đặt cố định»<br><b>Điện thoại:</b> Thanh dưới: «Thêm» → «Đặt cố định»</p></div>
+    <div><h4>Làm được gì ở đây</h4><ul><li class="plain"><span>Nhập số điện thoại khách (hoặc tên nếu là khách lẻ)</span></li><li class="plain"><span>Chọn sân, ngày, giờ, số tuần</span></li><li><b class="num">1</b><span>Bấm «Kiểm tra các tuần»</span></li></ul></div>
+  </div>
+</section>
+
+<section class="page" id="S21">
+  <header><span class="code" style="background:#7a4a24">S21</span><div class="titles"><h2>Sắp rời bỏ</h2></div><div class="meta"><span class="role" style="color:#7a4a24;border-color:#7a4a24">Lễ tân</span></div></header>
+  <div class="shots">
+    <figure class="desk"><img src="img/S21-d.jpg" alt=""><figcaption>Trên máy tính</figcaption></figure>
+    <figure class="mob"><img src="img/S21-m.jpg" alt=""><figcaption>Trên điện thoại</figcaption></figure>
+  </div>
+  <div class="info">
+    <div><h4>Dùng để làm gì</h4><p>Danh sách hội viên có thể sắp rời bỏ: vắng liên tiếp, lâu không đến, gói sắp hết hoặc chưa từng đến. Lọc theo nhóm, sắp xếp theo mức khẩn cấp. Gọi theo số trên dòng, gọi xong bấm «Ghi nhận liên hệ».</p><p class="note">Muốn bán gói cho người này, mở hồ sơ hội viên (S25).</p></div>
+    <div><h4>Ai dùng, vào bằng đâu</h4><p>Lễ tân, để chăm sóc khách.</p><p class="from"><b>Máy tính:</b> Thanh trên: «Thêm» → «Sắp rời bỏ»<br><b>Điện thoại:</b> Thanh dưới: «Thêm» → «Sắp rời bỏ»</p></div>
+    <div><h4>Làm được gì ở đây</h4><ul><li><b class="num">1</b><span>Chọn nhóm cần gọi</span></li><li class="plain"><span>Gọi theo số điện thoại trên dòng</span></li><li><b class="num">2</b><span>Bấm «Ghi nhận liên hệ»</span></li></ul></div>
+  </div>
+</section>
+
+<section class="page" id="S22">
+  <header><span class="code" style="background:#7a4a24">S22</span><div class="titles"><h2>Lớp học (quầy)</h2></div><div class="meta"><span class="role" style="color:#7a4a24;border-color:#7a4a24">Lễ tân</span></div></header>
+  <div class="shots">
+    <figure class="desk"><img src="img/S22-d.jpg" alt=""><figcaption>Trên máy tính</figcaption></figure>
+    <figure class="mob"><img src="img/S22-m.jpg" alt=""><figcaption>Trên điện thoại</figcaption></figure>
+  </div>
+  <div class="info">
+    <div><h4>Dùng để làm gì</h4><p>Xem các lớp: trạng thái, trình độ, huấn luyện viên, sân, lịch và sĩ số. Bấm «Buổi học &amp; học viên» để xem từng buổi và danh sách người học.</p><p class="note">Màn này chỉ để xem. Hội viên tự đăng ký lớp ở màn «Lớp học» (S07).</p></div>
+    <div><h4>Ai dùng, vào bằng đâu</h4><p>Lễ tân.</p><p class="from"><b>Máy tính:</b> Thanh trên: «Thêm» → «Lớp học»<br><b>Điện thoại:</b> Thanh dưới: «Thêm» → «Lớp học»</p></div>
+    <div><h4>Làm được gì ở đây</h4><ul><li class="plain"><span>Xem các lớp và chỗ còn trống</span></li><li><b class="num">1</b><span>Bấm «Buổi học &amp; học viên»</span></li></ul></div>
+  </div>
+</section>
+
+<section class="page" id="S23">
+  <header><span class="code" style="background:#7a4a24">S23</span><div class="titles"><h2>Dụng cụ</h2></div><div class="meta"><span class="role" style="color:#7a4a24;border-color:#7a4a24">Lễ tân</span></div></header>
+  <div class="shots">
+    <figure class="desk"><img src="img/S23-d.jpg" alt=""><figcaption>Trên máy tính</figcaption></figure>
+    <figure class="mob"><img src="img/S23-m.jpg" alt=""><figcaption>Trên điện thoại</figcaption></figure>
+  </div>
+  <div class="info">
+    <div><h4>Dùng để làm gì</h4><p>Cho thuê vợt, bóng, ống cầu vào tài khoản hội viên hoặc cho khách theo số điện thoại. Kho tự trừ khi cho thuê và cộng lại khi trả. Bên dưới là các món đang cho thuê.</p></div>
+    <div><h4>Ai dùng, vào bằng đâu</h4><p>Lễ tân.</p><p class="from"><b>Máy tính:</b> Thanh trên: «Thêm» → «Dụng cụ»<br><b>Điện thoại:</b> Thanh dưới: «Thêm» → «Dụng cụ»</p></div>
+    <div><h4>Làm được gì ở đây</h4><ul><li class="plain"><span>Chọn món, người thuê và số lượng</span></li><li><b class="num">1</b><span>Bấm «Cho thuê»</span></li><li><b class="num">2</b><span>Khi khách trả, bấm «Nhận lại»</span></li></ul></div>
+  </div>
+</section>
+
+<section class="page" id="S24">
+  <header><span class="code" style="background:#7a4a24">S24</span><div class="titles"><h2>Bảo trì</h2></div><div class="meta"><span class="role" style="color:#7a4a24;border-color:#7a4a24">Lễ tân</span></div></header>
+  <div class="shots">
+    <figure class="desk"><img src="img/S24-d.jpg" alt=""><figcaption>Trên máy tính</figcaption></figure>
+    <figure class="mob"><img src="img/S24-m.jpg" alt=""><figcaption>Trên điện thoại</figcaption></figure>
+  </div>
+  <div class="info">
+    <div><h4>Dùng để làm gì</h4><p>Báo cái gì đang hỏng (đèn, lưới, máy bơm...), gắn vào một sân và mức khẩn cấp; có thể khoá sân không cho đặt đến khi sửa xong. Có số phiếu đang mở, số phiếu khẩn cấp, chi phí sửa trong tháng, và danh sách phiếu để chuyển trạng thái.</p></div>
+    <div><h4>Ai dùng, vào bằng đâu</h4><p>Lễ tân và quản lý.</p><p class="from"><b>Máy tính:</b> Thanh trên: «Thêm» → «Bảo trì»<br><b>Điện thoại:</b> Thanh dưới: «Thêm» → «Bảo trì»</p></div>
+    <div><h4>Làm được gì ở đây</h4><ul><li class="plain"><span>Mô tả chỗ hỏng, chọn sân và mức khẩn cấp</span></li><li><b class="num">1</b><span>Bấm «Gửi phiếu»</span></li><li><b class="num">2</b><span>Bấm «Bắt đầu sửa», «Đã sửa xong» hoặc «Hủy phiếu»</span></li></ul></div>
+  </div>
+</section>
+
+<section class="page" id="S25">
+  <header><span class="code" style="background:#7a4a24">S25</span><div class="titles"><h2>Hồ sơ hội viên</h2></div><div class="meta"><span class="role" style="color:#7a4a24;border-color:#7a4a24">Lễ tân</span></div></header>
+  <div class="shots">
+    <figure class="desk"><img src="img/S25-d.jpg" alt=""><figcaption>Trên máy tính</figcaption></figure>
+    <figure class="mob"><img src="img/S25-m.jpg" alt=""><figcaption>Trên điện thoại</figcaption></figure>
+  </div>
+  <div class="info">
+    <div><h4>Dùng để làm gì</h4><p>Mọi thứ về một hội viên: thông tin liên hệ, gói đang dùng, các lượt đặt, khoản thanh toán và biên lai, cùng các việc lễ tân làm cho họ.</p><p class="note">Đặt sân hộ làm ở «Sơ đồ sân» (S18).</p></div>
+    <div><h4>Ai dùng, vào bằng đâu</h4><p>Lễ tân (quản lý cũng mở được từ màn «Hội viên»).</p><p class="from"><b>Vào bằng đâu:</b> Tìm hội viên ở màn «Quầy» (S16) rồi bấm vào tên</p></div>
+    <div><h4>Làm được gì ở đây</h4><ul><li><b class="num">1</b><span>Bấm «Sửa hồ sơ»</span></li><li><b class="num">2</b><span>Bấm «Đặt lại mật khẩu»</span></li><li class="plain"><span>Bấm «Thu tiền»</span></li><li class="plain"><span>Bán thêm gói tập</span></li><li class="plain"><span>Xem biên lai, đề nghị hoàn tiền</span></li></ul></div>
+  </div>
+</section>
+
+<section class="page" id="S26">
+  <header><span class="code" style="background:#7a4a24">S26</span><div class="titles"><h2>Cảnh báo</h2></div><div class="meta"><span class="role" style="color:#7a4a24;border-color:#7a4a24">Lễ tân</span></div></header>
+  <div class="shots">
+    <figure class="desk"><img src="img/S26-d.jpg" alt=""><figcaption>Trên máy tính</figcaption></figure>
+    <figure class="mob"><img src="img/S26-m.jpg" alt=""><figcaption>Trên điện thoại</figcaption></figure>
+  </div>
+  <div class="info">
+    <div><h4>Dùng để làm gì</h4><p>Hộp thư cảnh báo dùng chung cho nhân viên (lễ tân, huấn luyện viên, quản lý), ví dụ học viên vắng ba buổi liên tiếp.</p><p class="note">Ảnh có thể đang trống nếu chưa có cảnh báo.</p></div>
+    <div><h4>Ai dùng, vào bằng đâu</h4><p>Nhân viên.</p><p class="from"><b>Vào bằng đâu:</b> Biểu tượng chuông ở thanh trên</p></div>
+    <div><h4>Làm được gì ở đây</h4><ul><li class="plain"><span>Mở một cảnh báo</span></li><li class="plain"><span>Xử lý rồi đánh dấu đã đọc</span></li></ul></div>
+  </div>
+</section>
+
+<section class="page" id="S27">
+  <header><span class="code" style="background:#356b1b">S27</span><div class="titles"><h2>Lịch dạy</h2></div><div class="meta"><span class="role" style="color:#356b1b;border-color:#356b1b">Huấn luyện viên</span></div></header>
+  <div class="shots">
+    <figure class="desk"><img src="img/S27-d.jpg" alt=""><figcaption>Trên máy tính</figcaption></figure>
+    <figure class="mob"><img src="img/S27-m.jpg" alt=""><figcaption>Trên điện thoại</figcaption></figure>
+  </div>
+  <div class="info">
+    <div><h4>Dùng để làm gì</h4><p>Màn đầu tiên của huấn luyện viên. Thẻ «Buổi tiếp theo» ở trên cùng: ngày, giờ, môn, trình độ, sân, sĩ số và nút «Điểm danh ngay». Bên dưới là các buổi sắp tới, chia theo ngày, mỗi buổi một dòng gọn.</p></div>
+    <div><h4>Ai dùng, vào bằng đâu</h4><p>Huấn luyện viên.</p><p class="from"><b>Máy tính:</b> Thanh trên: «Lịch»<br><b>Điện thoại:</b> Thanh dưới: «Lịch»</p></div>
+    <div><h4>Làm được gì ở đây</h4><ul><li class="plain"><span>Đọc thẻ «Buổi tiếp theo»</span></li><li><b class="num">1</b><span>Bấm «Điểm danh ngay»</span></li><li class="plain"><span>Bấm một buổi trong danh sách để mở sổ của buổi đó</span></li></ul></div>
+  </div>
+</section>
+
+<section class="page" id="S28">
+  <header><span class="code" style="background:#356b1b">S28</span><div class="titles"><h2>Điểm danh</h2></div><div class="meta"><span class="role" style="color:#356b1b;border-color:#356b1b">Huấn luyện viên</span></div></header>
+  <div class="shots">
+    <figure class="desk"><img src="img/S28-d.jpg" alt=""><figcaption>Trên máy tính</figcaption></figure>
+    <figure class="mob"><img src="img/S28-m.jpg" alt=""><figcaption>Trên điện thoại</figcaption></figure>
+  </div>
+  <div class="info">
+    <div><h4>Dùng để làm gì</h4><p>Việc của một buổi chia thành 4 bước đánh số: 1 Điểm danh, 2 Kết quả, 3 Giáo án buổi tập, 4 Bài tập về nhà. Ở bước 1, mỗi học viên có 4 nút: Có mặt, Đến muộn, Vắng, Có phép; ghi chú sức khoẻ hiện ngay dưới tên. Sổ tự khoá sau một thời gian, sửa sau đó phải ghi lý do.</p><p class="note">Ảnh trang sau là bước 3 (giáo án); bước 2 và 4 làm tương tự.</p></div>
+    <div><h4>Ai dùng, vào bằng đâu</h4><p>Huấn luyện viên.</p><p class="from"><b>Máy tính:</b> Thanh trên: «Điểm danh»<br><b>Điện thoại:</b> Thanh dưới: «Điểm danh»</p></div>
+    <div><h4>Làm được gì ở đây</h4><ul><li class="plain"><span>Đổi buổi ở ô «Đổi buổi khác»</span></li><li class="plain"><span>Bấm trạng thái của từng học viên</span></li><li><b class="num">1</b><span>Bấm «Đánh dấu tất cả có mặt»</span></li><li class="plain"><span>Bấm «Lưu điểm danh»</span></li><li class="plain"><span>Bấm số 2, 3, 4 để sang kết quả, giáo án, bài tập</span></li></ul></div>
+  </div>
+</section>
+<section class="page" id="S28x">
+  <header><span class="code" style="background:#356b1b">S28</span><div class="titles"><h2>Điểm danh <small>(trang tiếp)</small></h2></div><div class="meta"><span class="role" style="color:#356b1b;border-color:#356b1b">Huấn luyện viên</span></div></header>
+  <div class="shots"><figure class="desk wide"><img src="img/S28-x.jpg" alt=""><figcaption>Bước 3: giáo án buổi tập</figcaption></figure></div>
+</section>
+
+<section class="page" id="S29">
+  <header><span class="code" style="background:#356b1b">S29</span><div class="titles"><h2>Lớp học (huấn luyện viên)</h2></div><div class="meta"><span class="role" style="color:#356b1b;border-color:#356b1b">Huấn luyện viên</span></div></header>
+  <div class="shots">
+    <figure class="desk"><img src="img/S29-d.jpg" alt=""><figcaption>Trên máy tính</figcaption></figure>
+    <figure class="mob"><img src="img/S29-m.jpg" alt=""><figcaption>Trên điện thoại</figcaption></figure>
+  </div>
+  <div class="info">
+    <div><h4>Dùng để làm gì</h4><p>Danh sách các lớp huấn luyện viên được phân công giảng dạy: môn, trình độ, lịch học, sân và sĩ số học viên (đã đăng ký / sức chứa). Thống kê tổng số lớp, số lớp đang mở, tổng số học viên và nút xem chi tiết buổi học cùng danh sách học viên.</p></div>
+    <div><h4>Ai dùng, vào bằng đâu</h4><p>Huấn luyện viên.</p><p class="from"><b>Máy tính:</b> Thanh trên: «Lớp học»<br><b>Điện thoại:</b> Thanh dưới: «Lớp học»</p></div>
+    <div><h4>Làm được gì ở đây</h4><ul><li class="plain"><span>Xem thống kê các lớp đang phụ trách</span></li><li class="plain"><span>Bấm «Chi tiết» để xem học viên và buổi học</span></li></ul></div>
+  </div>
+</section>
+
+<section class="page" id="S30">
+  <header><span class="code" style="background:#356b1b">S30</span><div class="titles"><h2>Hồ sơ học viên</h2></div><div class="meta"><span class="role" style="color:#356b1b;border-color:#356b1b">Huấn luyện viên</span></div></header>
+  <div class="shots">
+    <figure class="desk"><img src="img/S30-d.jpg" alt=""><figcaption>Trên máy tính</figcaption></figure>
+    <figure class="mob"><img src="img/S30-m.jpg" alt=""><figcaption>Trên điện thoại</figcaption></figure>
+  </div>
+  <div class="info">
+    <div><h4>Dùng để làm gì</h4><p>Phần trên: tên, mục tiêu, trình độ, số buổi có mặt, muộn, vắng, có phép, và khung ghi chú sức khoẻ. Phần dưới chia thẻ: Tiến độ (trình độ, nhận xét), Ghi chú của huấn luyện viên, Lịch sử (buổi gần đây và bài tập).</p><p class="note">Số «có mặt» chỉ tăng khi huấn luyện viên đã lưu điểm danh.</p></div>
+    <div><h4>Ai dùng, vào bằng đâu</h4><p>Huấn luyện viên.</p><p class="from"><b>Vào bằng đâu:</b> Bấm tên học viên trong sổ điểm danh (S28)</p></div>
+    <div><h4>Làm được gì ở đây</h4><ul><li class="plain"><span>Đọc ghi chú sức khoẻ</span></li><li class="plain"><span>Xem số buổi có mặt, muộn, vắng, có phép</span></li><li class="plain"><span>Chuyển giữa các thẻ Tiến độ, Ghi chú, Lịch sử</span></li></ul></div>
+  </div>
+</section>
+<section class="page" id="S30x">
+  <header><span class="code" style="background:#356b1b">S30</span><div class="titles"><h2>Hồ sơ học viên <small>(trang tiếp)</small></h2></div><div class="meta"><span class="role" style="color:#356b1b;border-color:#356b1b">Huấn luyện viên</span></div></header>
+  <div class="shots"><figure class="desk wide"><img src="img/S30-x.jpg" alt=""><figcaption>Thẻ Lịch sử: buổi gần đây và bài tập</figcaption></figure></div>
+</section>
+
+<section class="page" id="S31">
+  <header><span class="code" style="background:#356b1b">S31</span><div class="titles"><h2>Thu nhập</h2></div><div class="meta"><span class="role" style="color:#356b1b;border-color:#356b1b">Huấn luyện viên</span></div></header>
+  <div class="shots">
+    <figure class="desk"><img src="img/S31-d.jpg" alt=""><figcaption>Trên máy tính</figcaption></figure>
+    <figure class="mob"><img src="img/S31-m.jpg" alt=""><figcaption>Trên điện thoại</figcaption></figure>
+  </div>
+  <div class="info">
+    <div><h4>Dùng để làm gì</h4><p>Tiền huấn luyện viên nhận theo tháng: một khoản cho mỗi buổi đã dạy, cộng thêm cho mỗi học viên có mặt. Có tổng đã kiếm, số buổi, số lượt học viên, mức trả đang áp dụng, danh sách buổi trong tháng và các tháng đã chốt.</p><p class="note">Tháng chưa chốt thì số liệu còn có thể thay đổi.</p></div>
+    <div><h4>Ai dùng, vào bằng đâu</h4><p>Huấn luyện viên.</p><p class="from"><b>Máy tính:</b> Thanh trên: «Thu nhập»<br><b>Điện thoại:</b> Thanh dưới: «Thu nhập»</p></div>
+    <div><h4>Làm được gì ở đây</h4><ul><li class="plain"><span>Chọn tháng bằng hai nút mũi tên</span></li><li class="plain"><span>Đối chiếu từng buổi đã dạy</span></li></ul></div>
+  </div>
+</section>
+
+<section class="page" id="S32">
+  <header><span class="code" style="background:#4a2f17">S32</span><div class="titles"><h2>Báo cáo</h2></div><div class="meta"><span class="role" style="color:#4a2f17;border-color:#4a2f17">Quản lý</span></div></header>
+  <div class="shots">
+    <figure class="desk"><img src="img/S32-d.jpg" alt=""><figcaption>Trên máy tính</figcaption></figure>
+    <figure class="mob"><img src="img/S32-m.jpg" alt=""><figcaption>Trên điện thoại</figcaption></figure>
+  </div>
+  <div class="info">
+    <div><h4>Dùng để làm gì</h4><p>Bức tranh kinh doanh theo khoảng thời gian: doanh thu, hoàn tiền, giờ sân dùng từ gói (so với kỳ trước), biểu đồ theo cách trả và theo nguồn thu, công suất sân, giờ đông khách, hội viên mới và lớp học. Xuất Excel, PDF hoặc CSV.</p><p class="note">Ảnh chụp lúc đầu ngày đang chọn «Hôm nay» nên doanh thu còn 0đ; chọn 7 ngày hoặc Tháng này để thấy số liệu. Ảnh trang sau là phần công suất sân.</p></div>
+    <div><h4>Ai dùng, vào bằng đâu</h4><p>Quản lý, chủ trung tâm.</p><p class="from"><b>Máy tính:</b> Thanh trên: «Báo cáo»<br><b>Điện thoại:</b> Thanh dưới: «Báo cáo»</p></div>
+    <div><h4>Làm được gì ở đây</h4><ul><li><b class="num">1</b><span>Chọn Hôm nay / 7 ngày / Tháng này / Tuỳ chọn</span></li><li class="plain"><span>Lọc theo cách trả tiền</span></li><li><b class="num">2</b><span>Xuất Excel, PDF, CSV</span></li></ul></div>
+  </div>
+</section>
+<section class="page" id="S32x">
+  <header><span class="code" style="background:#4a2f17">S32</span><div class="titles"><h2>Báo cáo <small>(trang tiếp)</small></h2></div><div class="meta"><span class="role" style="color:#4a2f17;border-color:#4a2f17">Quản lý</span></div></header>
+  <div class="shots"><figure class="desk wide"><img src="img/S32-x.jpg" alt=""><figcaption>Cuộn xuống: công suất sân và lớp học</figcaption></figure></div>
+</section>
+
+<section class="page" id="S33">
+  <header><span class="code" style="background:#4a2f17">S33</span><div class="titles"><h2>Lớp học (quản lý)</h2></div><div class="meta"><span class="role" style="color:#4a2f17;border-color:#4a2f17">Quản lý</span></div></header>
+  <div class="shots">
+    <figure class="desk"><img src="img/S33-d.jpg" alt=""><figcaption>Trên máy tính</figcaption></figure>
+    <figure class="mob"><img src="img/S33-m.jpg" alt=""><figcaption>Trên điện thoại</figcaption></figure>
+  </div>
+  <div class="info">
+    <div><h4>Dùng để làm gì</h4><p>Tạo lớp: môn, trình độ, sân, huấn luyện viên, các ngày trong tuần, giờ bắt đầu, ngày đầu tiên và sức chứa; hệ thống chặn trùng lịch sân hoặc trùng huấn luyện viên. Dời, hủy buổi, đổi huấn luyện viên hay hủy lớp làm trong «Buổi học &amp; học viên».</p></div>
+    <div><h4>Ai dùng, vào bằng đâu</h4><p>Quản lý.</p><p class="from"><b>Máy tính:</b> Thanh trên: «Lớp học»<br><b>Điện thoại:</b> Thanh dưới: «Thêm» → «Lớp học»</p></div>
+    <div><h4>Làm được gì ở đây</h4><ul><li class="plain"><span>Điền biểu mẫu lớp mới</span></li><li><b class="num">1</b><span>Bấm «Tạo và đăng»</span></li><li><b class="num">2</b><span>Mở «Buổi học &amp; học viên» để dời hoặc hủy buổi</span></li></ul></div>
+  </div>
+</section>
+
+<section class="page" id="S34">
+  <header><span class="code" style="background:#4a2f17">S34</span><div class="titles"><h2>Hội viên</h2></div><div class="meta"><span class="role" style="color:#4a2f17;border-color:#4a2f17">Quản lý</span></div></header>
+  <div class="shots">
+    <figure class="desk"><img src="img/S34-d.jpg" alt=""><figcaption>Trên máy tính</figcaption></figure>
+    <figure class="mob"><img src="img/S34-m.jpg" alt=""><figcaption>Trên điện thoại</figcaption></figure>
+  </div>
+  <div class="info">
+    <div><h4>Dùng để làm gì</h4><p>Danh sách mọi hội viên, lọc nhanh theo gói (đang hiệu lực, hết hạn tuần này, hết hạn, chưa có gói), tìm theo tên, số điện thoại hoặc mã, lọc trạng thái và môn. Bấm một dòng để mở hồ sơ.</p></div>
+    <div><h4>Ai dùng, vào bằng đâu</h4><p>Quản lý.</p><p class="from"><b>Máy tính:</b> Thanh trên: «Hội viên»<br><b>Điện thoại:</b> Thanh dưới: «Hội viên»</p></div>
+    <div><h4>Làm được gì ở đây</h4><ul><li><b class="num">1</b><span>Chọn nhóm lọc</span></li><li class="plain"><span>Tìm theo tên, số điện thoại hoặc mã</span></li><li class="plain"><span>Mở hồ sơ hội viên (S25)</span></li></ul></div>
+  </div>
+</section>
+
+<section class="page" id="S35">
+  <header><span class="code" style="background:#4a2f17">S35</span><div class="titles"><h2>Điểm danh (báo cáo)</h2></div><div class="meta"><span class="role" style="color:#4a2f17;border-color:#4a2f17">Quản lý</span></div></header>
+  <div class="shots">
+    <figure class="desk"><img src="img/S35-d.jpg" alt=""><figcaption>Trên máy tính</figcaption></figure>
+    <figure class="mob"><img src="img/S35-m.jpg" alt=""><figcaption>Trên điện thoại</figcaption></figure>
+  </div>
+  <div class="info">
+    <div><h4>Dùng để làm gì</h4><p>Hội viên có thực sự đến tập không: tỉ lệ điểm danh, số có mặt, vắng, có phép, theo từng lớp và huấn luyện viên, trong khoảng ngày chọn. Tab «Sắp rời bỏ» liệt kê ai cần gọi trước khi rời đi.</p></div>
+    <div><h4>Ai dùng, vào bằng đâu</h4><p>Quản lý.</p><p class="from"><b>Máy tính:</b> Thanh trên: «Điểm danh»<br><b>Điện thoại:</b> Thanh dưới: «Điểm danh»</p></div>
+    <div><h4>Làm được gì ở đây</h4><ul><li class="plain"><span>Chọn khoảng ngày</span></li><li class="plain"><span>Xem theo lớp</span></li><li><b class="num">1</b><span>Xuất Excel hoặc PDF</span></li></ul></div>
+  </div>
+</section>
+
+<section class="page" id="S36">
+  <header><span class="code" style="background:#4a2f17">S36</span><div class="titles"><h2>Nhân viên</h2></div><div class="meta"><span class="role" style="color:#4a2f17;border-color:#4a2f17">Quản lý</span></div></header>
+  <div class="shots">
+    <figure class="desk"><img src="img/S36-d.jpg" alt=""><figcaption>Trên máy tính</figcaption></figure>
+    <figure class="mob"><img src="img/S36-m.jpg" alt=""><figcaption>Trên điện thoại</figcaption></figure>
+  </div>
+  <div class="info">
+    <div><h4>Dùng để làm gì</h4><p>Tài khoản lễ tân và huấn luyện viên chỉ được cấp ở đây (hội viên tự đăng ký). Đổi vai trò, đặt lại mật khẩu, đăng xuất mọi nơi, khoá hoặc mở khoá tài khoản.</p><p class="note">Nhân viên mới phải đổi mật khẩu ở lần đăng nhập đầu tiên.</p></div>
+    <div><h4>Ai dùng, vào bằng đâu</h4><p>Quản lý.</p><p class="from"><b>Máy tính:</b> Thanh trên: «Nhân viên»<br><b>Điện thoại:</b> Thanh dưới: «Thêm» → «Nhân viên»</p></div>
+    <div><h4>Làm được gì ở đây</h4><ul><li><b class="num">1</b><span>Bấm «Thêm nhân viên»</span></li><li><b class="num">2</b><span>Bấm «Đặt lại mật khẩu»</span></li><li class="plain"><span>Bấm «Khoá» để khoá tài khoản</span></li></ul></div>
+  </div>
+</section>
+
+<section class="page" id="S37">
+  <header><span class="code" style="background:#4a2f17">S37</span><div class="titles"><h2>Gói tập (quản lý)</h2></div><div class="meta"><span class="role" style="color:#4a2f17;border-color:#4a2f17">Quản lý</span></div></header>
+  <div class="shots">
+    <figure class="desk"><img src="img/S37-d.jpg" alt=""><figcaption>Trên máy tính</figcaption></figure>
+    <figure class="mob"><img src="img/S37-m.jpg" alt=""><figcaption>Trên điện thoại</figcaption></figure>
+  </div>
+  <div class="info">
+    <div><h4>Dùng để làm gì</h4><p>Mọi gói, cả đang bán và đã ngừng. Mỗi thẻ ghi môn, trạng thái bán, giá và quyền lợi. Gói không bao giờ bị xoá: ngừng bán thì hội viên đang dùng vẫn giữ nguyên.</p></div>
+    <div><h4>Ai dùng, vào bằng đâu</h4><p>Quản lý.</p><p class="from"><b>Máy tính:</b> Thanh trên: «Thêm» → Kinh doanh → «Gói tập»<br><b>Điện thoại:</b> Thanh dưới: «Thêm» → Kinh doanh → «Gói tập»</p></div>
+    <div><h4>Làm được gì ở đây</h4><ul><li><b class="num">1</b><span>Bấm «Gói mới»</span></li><li><b class="num">2</b><span>Bấm «Chi tiết» để sửa giá, quyền lợi</span></li><li><b class="num">3</b><span>«Ngừng bán» hoặc «Bán lại»</span></li></ul></div>
+  </div>
+</section>
+
+<section class="page" id="S38">
+  <header><span class="code" style="background:#4a2f17">S38</span><div class="titles"><h2>Khuyến mãi</h2></div><div class="meta"><span class="role" style="color:#4a2f17;border-color:#4a2f17">Quản lý</span></div></header>
+  <div class="shots">
+    <figure class="desk"><img src="img/S38-d.jpg" alt=""><figcaption>Trên máy tính</figcaption></figure>
+    <figure class="mob"><img src="img/S38-m.jpg" alt=""><figcaption>Trên điện thoại</figcaption></figure>
+  </div>
+  <div class="info">
+    <div><h4>Dùng để làm gì</h4><p>Mã giảm giá theo % hoặc số tiền, có mức tối đa, phạm vi áp dụng, thời hạn và giới hạn lượt dùng. Mỗi mã hiện số lượt đã dùng và tổng tiền đã giảm.</p></div>
+    <div><h4>Ai dùng, vào bằng đâu</h4><p>Quản lý.</p><p class="from"><b>Máy tính:</b> Thanh trên: «Thêm» → Kinh doanh → «Khuyến mãi»<br><b>Điện thoại:</b> Thanh dưới: «Thêm» → Kinh doanh → «Khuyến mãi»</p></div>
+    <div><h4>Làm được gì ở đây</h4><ul><li><b class="num">1</b><span>Bấm «Mã mới»</span></li><li><b class="num">2</b><span>«Tạm dừng» hoặc «Tiếp tục» một mã</span></li><li><b class="num">3</b><span>«Ai đã dùng» để xem lượt dùng</span></li></ul></div>
+  </div>
+</section>
+
+<section class="page" id="S39">
+  <header><span class="code" style="background:#4a2f17">S39</span><div class="titles"><h2>Bảng giá</h2></div><div class="meta"><span class="role" style="color:#4a2f17;border-color:#4a2f17">Quản lý</span></div></header>
+  <div class="shots">
+    <figure class="desk"><img src="img/S39-d.jpg" alt=""><figcaption>Trên máy tính</figcaption></figure>
+    <figure class="mob"><img src="img/S39-m.jpg" alt=""><figcaption>Trên điện thoại</figcaption></figure>
+  </div>
+  <div class="info">
+    <div><h4>Dùng để làm gì</h4><p>Giá thuê sân theo môn, loại ngày (thường, cuối tuần, lễ) và khung giờ (thường, cao điểm). Giá mới chỉ áp cho giao dịch mới; lượt đặt và gói đã bán giữ giá cũ.</p></div>
+    <div><h4>Ai dùng, vào bằng đâu</h4><p>Quản lý.</p><p class="from"><b>Máy tính:</b> Thanh trên: «Thêm» → Kinh doanh → «Bảng giá»<br><b>Điện thoại:</b> Thanh dưới: «Thêm» → Kinh doanh → «Bảng giá»</p></div>
+    <div><h4>Làm được gì ở đây</h4><ul><li class="plain"><span>Mở từng môn</span></li><li class="plain"><span>Sửa giá trong ô</span></li><li class="plain"><span>Lưu thay đổi</span></li></ul></div>
+  </div>
+</section>
+
+<section class="page" id="S40">
+  <header><span class="code" style="background:#4a2f17">S40</span><div class="titles"><h2>Hoa hồng huấn luyện viên</h2></div><div class="meta"><span class="role" style="color:#4a2f17;border-color:#4a2f17">Quản lý</span></div></header>
+  <div class="shots">
+    <figure class="desk"><img src="img/S40-d.jpg" alt=""><figcaption>Trên máy tính</figcaption></figure>
+    <figure class="mob"><img src="img/S40-m.jpg" alt=""><figcaption>Trên điện thoại</figcaption></figure>
+  </div>
+  <div class="info">
+    <div><h4>Dùng để làm gì</h4><p>Tiền trả cho huấn luyện viên theo tháng: tổng còn phải trả, số buổi đã dạy, số lượt học viên. Đặt mức trả mỗi buổi và mỗi học viên cho từng người.</p><p class="note">Tháng chưa chốt thì số liệu còn có thể thay đổi.</p></div>
+    <div><h4>Ai dùng, vào bằng đâu</h4><p>Quản lý.</p><p class="from"><b>Máy tính:</b> Thanh trên: «Thêm» → Kinh doanh → «Hoa hồng»<br><b>Điện thoại:</b> Thanh dưới: «Thêm» → Kinh doanh → «Hoa hồng»</p></div>
+    <div><h4>Làm được gì ở đây</h4><ul><li class="plain"><span>Chọn tháng</span></li><li class="plain"><span>Sửa mức trả của một huấn luyện viên</span></li><li><b class="num">1</b><span>Bấm «Lưu mức trả»</span></li></ul></div>
+  </div>
+</section>
+
+<section class="page" id="S41">
+  <header><span class="code" style="background:#4a2f17">S41</span><div class="titles"><h2>Xuất hoá đơn điện tử</h2></div><div class="meta"><span class="role" style="color:#4a2f17;border-color:#4a2f17">Quản lý</span></div></header>
+  <div class="shots">
+    <figure class="desk"><img src="img/S41-d.jpg" alt=""><figcaption>Trên máy tính</figcaption></figure>
+    <figure class="mob"><img src="img/S41-m.jpg" alt=""><figcaption>Trên điện thoại</figcaption></figure>
+  </div>
+  <div class="info">
+    <div><h4>Dùng để làm gì</h4><p>Gửi hoá đơn của tháng cho kế toán dưới dạng bảng tính hoặc file XML để đưa vào hệ thống hoá đơn điện tử. Chọn khoảng ngày, xem số hoá đơn, tổng tiền, VAT và số hoá đơn chưa xuất.</p><p class="note">Đây chưa phải hoá đơn phát hành: nhà cung cấp hoá đơn điện tử phát hành từ file này.</p></div>
+    <div><h4>Ai dùng, vào bằng đâu</h4><p>Quản lý, kế toán.</p><p class="from"><b>Máy tính:</b> Thanh trên: «Thêm» → Kinh doanh → «Hoá đơn điện tử»<br><b>Điện thoại:</b> Thanh dưới: «Thêm» → Kinh doanh → «Hoá đơn điện tử»</p></div>
+    <div><h4>Làm được gì ở đây</h4><ul><li class="plain"><span>Chọn khoảng ngày</span></li><li><b class="num">1</b><span>Bấm «Tải bảng tính (CSV)»</span></li><li><b class="num">2</b><span>Bấm «Tải XML»</span></li></ul></div>
+  </div>
+</section>
+
+<section class="page" id="S42">
+  <header><span class="code" style="background:#4a2f17">S42</span><div class="titles"><h2>Nhật ký thao tác</h2></div><div class="meta"><span class="role" style="color:#4a2f17;border-color:#4a2f17">Quản lý</span></div></header>
+  <div class="shots">
+    <figure class="desk"><img src="img/S42-d.jpg" alt=""><figcaption>Trên máy tính</figcaption></figure>
+    <figure class="mob"><img src="img/S42-m.jpg" alt=""><figcaption>Trên điện thoại</figcaption></figure>
+  </div>
+  <div class="info">
+    <div><h4>Dùng để làm gì</h4><p>Ai đã làm gì, lúc nào, mới nhất trước: tên thao tác, người làm, vai trò, đối tượng. Mở một dòng để xem giá trị trước và sau. Không ai sửa hay xoá được nhật ký.</p></div>
+    <div><h4>Ai dùng, vào bằng đâu</h4><p>Quản lý, để kiểm tra.</p><p class="from"><b>Máy tính:</b> Thanh trên: «Thêm» → Hệ thống → «Nhật ký»<br><b>Điện thoại:</b> Thanh dưới: «Thêm» → Hệ thống → «Nhật ký»</p></div>
+    <div><h4>Làm được gì ở đây</h4><ul><li class="plain"><span>Lọc theo thao tác, người làm, đối tượng, khoảng ngày</span></li><li class="plain"><span>Tìm trong danh sách</span></li><li class="plain"><span>Mở một dòng để xem trước và sau</span></li></ul></div>
+  </div>
+</section>
+
+<section class="page" id="S43">
+  <header><span class="code" style="background:#4a2f17">S43</span><div class="titles"><h2>Cài đặt trung tâm</h2></div><div class="meta"><span class="role" style="color:#4a2f17;border-color:#4a2f17">Quản lý</span></div></header>
+  <div class="shots">
+    <figure class="desk"><img src="img/S43-d.jpg" alt=""><figcaption>Trên máy tính</figcaption></figure>
+    <figure class="mob"><img src="img/S43-m.jpg" alt=""><figcaption>Trên điện thoại</figcaption></figure>
+  </div>
+  <div class="info">
+    <div><h4>Dùng để làm gì</h4><p>Bật hoặc tắt tính năng (sổ điểm danh và giáo án, gợi ý giáo án, trợ lý hội viên), đưa từng sân vào «Đang mở / Bảo trì / Đã đóng», và thông tin pháp lý của trung tâm (tên, địa chỉ, mã số thuế).</p><p class="note">C7: Thay đổi giờ mở cửa trung tâm sẽ cập nhật khung giờ trên lưới sân. Thay đổi áp dụng cho giao dịch mới trong vòng một phút.</p></div>
+    <div><h4>Ai dùng, vào bằng đâu</h4><p>Quản lý.</p><p class="from"><b>Máy tính:</b> Thanh trên: «Thêm» → Hệ thống → «Cài đặt»<br><b>Điện thoại:</b> Thanh dưới: «Thêm» → Hệ thống → «Cài đặt»</p></div>
+    <div><h4>Làm được gì ở đây</h4><ul><li class="plain"><span>Bật hoặc tắt tính năng</span></li><li class="plain"><span>Đổi trạng thái từng sân</span></li><li class="plain"><span>Cuộn xuống: sửa thông tin trung tâm rồi lưu</span></li></ul></div>
+  </div>
+</section>
+<section class="page" id="S43x">
+  <header><span class="code" style="background:#4a2f17">S43</span><div class="titles"><h2>Cài đặt trung tâm <small>(trang tiếp)</small></h2></div><div class="meta"><span class="role" style="color:#4a2f17;border-color:#4a2f17">Quản lý</span></div></header>
+  <div class="shots"><figure class="desk wide"><img src="img/S43-x.jpg" alt=""><figcaption>Cuộn xuống: sân và thông tin trung tâm</figcaption></figure></div>
+</section>
+
+<section class="page" id="MORE">
+  <header><span class="code" style="background:#141d0f">+</span><div class="titles"><h2>Menu «Thêm»</h2></div><div class="meta"></div></header>
+  <div class="shots">
+    <figure class="mob"><img src="img/MORE-member-m.jpg" alt=""><figcaption>Hội viên, điện thoại</figcaption></figure>
+    <figure class="mob"><img src="img/MORE-receptionist-m.jpg" alt=""><figcaption>Lễ tân, điện thoại</figcaption></figure>
+    <figure class="mob"><img src="img/MORE-manager-m.jpg" alt=""><figcaption>Quản lý, điện thoại</figcaption></figure>
+    <figure class="desk narrow"><img src="img/MORE-manager-d.jpg" alt=""><figcaption>Quản lý, máy tính</figcaption></figure>
+  </div>
+  <div class="info two">
+    <div><h4>Vì sao cần</h4><p>Thanh dưới trên điện thoại chỉ giữ 5 mục dùng nhiều nhất, thanh trên máy tính hiện vừa đủ chỗ. Các mục còn lại nằm trong nút «Thêm». Ở quản lý, menu «Thêm» chia ba nhóm: Kinh doanh, Vận hành, Hệ thống.</p></div>
+    <div><h4>Mục nào nằm trong «Thêm»</h4><ul>
+      <li class="plain"><span><b>Hội viên (điện thoại):</b> Tiến độ, Gói tập, Điểm</span></li>
+      <li class="plain"><span><b>Lễ tân:</b> Sắp rời bỏ, Lớp học, Dụng cụ, Bảo trì; trên điện thoại thêm Đặt cố định</span></li>
+      <li class="plain"><span><b>Quản lý:</b> Kinh doanh (Gói tập, Khuyến mãi, Bảng giá, Hoa hồng, Hoá đơn điện tử), Vận hành (Đặt cố định, Bảo trì), Hệ thống (Nhật ký, Cài đặt); trên điện thoại thêm Lớp học và Nhân viên</span></li>
+    </ul></div>
+  </div>
+</section>
+
+<section class="page idx" id="DARK-APPENDIX">
+  <h2>Phụ lục: Chế độ tối (Dark mode)</h2>
+  <p class="lead">Giao diện tự động chuyển sang tông màu xanh rêu đậm (#10150d / #182114) kết hợp nâu đất (#c08a5a) và xanh mạ sáng (#8bc34a) khi thiết bị bật chế độ tối. Bảng màu tối tuân thủ nghiêm ngặt tiêu chuẩn tương phản WCAG AA, cho trải nghiệm êm dịu ban đêm.</p>
+  <div class="key">
+    <div class="kc"><span class="sw" style="background:#10150d;box-shadow:inset 0 0 0 1px #2a3824;color:#e9eee0">Aa</span><div><strong>Nền chính (#10150d)</strong><span>Xanh rêu gần đen, giảm mỏi mắt, tương phản 15.66:1</span></div></div>
+    <div class="kc"><span class="sw" style="background:#8bc34a;color:#10180a">Aa</span><div><strong>Xanh mạ sáng (#8bc34a)</strong><span>Nút chính chữ tối trên nền sáng, tương phản 8.64:1</span></div></div>
+    <div class="kc"><span class="sw" style="background:#c08a5a;color:#10150d">Aa</span><div><strong>Nâu đất (#c08a5a)</strong><span>Điểm nhấn phụ, badge trạng thái và lớp học</span></div></div>
+    <div class="kc"><span class="sw" style="background:#3d2815;color:#faebd7">Aa</span><div><strong>Thẻ hội viên (#3d2815)</strong><span>Tông nâu gỗ sẫm, chữ sáng ấm tương phản 13.34:1</span></div></div>
+  </div>
+  <p class="lead small">Dưới đây là 6 màn hình tiêu biểu đại diện cho khách vãng lai, hội viên, lễ tân và quản lý ở chế độ tối.</p>
+</section>
+
+<section class="page" id="DARK-S01">
+  <header><span class="code" style="background:#5f6857">S01</span><div class="titles"><h2>Trang chủ <small>(Chế độ tối)</small></h2></div><div class="meta"><span class="role" style="color:#5f6857;border-color:#5f6857">Khách (chưa đăng nhập)</span></div></header>
+  <div class="shots">
+    <figure class="desk"><img src="img/DARK-S01-d.jpg" alt=""><figcaption>Trên máy tính (chế độ tối)</figcaption></figure>
+    <figure class="mob"><img src="img/DARK-S01-m.jpg" alt=""><figcaption>Trên điện thoại (chế độ tối)</figcaption></figure>
+  </div>
+  <div class="info">
+    <div><h4>Giao diện tối</h4><p>Màn hình Trang chủ hiển thị trên nền xanh rêu đậm (#10150d), các thẻ card dùng nền #182114 với viền phân cách tự nhiên.</p></div>
+    <div><h4>Độ tương phản</h4><p>Chữ chính (#e9eee0) đạt tỉ lệ 15.66:1 so với nền; các nút hành động chữ tối trên nền xanh mạ sáng (#8bc34a) đạt 8.64:1, vượt chuẩn WCAG AA.</p></div>
+    <div><h4>Tự động thích ứng</h4><p>Tự động kích hoạt theo cài đặt prefers-color-scheme của hệ thống hoặc trình duyệt mà không cần nút gạt thủ công.</p></div>
+  </div>
+</section>
+
+<section class="page" id="DARK-S02">
+  <header><span class="code" style="background:#5f6857">S02</span><div class="titles"><h2>Đăng nhập <small>(Chế độ tối)</small></h2></div><div class="meta"><span class="role" style="color:#5f6857;border-color:#5f6857">Khách (chưa đăng nhập)</span></div></header>
+  <div class="shots">
+    <figure class="desk"><img src="img/DARK-S02-d.jpg" alt=""><figcaption>Trên máy tính (chế độ tối)</figcaption></figure>
+    <figure class="mob"><img src="img/DARK-S02-m.jpg" alt=""><figcaption>Trên điện thoại (chế độ tối)</figcaption></figure>
+  </div>
+  <div class="info">
+    <div><h4>Giao diện tối</h4><p>Màn hình Đăng nhập hiển thị trên nền xanh rêu đậm (#10150d), các thẻ card dùng nền #182114 với viền phân cách tự nhiên.</p></div>
+    <div><h4>Độ tương phản</h4><p>Chữ chính (#e9eee0) đạt tỉ lệ 15.66:1 so với nền; các nút hành động chữ tối trên nền xanh mạ sáng (#8bc34a) đạt 8.64:1, vượt chuẩn WCAG AA.</p></div>
+    <div><h4>Tự động thích ứng</h4><p>Tự động kích hoạt theo cài đặt prefers-color-scheme của hệ thống hoặc trình duyệt mà không cần nút gạt thủ công.</p></div>
+  </div>
+</section>
+
+<section class="page" id="DARK-S06">
+  <header><span class="code" style="background:#3f7d20">S06</span><div class="titles"><h2>Đặt sân <small>(Chế độ tối)</small></h2></div><div class="meta"><span class="role" style="color:#3f7d20;border-color:#3f7d20">Hội viên</span></div></header>
+  <div class="shots">
+    <figure class="desk"><img src="img/DARK-S06-d.jpg" alt=""><figcaption>Trên máy tính (chế độ tối)</figcaption></figure>
+    <figure class="mob"><img src="img/DARK-S06-m.jpg" alt=""><figcaption>Trên điện thoại (chế độ tối)</figcaption></figure>
+  </div>
+  <div class="info">
+    <div><h4>Giao diện tối</h4><p>Màn hình Đặt sân hiển thị trên nền xanh rêu đậm (#10150d), các thẻ card dùng nền #182114 với viền phân cách tự nhiên.</p></div>
+    <div><h4>Độ tương phản</h4><p>Chữ chính (#e9eee0) đạt tỉ lệ 15.66:1 so với nền; các nút hành động chữ tối trên nền xanh mạ sáng (#8bc34a) đạt 8.64:1, vượt chuẩn WCAG AA.</p></div>
+    <div><h4>Tự động thích ứng</h4><p>Tự động kích hoạt theo cài đặt prefers-color-scheme của hệ thống hoặc trình duyệt mà không cần nút gạt thủ công.</p></div>
+  </div>
+</section>
+
+<section class="page" id="DARK-S11">
+  <header><span class="code" style="background:#3f7d20">S11</span><div class="titles"><h2>Mã QR vào cổng (Thẻ hội viên) <small>(Chế độ tối)</small></h2></div><div class="meta"><span class="role" style="color:#3f7d20;border-color:#3f7d20">Hội viên</span></div></header>
+  <div class="shots">
+    <figure class="desk"><img src="img/DARK-S11-d.jpg" alt=""><figcaption>Trên máy tính (chế độ tối)</figcaption></figure>
+    <figure class="mob"><img src="img/DARK-S11-m.jpg" alt=""><figcaption>Trên điện thoại (chế độ tối)</figcaption></figure>
+  </div>
+  <div class="info">
+    <div><h4>Giao diện tối</h4><p>Màn hình Mã QR vào cổng (Thẻ hội viên) hiển thị trên nền xanh rêu đậm (#10150d), các thẻ card dùng nền #182114 với viền phân cách tự nhiên.</p></div>
+    <div><h4>Độ tương phản</h4><p>Chữ chính (#e9eee0) đạt tỉ lệ 15.66:1 so với nền; các nút hành động chữ tối trên nền xanh mạ sáng (#8bc34a) đạt 8.64:1, vượt chuẩn WCAG AA.</p></div>
+    <div><h4>Tự động thích ứng</h4><p>Tự động kích hoạt theo cài đặt prefers-color-scheme của hệ thống hoặc trình duyệt mà không cần nút gạt thủ công.</p></div>
+  </div>
+</section>
+
+<section class="page" id="DARK-S16">
+  <header><span class="code" style="background:#7a4a24">S16</span><div class="titles"><h2>Quầy lễ tân <small>(Chế độ tối)</small></h2></div><div class="meta"><span class="role" style="color:#7a4a24;border-color:#7a4a24">Lễ tân</span></div></header>
+  <div class="shots">
+    <figure class="desk"><img src="img/DARK-S16-d.jpg" alt=""><figcaption>Trên máy tính (chế độ tối)</figcaption></figure>
+    <figure class="mob"><img src="img/DARK-S16-m.jpg" alt=""><figcaption>Trên điện thoại (chế độ tối)</figcaption></figure>
+  </div>
+  <div class="info">
+    <div><h4>Giao diện tối</h4><p>Màn hình Quầy lễ tân hiển thị trên nền xanh rêu đậm (#10150d), các thẻ card dùng nền #182114 với viền phân cách tự nhiên.</p></div>
+    <div><h4>Độ tương phản</h4><p>Chữ chính (#e9eee0) đạt tỉ lệ 15.66:1 so với nền; các nút hành động chữ tối trên nền xanh mạ sáng (#8bc34a) đạt 8.64:1, vượt chuẩn WCAG AA.</p></div>
+    <div><h4>Tự động thích ứng</h4><p>Tự động kích hoạt theo cài đặt prefers-color-scheme của hệ thống hoặc trình duyệt mà không cần nút gạt thủ công.</p></div>
+  </div>
+</section>
+
+<section class="page" id="DARK-S32">
+  <header><span class="code" style="background:#4a2f17">S32</span><div class="titles"><h2>Báo cáo (Bảng điều khiển quản lý) <small>(Chế độ tối)</small></h2></div><div class="meta"><span class="role" style="color:#4a2f17;border-color:#4a2f17">Quản lý</span></div></header>
+  <div class="shots">
+    <figure class="desk"><img src="img/DARK-S32-d.jpg" alt=""><figcaption>Trên máy tính (chế độ tối)</figcaption></figure>
+    <figure class="mob"><img src="img/DARK-S32-m.jpg" alt=""><figcaption>Trên điện thoại (chế độ tối)</figcaption></figure>
+  </div>
+  <div class="info">
+    <div><h4>Giao diện tối</h4><p>Màn hình Báo cáo (Bảng điều khiển quản lý) hiển thị trên nền xanh rêu đậm (#10150d), các thẻ card dùng nền #182114 với viền phân cách tự nhiên.</p></div>
+    <div><h4>Độ tương phản</h4><p>Chữ chính (#e9eee0) đạt tỉ lệ 15.66:1 so với nền; các nút hành động chữ tối trên nền xanh mạ sáng (#8bc34a) đạt 8.64:1, vượt chuẩn WCAG AA.</p></div>
+    <div><h4>Tự động thích ứng</h4><p>Tự động kích hoạt theo cài đặt prefers-color-scheme của hệ thống hoặc trình duyệt mà không cần nút gạt thủ công.</p></div>
+  </div>
+</section>
+
+<section class="page idx" id="APPENDIX">
+  <h2>Phụ lục kỹ thuật (cho người làm phần mềm)</h2>
+  <div class="app-cols"><table class="app"><tr><th>Mã</th><th>Tên màn hình</th><th>Vai trò</th><th>Đường dẫn</th></tr><tr><td>S01</td><td>Trang chủ</td><td>Khách (chưa đăng nhập)</td><td><code>/</code></td></tr><tr><td>S02</td><td>Đăng nhập</td><td>Khách (chưa đăng nhập)</td><td><code>/login</code></td></tr><tr><td>S03</td><td>Tạo tài khoản</td><td>Khách (chưa đăng nhập)</td><td><code>/register</code></td></tr><tr><td>S04</td><td>Quên mật khẩu</td><td>Khách (chưa đăng nhập)</td><td><code>/forgot</code></td></tr><tr><td>S05</td><td>Trang chủ hội viên</td><td>Hội viên</td><td><code>/app</code></td></tr><tr><td>S06</td><td>Đặt sân</td><td>Hội viên</td><td><code>/app/book</code></td></tr><tr><td>S07</td><td>Lớp học</td><td>Hội viên</td><td><code>/app/classes</code></td></tr><tr><td>S08</td><td>Tiến độ tập luyện</td><td>Hội viên</td><td><code>/app/train</code></td></tr><tr><td>S09</td><td>Gói tập</td><td>Hội viên</td><td><code>/app/plans</code></td></tr><tr><td>S10</td><td>Điểm thưởng</td><td>Hội viên</td><td><code>/app/points</code></td></tr><tr><td>S11</td><td>Mã QR vào cổng</td><td>Hội viên</td><td><code>/app/pass</code></td></tr><tr><td>S12</td><td>Trợ lý</td><td>Hội viên</td><td><code>/app/assistant</code></td></tr><tr><td>S13</td><td>Thông báo</td><td>Hội viên</td><td><code>/app/notifications</code></td></tr><tr><td>S14</td><td>Tài khoản</td><td>Hội viên</td><td><code>/account</code></td></tr><tr><td>S15</td><td>Kết quả thanh toán online</td><td>Hội viên</td><td><code>/pay/return</code></td></tr><tr><td>S16</td><td>Quầy lễ tân</td><td>Lễ tân</td><td><code>/desk</code></td></tr><tr><td>S17</td><td>Cổng</td><td>Lễ tân</td><td><code>/desk/gate</code></td></tr><tr><td>S18</td><td>Sơ đồ sân</td><td>Lễ tân</td><td><code>/desk/courts</code></td></tr><tr><td>S19</td><td>Thanh toán</td><td>Lễ tân</td><td><code>/desk/payments</code></td></tr><tr><td>S20</td><td>Đặt sân cố định</td><td>Lễ tân</td><td><code>/desk/series</code></td></tr><tr><td>S21</td><td>Sắp rời bỏ</td><td>Lễ tân</td><td><code>/desk/at-risk</code></td></tr><tr><td>S22</td><td>Lớp học (quầy)</td><td>Lễ tân</td><td><code>/desk/classes</code></td></tr><tr><td>S23</td><td>Dụng cụ</td><td>Lễ tân</td><td><code>/desk/gear</code></td></tr></table><table class="app"><tr><th>Mã</th><th>Tên màn hình</th><th>Vai trò</th><th>Đường dẫn</th></tr><tr><td>S24</td><td>Bảo trì</td><td>Lễ tân</td><td><code>/desk/maintenance</code></td></tr><tr><td>S25</td><td>Hồ sơ hội viên</td><td>Lễ tân</td><td><code>/desk/member/{id}</code></td></tr><tr><td>S26</td><td>Cảnh báo</td><td>Lễ tân</td><td><code>/alerts</code></td></tr><tr><td>S27</td><td>Lịch dạy</td><td>Huấn luyện viên</td><td><code>/coach</code></td></tr><tr><td>S28</td><td>Điểm danh</td><td>Huấn luyện viên</td><td><code>/coach/attendance</code></td></tr><tr><td>S29</td><td>Lớp học (huấn luyện viên)</td><td>Huấn luyện viên</td><td><code>/coach/classes</code></td></tr><tr><td>S30</td><td>Hồ sơ học viên</td><td>Huấn luyện viên</td><td><code>/coach/student/{id}</code></td></tr><tr><td>S31</td><td>Thu nhập</td><td>Huấn luyện viên</td><td><code>/coach/earnings</code></td></tr><tr><td>S32</td><td>Báo cáo</td><td>Quản lý</td><td><code>/manager</code></td></tr><tr><td>S33</td><td>Lớp học (quản lý)</td><td>Quản lý</td><td><code>/manager/classes</code></td></tr><tr><td>S34</td><td>Hội viên</td><td>Quản lý</td><td><code>/manager/members</code></td></tr><tr><td>S35</td><td>Điểm danh (báo cáo)</td><td>Quản lý</td><td><code>/manager/attendance</code></td></tr><tr><td>S36</td><td>Nhân viên</td><td>Quản lý</td><td><code>/manager/staff</code></td></tr><tr><td>S37</td><td>Gói tập (quản lý)</td><td>Quản lý</td><td><code>/manager/plans</code></td></tr><tr><td>S38</td><td>Khuyến mãi</td><td>Quản lý</td><td><code>/manager/promos</code></td></tr><tr><td>S39</td><td>Bảng giá</td><td>Quản lý</td><td><code>/manager/prices</code></td></tr><tr><td>S40</td><td>Hoa hồng huấn luyện viên</td><td>Quản lý</td><td><code>/manager/commission</code></td></tr><tr><td>S41</td><td>Xuất hoá đơn điện tử</td><td>Quản lý</td><td><code>/manager/invoices</code></td></tr><tr><td>S42</td><td>Nhật ký thao tác</td><td>Quản lý</td><td><code>/manager/audit</code></td></tr><tr><td>S43</td><td>Cài đặt trung tâm</td><td>Quản lý</td><td><code>/manager/settings</code></td></tr><tr><td>S44</td><td>Điều khoản sử dụng</td><td>Khách (chưa đăng nhập)</td><td><code>/terms</code></td></tr><tr><td>S45</td><td>Thông báo về dữ liệu cá nhân</td><td>Khách (chưa đăng nhập)</td><td><code>/privacy</code></td></tr></table></div>
+</section>
+</body></html>
