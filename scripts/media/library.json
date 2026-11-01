@@ -1,0 +1,3390 @@
+[
+  {
+    "id": "legacy-athlete",
+    "path": "athlete.jpg",
+    "kind": "image",
+    "category": "legacy",
+    "tags": [
+      "legacy",
+      "athlete"
+    ],
+    "width": 1280,
+    "height": 720,
+    "alt_en": "Arena3 site asset: athlete",
+    "alt_vi": "Tài nguyên Arena3: athlete",
+    "credit": "Arena3 Studio",
+    "source_url": "https://arena3.vn",
+    "license": "project",
+    "created_at": "2026-10-16T07:58:30.214Z"
+  },
+  {
+    "id": "legacy-badminton-action",
+    "path": "badminton-action.jpg",
+    "kind": "image",
+    "category": "legacy",
+    "tags": [
+      "legacy",
+      "badminton-action"
+    ],
+    "width": 1280,
+    "height": 720,
+    "alt_en": "Arena3 site asset: badminton-action",
+    "alt_vi": "Tài nguyên Arena3: badminton-action",
+    "credit": "Arena3 Studio",
+    "source_url": "https://arena3.vn",
+    "license": "project",
+    "created_at": "2026-10-16T07:58:30.214Z"
+  },
+  {
+    "id": "legacy-badminton-court",
+    "path": "badminton-court.jpg",
+    "kind": "image",
+    "category": "legacy",
+    "tags": [
+      "legacy",
+      "badminton-court"
+    ],
+    "width": 1280,
+    "height": 720,
+    "alt_en": "Arena3 site asset: badminton-court",
+    "alt_vi": "Tài nguyên Arena3: badminton-court",
+    "credit": "Arena3 Studio",
+    "source_url": "https://arena3.vn",
+    "license": "project",
+    "created_at": "2026-10-16T07:58:30.214Z"
+  },
+  {
+    "id": "legacy-badminton-smash",
+    "path": "badminton-smash.jpg",
+    "kind": "image",
+    "category": "legacy",
+    "tags": [
+      "legacy",
+      "badminton-smash"
+    ],
+    "width": 1280,
+    "height": 720,
+    "alt_en": "Arena3 site asset: badminton-smash",
+    "alt_vi": "Tài nguyên Arena3: badminton-smash",
+    "credit": "Arena3 Studio",
+    "source_url": "https://arena3.vn",
+    "license": "project",
+    "created_at": "2026-10-16T07:58:30.214Z"
+  },
+  {
+    "id": "legacy-badminton",
+    "path": "badminton.jpg",
+    "kind": "image",
+    "category": "legacy",
+    "tags": [
+      "legacy",
+      "badminton"
+    ],
+    "width": 1280,
+    "height": 720,
+    "alt_en": "Arena3 site asset: badminton",
+    "alt_vi": "Tài nguyên Arena3: badminton",
+    "credit": "Arena3 Studio",
+    "source_url": "https://arena3.vn",
+    "license": "project",
+    "created_at": "2026-10-16T07:58:30.214Z"
+  },
+  {
+    "id": "legacy-badminton",
+    "path": "badminton.mp4",
+    "kind": "video",
+    "category": "legacy",
+    "tags": [
+      "legacy",
+      "badminton"
+    ],
+    "width": 1920,
+    "height": 1080,
+    "alt_en": "Arena3 site asset: badminton",
+    "alt_vi": "Tài nguyên Arena3: badminton",
+    "credit": "Arena3 Studio",
+    "source_url": "https://arena3.vn",
+    "license": "project",
+    "created_at": "2026-10-16T07:58:30.214Z"
+  },
+  {
+    "id": "legacy-basketball-action",
+    "path": "basketball-action.jpg",
+    "kind": "image",
+    "category": "legacy",
+    "tags": [
+      "legacy",
+      "basketball-action"
+    ],
+    "width": 1280,
+    "height": 720,
+    "alt_en": "Arena3 site asset: basketball-action",
+    "alt_vi": "Tài nguyên Arena3: basketball-action",
+    "credit": "Arena3 Studio",
+    "source_url": "https://arena3.vn",
+    "license": "project",
+    "created_at": "2026-10-16T07:58:30.214Z"
+  },
+  {
+    "id": "legacy-basketball",
+    "path": "basketball.jpg",
+    "kind": "image",
+    "category": "legacy",
+    "tags": [
+      "legacy",
+      "basketball"
+    ],
+    "width": 1280,
+    "height": 720,
+    "alt_en": "Arena3 site asset: basketball",
+    "alt_vi": "Tài nguyên Arena3: basketball",
+    "credit": "Arena3 Studio",
+    "source_url": "https://arena3.vn",
+    "license": "project",
+    "created_at": "2026-10-16T07:58:30.214Z"
+  },
+  {
+    "id": "legacy-class-group",
+    "path": "class-group.jpg",
+    "kind": "image",
+    "category": "legacy",
+    "tags": [
+      "legacy",
+      "class-group"
+    ],
+    "width": 1280,
+    "height": 720,
+    "alt_en": "Arena3 site asset: class-group",
+    "alt_vi": "Tài nguyên Arena3: class-group",
+    "credit": "Arena3 Studio",
+    "source_url": "https://arena3.vn",
+    "license": "project",
+    "created_at": "2026-10-16T07:58:30.214Z"
+  },
+  {
+    "id": "legacy-coach-anh",
+    "path": "coach-anh.jpg",
+    "kind": "image",
+    "category": "legacy",
+    "tags": [
+      "legacy",
+      "coach-anh"
+    ],
+    "width": 1280,
+    "height": 720,
+    "alt_en": "Arena3 site asset: coach-anh",
+    "alt_vi": "Tài nguyên Arena3: coach-anh",
+    "credit": "Arena3 Studio",
+    "source_url": "https://arena3.vn",
+    "license": "project",
+    "created_at": "2026-10-16T07:58:30.214Z"
+  },
+  {
+    "id": "legacy-coach-drill",
+    "path": "coach-drill.jpg",
+    "kind": "image",
+    "category": "legacy",
+    "tags": [
+      "legacy",
+      "coach-drill"
+    ],
+    "width": 1280,
+    "height": 720,
+    "alt_en": "Arena3 site asset: coach-drill",
+    "alt_vi": "Tài nguyên Arena3: coach-drill",
+    "credit": "Arena3 Studio",
+    "source_url": "https://arena3.vn",
+    "license": "project",
+    "created_at": "2026-10-16T07:58:30.214Z"
+  },
+  {
+    "id": "legacy-coach-khoa",
+    "path": "coach-khoa.jpg",
+    "kind": "image",
+    "category": "legacy",
+    "tags": [
+      "legacy",
+      "coach-khoa"
+    ],
+    "width": 1280,
+    "height": 720,
+    "alt_en": "Arena3 site asset: coach-khoa",
+    "alt_vi": "Tài nguyên Arena3: coach-khoa",
+    "credit": "Arena3 Studio",
+    "source_url": "https://arena3.vn",
+    "license": "project",
+    "created_at": "2026-10-16T07:58:30.214Z"
+  },
+  {
+    "id": "legacy-coach-lan",
+    "path": "coach-lan.jpg",
+    "kind": "image",
+    "category": "legacy",
+    "tags": [
+      "legacy",
+      "coach-lan"
+    ],
+    "width": 1280,
+    "height": 720,
+    "alt_en": "Arena3 site asset: coach-lan",
+    "alt_vi": "Tài nguyên Arena3: coach-lan",
+    "credit": "Arena3 Studio",
+    "source_url": "https://arena3.vn",
+    "license": "project",
+    "created_at": "2026-10-16T07:58:30.214Z"
+  },
+  {
+    "id": "legacy-coach-viet",
+    "path": "coach-viet.jpg",
+    "kind": "image",
+    "category": "legacy",
+    "tags": [
+      "legacy",
+      "coach-viet"
+    ],
+    "width": 1280,
+    "height": 720,
+    "alt_en": "Arena3 site asset: coach-viet",
+    "alt_vi": "Tài nguyên Arena3: coach-viet",
+    "credit": "Arena3 Studio",
+    "source_url": "https://arena3.vn",
+    "license": "project",
+    "created_at": "2026-10-16T07:58:30.214Z"
+  },
+  {
+    "id": "legacy-coach-whistle",
+    "path": "coach-whistle.jpg",
+    "kind": "image",
+    "category": "legacy",
+    "tags": [
+      "legacy",
+      "coach-whistle"
+    ],
+    "width": 1280,
+    "height": 720,
+    "alt_en": "Arena3 site asset: coach-whistle",
+    "alt_vi": "Tài nguyên Arena3: coach-whistle",
+    "credit": "Arena3 Studio",
+    "source_url": "https://arena3.vn",
+    "license": "project",
+    "created_at": "2026-10-16T07:58:30.214Z"
+  },
+  {
+    "id": "legacy-court-detail",
+    "path": "court-detail.jpg",
+    "kind": "image",
+    "category": "legacy",
+    "tags": [
+      "legacy",
+      "court-detail"
+    ],
+    "width": 1280,
+    "height": 720,
+    "alt_en": "Arena3 site asset: court-detail",
+    "alt_vi": "Tài nguyên Arena3: court-detail",
+    "credit": "Arena3 Studio",
+    "source_url": "https://arena3.vn",
+    "license": "project",
+    "created_at": "2026-10-16T07:58:30.214Z"
+  },
+  {
+    "id": "legacy-desk-gate",
+    "path": "desk-gate.jpg",
+    "kind": "image",
+    "category": "legacy",
+    "tags": [
+      "legacy",
+      "desk-gate"
+    ],
+    "width": 1280,
+    "height": 720,
+    "alt_en": "Arena3 site asset: desk-gate",
+    "alt_vi": "Tài nguyên Arena3: desk-gate",
+    "credit": "Arena3 Studio",
+    "source_url": "https://arena3.vn",
+    "license": "project",
+    "created_at": "2026-10-16T07:58:30.214Z"
+  },
+  {
+    "id": "legacy-empty-court",
+    "path": "empty-court.jpg",
+    "kind": "image",
+    "category": "legacy",
+    "tags": [
+      "legacy",
+      "empty-court"
+    ],
+    "width": 1280,
+    "height": 720,
+    "alt_en": "Arena3 site asset: empty-court",
+    "alt_vi": "Tài nguyên Arena3: empty-court",
+    "credit": "Arena3 Studio",
+    "source_url": "https://arena3.vn",
+    "license": "project",
+    "created_at": "2026-10-16T07:58:30.214Z"
+  },
+  {
+    "id": "legacy-exterior",
+    "path": "exterior.jpg",
+    "kind": "image",
+    "category": "legacy",
+    "tags": [
+      "legacy",
+      "exterior"
+    ],
+    "width": 1280,
+    "height": 720,
+    "alt_en": "Arena3 site asset: exterior",
+    "alt_vi": "Tài nguyên Arena3: exterior",
+    "credit": "Arena3 Studio",
+    "source_url": "https://arena3.vn",
+    "license": "project",
+    "created_at": "2026-10-16T07:58:30.214Z"
+  },
+  {
+    "id": "legacy-hall-courts",
+    "path": "hall-courts.jpg",
+    "kind": "image",
+    "category": "legacy",
+    "tags": [
+      "legacy",
+      "hall-courts"
+    ],
+    "width": 1280,
+    "height": 720,
+    "alt_en": "Arena3 site asset: hall-courts",
+    "alt_vi": "Tài nguyên Arena3: hall-courts",
+    "credit": "Arena3 Studio",
+    "source_url": "https://arena3.vn",
+    "license": "project",
+    "created_at": "2026-10-16T07:58:30.214Z"
+  },
+  {
+    "id": "legacy-hall",
+    "path": "hall.jpg",
+    "kind": "image",
+    "category": "legacy",
+    "tags": [
+      "legacy",
+      "hall"
+    ],
+    "width": 1280,
+    "height": 720,
+    "alt_en": "Arena3 site asset: hall",
+    "alt_vi": "Tài nguyên Arena3: hall",
+    "credit": "Arena3 Studio",
+    "source_url": "https://arena3.vn",
+    "license": "project",
+    "created_at": "2026-10-16T07:58:30.214Z"
+  },
+  {
+    "id": "legacy-hall",
+    "path": "hall.mp4",
+    "kind": "video",
+    "category": "legacy",
+    "tags": [
+      "legacy",
+      "hall"
+    ],
+    "width": 1920,
+    "height": 1080,
+    "alt_en": "Arena3 site asset: hall",
+    "alt_vi": "Tài nguyên Arena3: hall",
+    "credit": "Arena3 Studio",
+    "source_url": "https://arena3.vn",
+    "license": "project",
+    "created_at": "2026-10-16T07:58:30.214Z"
+  },
+  {
+    "id": "lib-badminton-badminton-court-blue-walls",
+    "path": "library/badminton/badminton-court-blue-walls.jpg",
+    "kind": "image",
+    "category": "badminton",
+    "tags": [
+      "badminton",
+      "indoor",
+      "court",
+      "hall"
+    ],
+    "width": 1920,
+    "height": 1080,
+    "alt_en": "Indoor badminton court with blue walls and professional floor",
+    "alt_vi": "Sân cầu lông trong nhà với thảm xanh và tường xanh tiêu chuẩn",
+    "credit": "Palak Pitroda",
+    "source_url": "https://unsplash.com/photos/indoor-badminton-court-with-blue-walls-and-floor-R3S6YdeHA6A",
+    "license": "Unsplash License",
+    "created_at": "2026-10-17T16:32:36.671Z"
+  },
+  {
+    "id": "lib-badminton-badminton-doubles-play",
+    "path": "library/badminton/badminton-doubles-play.jpg",
+    "kind": "image",
+    "category": "badminton",
+    "tags": [
+      "badminton",
+      "doubles",
+      "training",
+      "court"
+    ],
+    "width": 1920,
+    "height": 1080,
+    "alt_en": "Two men playing badminton doubles on a blue court",
+    "alt_vi": "Hai người tập luyện đánh cầu đôi trên sân xanh",
+    "credit": "Evan Marvell",
+    "source_url": "https://unsplash.com/photos/two-men-playing-badminton-on-a-blue-court-CDko3AUxkOk",
+    "license": "Unsplash License",
+    "created_at": "2026-10-17T16:32:36.673Z"
+  },
+  {
+    "id": "lib-badminton-badminton-empty-courts-hall",
+    "path": "library/badminton/badminton-empty-courts-hall.jpg",
+    "kind": "image",
+    "category": "badminton",
+    "tags": [
+      "badminton",
+      "empty",
+      "courts",
+      "hall"
+    ],
+    "width": 1920,
+    "height": 1080,
+    "alt_en": "Empty indoor badminton courts with blue flooring in sports arena",
+    "alt_vi": "Các sân cầu lông thảm xanh tiêu chuẩn còn trống trong nhà thi đấu",
+    "credit": "Palak Pitroda",
+    "source_url": "https://unsplash.com/photos/empty-indoor-badminton-courts-with-blue-flooring-AILEpOyczIk",
+    "license": "Unsplash License",
+    "created_at": "2026-10-17T16:32:36.673Z"
+  },
+  {
+    "id": "lib-badminton-badminton-green-court-match",
+    "path": "library/badminton/badminton-green-court-match.jpg",
+    "kind": "image",
+    "category": "badminton",
+    "tags": [
+      "badminton",
+      "green-court",
+      "match",
+      "rally"
+    ],
+    "width": 1920,
+    "height": 1080,
+    "alt_en": "Badminton players competing on a green indoor court",
+    "alt_vi": "Vận động viên thi đấu cầu lông trên sân thảm xanh lá",
+    "credit": "Irish83",
+    "source_url": "https://unsplash.com/photos/badminton-players-on-a-green-court-framed-by-a-racket-C-MDfZ3svnQ",
+    "license": "Unsplash License",
+    "created_at": "2026-10-17T16:32:36.673Z"
+  },
+  {
+    "id": "lib-badminton-badminton-gymnasium-smash",
+    "path": "library/badminton/badminton-gymnasium-smash.jpg",
+    "kind": "image",
+    "category": "badminton",
+    "tags": [
+      "badminton",
+      "smash",
+      "gymnasium",
+      "play"
+    ],
+    "width": 1920,
+    "height": 1080,
+    "alt_en": "Player executing smash inside indoor sports gymnasium",
+    "alt_vi": "Người chơi thực hiện cú đập cầu lông uy lực trong nhà thi đấu",
+    "credit": "Jackie Hutchinson",
+    "source_url": "https://unsplash.com/photos/man-playing-badminton-inside-gymnasium-cZ8Xpnj773M",
+    "license": "Unsplash License",
+    "created_at": "2026-10-17T16:32:36.673Z"
+  },
+  {
+    "id": "lib-badminton-badminton-handshake-sportsmanship",
+    "path": "library/badminton/badminton-handshake-sportsmanship.jpg",
+    "kind": "image",
+    "category": "badminton",
+    "tags": [
+      "badminton",
+      "handshake",
+      "sportsmanship",
+      "net"
+    ],
+    "width": 1920,
+    "height": 1080,
+    "alt_en": "Badminton players shaking hands over net after match",
+    "alt_vi": "Hai tay vợt bắt tay giao lưu bên lưới sau trận cầu lông",
+    "credit": "Irish83",
+    "source_url": "https://unsplash.com/photos/two-men-shake-hands-on-an-indoor-badminton-court-5FMKW3Kj-7E",
+    "license": "Unsplash License",
+    "created_at": "2026-10-17T16:32:36.673Z"
+  },
+  {
+    "id": "lib-badminton-badminton-indoor-court-wide",
+    "path": "library/badminton/badminton-indoor-court-wide.jpg",
+    "kind": "image",
+    "category": "badminton",
+    "tags": [
+      "badminton",
+      "indoor",
+      "court",
+      "rally",
+      "blue"
+    ],
+    "width": 1920,
+    "height": 1080,
+    "alt_en": "Four people playing badminton on a blue indoor court",
+    "alt_vi": "Bốn người chơi cầu lông trên sân thảm xanh trong nhà",
+    "credit": "Evan Marvell",
+    "source_url": "https://unsplash.com/photos/four-people-playing-badminton-on-a-blue-indoor-court-0Zq9PQJvEv8",
+    "license": "Unsplash License",
+    "created_at": "2026-10-17T16:32:36.673Z"
+  },
+  {
+    "id": "lib-badminton-badminton-indoor-sparring",
+    "path": "library/badminton/badminton-indoor-sparring.jpg",
+    "kind": "image",
+    "category": "badminton",
+    "tags": [
+      "badminton",
+      "sparring",
+      "indoor",
+      "action"
+    ],
+    "width": 1920,
+    "height": 1080,
+    "alt_en": "Two athletes sparring on an indoor badminton court",
+    "alt_vi": "Hai vận động viên thi đấu đối kháng cầu lông trong nhà",
+    "credit": "Irish83",
+    "source_url": "https://unsplash.com/photos/two-men-playing-badminton-on-an-indoor-court-_T5XxFIntfI",
+    "license": "Unsplash License",
+    "created_at": "2026-10-17T16:32:36.673Z"
+  },
+  {
+    "id": "lib-badminton-badminton-racket-focus-action",
+    "path": "library/badminton/badminton-racket-focus-action.jpg",
+    "kind": "image",
+    "category": "badminton",
+    "tags": [
+      "badminton",
+      "action",
+      "racket",
+      "focus"
+    ],
+    "width": 1920,
+    "height": 1080,
+    "alt_en": "Badminton action shot on green court viewed through racket",
+    "alt_vi": "Pha đánh cầu kịch tính nhìn xuyên qua khung dây vợt",
+    "credit": "Irish83",
+    "source_url": "https://unsplash.com/photos/badminton-player-on-a-green-court-viewed-through-a-racket-MLjj5eVwrvI",
+    "license": "Unsplash License",
+    "created_at": "2026-10-17T16:32:36.673Z"
+  },
+  {
+    "id": "lib-badminton-badminton-racket-frame-view",
+    "path": "library/badminton/badminton-racket-frame-view.jpg",
+    "kind": "image",
+    "category": "badminton",
+    "tags": [
+      "badminton",
+      "racket",
+      "indoor",
+      "players"
+    ],
+    "width": 1920,
+    "height": 1080,
+    "alt_en": "Badminton players on an indoor court framed through a racket",
+    "alt_vi": "Góc nhìn qua khung vợt cầu lông trên sân tập trong nhà",
+    "credit": "Irish83",
+    "source_url": "https://unsplash.com/photos/badminton-players-on-an-indoor-court-through-a-racket-pRUw9c66zJA",
+    "license": "Unsplash License",
+    "created_at": "2026-10-17T16:32:36.673Z"
+  },
+  {
+    "id": "lib-badminton-badminton-rally-action",
+    "path": "library/badminton/badminton-rally-action.jpg",
+    "kind": "image",
+    "category": "badminton",
+    "tags": [
+      "badminton",
+      "rally",
+      "action",
+      "doubles"
+    ],
+    "width": 1920,
+    "height": 1080,
+    "alt_en": "Dynamic fast-paced badminton doubles rally",
+    "alt_vi": "Pha đôi công tốc độ cao hấp dẫn trên sân",
+    "credit": "Ryan Searle",
+    "source_url": "https://unsplash.com/photos/Ryan-Searle",
+    "license": "Unsplash License",
+    "created_at": "2026-10-17T13:10:34.825Z"
+  },
+  {
+    "id": "lib-badminton-badminton-shuttlecock-on-net",
+    "path": "library/badminton/badminton-shuttlecock-on-net.jpg",
+    "kind": "image",
+    "category": "badminton",
+    "tags": [
+      "badminton",
+      "shuttlecock",
+      "net",
+      "close-up"
+    ],
+    "width": 1920,
+    "height": 1080,
+    "alt_en": "Feather shuttlecock balanced on badminton net cord",
+    "alt_vi": "Quả cầu lông vũ đặt tinh tế trên mép lưới",
+    "credit": "Mukul Wadhwa",
+    "source_url": "https://unsplash.com/photos/Mukul-Wadhwa",
+    "license": "Unsplash License",
+    "created_at": "2026-10-17T13:10:34.825Z"
+  },
+  {
+    "id": "lib-basketball-basketball-court-hardwood",
+    "path": "library/basketball/basketball-court-hardwood.jpg",
+    "kind": "image",
+    "category": "basketball",
+    "tags": [
+      "basketball",
+      "court",
+      "hardwood",
+      "hoop"
+    ],
+    "width": 1920,
+    "height": 1080,
+    "alt_en": "Classic indoor hardwood basketball court and hoop",
+    "alt_vi": "Sân bóng rổ sàn gỗ phong chuyên dụng và bảng rổ",
+    "credit": "TJ Dragotta",
+    "source_url": "https://unsplash.com/photos/TJ-Dragotta",
+    "license": "Unsplash License",
+    "created_at": "2026-10-17T13:10:34.826Z"
+  },
+  {
+    "id": "lib-basketball-basketball-fast-break-pass",
+    "path": "library/basketball/basketball-fast-break-pass.jpg",
+    "kind": "image",
+    "category": "basketball",
+    "tags": [
+      "basketball",
+      "fast-break",
+      "passing",
+      "court"
+    ],
+    "width": 1920,
+    "height": 1080,
+    "alt_en": "Players passing and executing fast break on basketball court",
+    "alt_vi": "Nhóm cầu thủ chuyền bóng phản công nhanh trên sân bóng rổ",
+    "credit": "Alejandro Stuardo",
+    "source_url": "https://unsplash.com/photos/men-playing-basketball-on-indoor-court-nuJv9_RvJrk",
+    "license": "Unsplash License",
+    "created_at": "2026-10-17T16:32:36.673Z"
+  },
+  {
+    "id": "lib-basketball-basketball-indoor-wooden-court",
+    "path": "library/basketball/basketball-indoor-wooden-court.jpg",
+    "kind": "image",
+    "category": "basketball",
+    "tags": [
+      "basketball",
+      "indoor",
+      "court",
+      "wooden",
+      "game"
+    ],
+    "width": 1920,
+    "height": 1080,
+    "alt_en": "Five players competing in a basketball game on an indoor wooden court",
+    "alt_vi": "Năm cầu thủ thi đấu bóng rổ trên sàn gỗ trong nhà",
+    "credit": "Alejandro Stuardo",
+    "source_url": "https://unsplash.com/photos/basketball-game-on-indoor-court-5mdjIGl4QBk",
+    "license": "Unsplash License",
+    "created_at": "2026-10-17T16:32:36.673Z"
+  },
+  {
+    "id": "lib-basketball-basketball-jump-shot-drive",
+    "path": "library/basketball/basketball-jump-shot-drive.jpg",
+    "kind": "image",
+    "category": "basketball",
+    "tags": [
+      "basketball",
+      "jump-shot",
+      "arena",
+      "player"
+    ],
+    "width": 1920,
+    "height": 1080,
+    "alt_en": "Basketball player jumping to shoot towards the hoop in arena",
+    "alt_vi": "Cầu thủ bật cao tung cú ném rổ chuẩn xác trong nhà thi đấu",
+    "credit": "Alejandro Stuardo",
+    "source_url": "https://unsplash.com/photos/basketball-player-shooting-in-gym-JGkFkgpfz2I",
+    "license": "Unsplash License",
+    "created_at": "2026-10-17T16:32:36.673Z"
+  },
+  {
+    "id": "lib-basketball-basketball-layup-score",
+    "path": "library/basketball/basketball-layup-score.jpg",
+    "kind": "image",
+    "category": "basketball",
+    "tags": [
+      "basketball",
+      "layup",
+      "score",
+      "drive"
+    ],
+    "width": 1920,
+    "height": 1080,
+    "alt_en": "Basketball player driving to basket to score in arena",
+    "alt_vi": "Vận động viên đột phá lên rổ ghi điểm trong nhà thi đấu",
+    "credit": "Alejandro Stuardo",
+    "source_url": "https://unsplash.com/photos/basketball-player-scoring-in-sports-arena--yAr6zXba1g",
+    "license": "Unsplash License",
+    "created_at": "2026-10-17T16:32:36.673Z"
+  },
+  {
+    "id": "lib-basketball-basketball-loose-ball-contest",
+    "path": "library/basketball/basketball-loose-ball-contest.jpg",
+    "kind": "image",
+    "category": "basketball",
+    "tags": [
+      "basketball",
+      "competition",
+      "contest",
+      "possession"
+    ],
+    "width": 1920,
+    "height": 1080,
+    "alt_en": "Basketball players competing intensely for ball possession",
+    "alt_vi": "Các vận động viên tranh chấp bóng quyết liệt trên sàn đấu",
+    "credit": "Alejandro Stuardo",
+    "source_url": "https://unsplash.com/photos/basketball-players-competing-on-indoor-court-3Bi5W4v80T8",
+    "license": "Unsplash License",
+    "created_at": "2026-10-17T16:32:36.673Z"
+  },
+  {
+    "id": "lib-basketball-basketball-on-court",
+    "path": "library/basketball/basketball-on-court.jpg",
+    "kind": "image",
+    "category": "basketball",
+    "tags": [
+      "basketball",
+      "ball",
+      "parquet",
+      "court"
+    ],
+    "width": 1920,
+    "height": 1080,
+    "alt_en": "Basketball resting on polished parquet court lines",
+    "alt_vi": "Quả bóng rổ đặt trên sàn gỗ vạch sơn bóng loáng",
+    "credit": "Tom Rogerson",
+    "source_url": "https://unsplash.com/photos/Tom-Rogerson",
+    "license": "Unsplash License",
+    "created_at": "2026-10-17T13:10:34.826Z"
+  },
+  {
+    "id": "lib-basketball-basketball-practice-hall",
+    "path": "library/basketball/basketball-practice-hall.jpg",
+    "kind": "image",
+    "category": "basketball",
+    "tags": [
+      "basketball",
+      "practice",
+      "hall",
+      "gym"
+    ],
+    "width": 1920,
+    "height": 1080,
+    "alt_en": "Atmospheric indoor basketball practice gym",
+    "alt_vi": "Nhà tập bóng rổ tràn ngập ánh sáng năng động",
+    "credit": "Tim Gouw",
+    "source_url": "https://unsplash.com/photos/Tim-Gouw",
+    "license": "Unsplash License",
+    "created_at": "2026-10-17T13:10:34.826Z"
+  },
+  {
+    "id": "lib-basketball-basketball-referee-court-action",
+    "path": "library/basketball/basketball-referee-court-action.jpg",
+    "kind": "image",
+    "category": "basketball",
+    "tags": [
+      "basketball",
+      "match",
+      "referee",
+      "action"
+    ],
+    "width": 1920,
+    "height": 1080,
+    "alt_en": "Basketball match action on wooden court under referee supervision",
+    "alt_vi": "Tranh chấp bóng rổ trên sân gỗ dưới sự quan sát của trọng tài",
+    "credit": "Alejandro Stuardo",
+    "source_url": "https://unsplash.com/photos/basketball-game-on-indoor-court-cuzdI5jubVg",
+    "license": "Unsplash License",
+    "created_at": "2026-10-17T16:32:36.673Z"
+  },
+  {
+    "id": "lib-basketball-basketball-swish-net",
+    "path": "library/basketball/basketball-swish-net.jpg",
+    "kind": "image",
+    "category": "basketball",
+    "tags": [
+      "basketball",
+      "swish",
+      "net",
+      "shot"
+    ],
+    "width": 1920,
+    "height": 1080,
+    "alt_en": "Basketball swooshing cleanly through nylon net",
+    "alt_vi": "Cú ném bóng lọt lưới dứt khoát hoàn hảo",
+    "credit": "Markus Spiske",
+    "source_url": "https://unsplash.com/photos/Markus-Spiske",
+    "license": "Unsplash License",
+    "created_at": "2026-10-17T13:10:34.826Z"
+  },
+  {
+    "id": "lib-basketball-basketball-team-tactical-play",
+    "path": "library/basketball/basketball-team-tactical-play.jpg",
+    "kind": "image",
+    "category": "basketball",
+    "tags": [
+      "basketball",
+      "tactics",
+      "teamwork",
+      "play"
+    ],
+    "width": 1920,
+    "height": 1080,
+    "alt_en": "Three basketball players setting up tactical play on court",
+    "alt_vi": "Ba cầu thủ phối hợp triển khai chiến thuật tấn công trên sân",
+    "credit": "Alejandro Stuardo",
+    "source_url": "https://unsplash.com/photos/basketball-players-on-indoor-court-IYqY7y0Npkc",
+    "license": "Unsplash License",
+    "created_at": "2026-10-17T16:32:36.673Z"
+  },
+  {
+    "id": "lib-basketball-basketball-training-drills",
+    "path": "library/basketball/basketball-training-drills.jpg",
+    "kind": "image",
+    "category": "basketball",
+    "tags": [
+      "basketball",
+      "training",
+      "drills",
+      "shooting"
+    ],
+    "width": 1920,
+    "height": 1080,
+    "alt_en": "Basketball players practicing shooting drills on indoor court",
+    "alt_vi": "Các vận động viên tập luyện ném rổ và phối hợp trên sân",
+    "credit": "Tim Ren",
+    "source_url": "https://unsplash.com/photos/basketball-players-are-practicing-and-playing-on-the-court-3MfzD21eVMY",
+    "license": "Unsplash License",
+    "created_at": "2026-10-17T16:32:36.673Z"
+  },
+  {
+    "id": "lib-basketball-basketball-underpass-court",
+    "path": "library/basketball/basketball-underpass-court.jpg",
+    "kind": "image",
+    "category": "basketball",
+    "tags": [
+      "basketball",
+      "urban",
+      "hoop",
+      "court"
+    ],
+    "width": 1920,
+    "height": 1080,
+    "alt_en": "Urban basketball backboard and hoop on illuminated court",
+    "alt_vi": "Sân bóng rổ đô thị với bảng rổ và vòng rổ tiêu chuẩn",
+    "credit": "Unsplash Contributor",
+    "source_url": "https://unsplash.com/photos/urban-basketball-court",
+    "license": "Unsplash License",
+    "created_at": "2026-10-17T16:32:36.673Z"
+  },
+  {
+    "id": "lib-class-class-barbell-back-squat",
+    "path": "library/class/class-barbell-back-squat.jpg",
+    "kind": "image",
+    "category": "class",
+    "tags": [
+      "class",
+      "back-squat",
+      "barbell",
+      "strength"
+    ],
+    "width": 1920,
+    "height": 1080,
+    "alt_en": "Athlete performing heavy barbell back squats in gym",
+    "alt_vi": "Vận động viên thực hiện bài tập gánh tạ đòn sau lưng trong phòng gym",
+    "credit": "Unsplash Contributor",
+    "source_url": "https://unsplash.com/photos/barbell-back-squat",
+    "license": "Unsplash License",
+    "created_at": "2026-10-17T16:32:36.673Z"
+  },
+  {
+    "id": "lib-class-class-barbell-deadlift-training",
+    "path": "library/class/class-barbell-deadlift-training.jpg",
+    "kind": "image",
+    "category": "class",
+    "tags": [
+      "class",
+      "barbell",
+      "deadlift",
+      "grip"
+    ],
+    "width": 1920,
+    "height": 1080,
+    "alt_en": "Athlete gripping loaded Olympic barbell on rubber floor",
+    "alt_vi": "Vận động viên nắm thanh đòn Olympic trên sàn cao su phòng tập",
+    "credit": "Unsplash Contributor",
+    "source_url": "https://unsplash.com/photos/barbell-deadlift-training",
+    "license": "Unsplash License",
+    "created_at": "2026-10-17T16:32:36.673Z"
+  },
+  {
+    "id": "lib-class-class-coach-instruction-drill",
+    "path": "library/class/class-coach-instruction-drill.jpg",
+    "kind": "image",
+    "category": "class",
+    "tags": [
+      "class",
+      "coach",
+      "drill",
+      "technique"
+    ],
+    "width": 1920,
+    "height": 1080,
+    "alt_en": "Coach guiding technique and stance drill",
+    "alt_vi": "Huấn luyện viên hướng dẫn tư thế và kỹ thuật",
+    "credit": "Benjamin Klaver",
+    "source_url": "https://unsplash.com/photos/Benjamin-Klaver",
+    "license": "Unsplash License",
+    "created_at": "2026-10-17T13:10:34.826Z"
+  },
+  {
+    "id": "lib-class-class-functional-agility-class",
+    "path": "library/class/class-functional-agility-class.jpg",
+    "kind": "image",
+    "category": "class",
+    "tags": [
+      "class",
+      "agility",
+      "functional",
+      "movement"
+    ],
+    "width": 1920,
+    "height": 1080,
+    "alt_en": "Functional sports movement class on indoor court",
+    "alt_vi": "Lớp học vận động chức năng trên sân thể thao",
+    "credit": "Karsten Winegeart",
+    "source_url": "https://unsplash.com/photos/Karsten-Winegeart",
+    "license": "Unsplash License",
+    "created_at": "2026-10-17T13:10:34.826Z"
+  },
+  {
+    "id": "lib-class-class-group-fitness-mat-workout",
+    "path": "library/class/class-group-fitness-mat-workout.jpg",
+    "kind": "image",
+    "category": "class",
+    "tags": [
+      "class",
+      "group-fitness",
+      "mat",
+      "conditioning"
+    ],
+    "width": 1920,
+    "height": 1080,
+    "alt_en": "Group exercise class performing mat conditioning drills",
+    "alt_vi": "Lớp tập luyện thể hình nhóm trên thảm tập trong phòng tập",
+    "credit": "Unsplash Contributor",
+    "source_url": "https://unsplash.com/photos/group-fitness-class",
+    "license": "Unsplash License",
+    "created_at": "2026-10-17T16:32:36.673Z"
+  },
+  {
+    "id": "lib-class-class-movement-drills",
+    "path": "library/class/class-movement-drills.jpg",
+    "kind": "image",
+    "category": "class",
+    "tags": [
+      "class",
+      "drills",
+      "footwork",
+      "positioning"
+    ],
+    "width": 1920,
+    "height": 1080,
+    "alt_en": "Footwork and court positioning training drills",
+    "alt_vi": "Bài tập di chuyển bước chân và định vị sân",
+    "credit": "Danielle Cerullo",
+    "source_url": "https://unsplash.com/photos/Danielle-Cerullo",
+    "license": "Unsplash License",
+    "created_at": "2026-10-17T13:10:34.826Z"
+  },
+  {
+    "id": "lib-class-class-one-on-one-coaching",
+    "path": "library/class/class-one-on-one-coaching.jpg",
+    "kind": "image",
+    "category": "class",
+    "tags": [
+      "class",
+      "personal",
+      "coaching",
+      "one-on-one"
+    ],
+    "width": 1920,
+    "height": 1080,
+    "alt_en": "One-on-one personalized coaching session",
+    "alt_vi": "Buổi hướng dẫn cá nhân chuyên sâu cùng huấn luyện viên",
+    "credit": "Benjamin Klaver",
+    "source_url": "https://unsplash.com/photos/Benjamin-Klaver",
+    "license": "Unsplash License",
+    "created_at": "2026-10-17T13:10:34.826Z"
+  },
+  {
+    "id": "lib-class-class-overhead-barbell-press",
+    "path": "library/class/class-overhead-barbell-press.jpg",
+    "kind": "image",
+    "category": "class",
+    "tags": [
+      "class",
+      "overhead-press",
+      "barbell",
+      "strength"
+    ],
+    "width": 1920,
+    "height": 1080,
+    "alt_en": "Athlete executing barbell overhead press in training rack",
+    "alt_vi": "Nữ vận động viên thực hiện bài đẩy tạ đòn qua đầu",
+    "credit": "Unsplash Contributor",
+    "source_url": "https://unsplash.com/photos/barbell-overhead-press",
+    "license": "Unsplash License",
+    "created_at": "2026-10-17T16:32:36.673Z"
+  },
+  {
+    "id": "lib-class-class-pullups-conditioning",
+    "path": "library/class/class-pullups-conditioning.jpg",
+    "kind": "image",
+    "category": "class",
+    "tags": [
+      "class",
+      "pullups",
+      "conditioning",
+      "strength"
+    ],
+    "width": 1920,
+    "height": 1080,
+    "alt_en": "Muscular athlete performing pull-ups conditioning",
+    "alt_vi": "Vận động viên kéo xà đơn rèn luyện sức mạnh thể lực",
+    "credit": "Unsplash Contributor",
+    "source_url": "https://unsplash.com/photos/pullups-conditioning",
+    "license": "Unsplash License",
+    "created_at": "2026-10-17T16:32:36.673Z"
+  },
+  {
+    "id": "lib-class-class-stability-ball-stretch",
+    "path": "library/class/class-stability-ball-stretch.jpg",
+    "kind": "image",
+    "category": "class",
+    "tags": [
+      "class",
+      "stability-ball",
+      "stretch",
+      "fitness"
+    ],
+    "width": 1920,
+    "height": 1080,
+    "alt_en": "Athlete stretching back over fitness Swiss ball",
+    "alt_vi": "Vận động viên giãn cơ lưng với bóng thăng bằng thể hình",
+    "credit": "Unsplash Contributor",
+    "source_url": "https://unsplash.com/photos/stability-ball-stretch",
+    "license": "Unsplash License",
+    "created_at": "2026-10-17T16:32:36.673Z"
+  },
+  {
+    "id": "lib-class-class-strength-deadlift-drill",
+    "path": "library/class/class-strength-deadlift-drill.jpg",
+    "kind": "image",
+    "category": "class",
+    "tags": [
+      "class",
+      "deadlift",
+      "drill",
+      "strength"
+    ],
+    "width": 1920,
+    "height": 1080,
+    "alt_en": "Athlete in deadlift lift stance with barbell weights",
+    "alt_vi": "Tư thế nâng tạ đòn deadlift chuẩn xác trong bài tập thể lực",
+    "credit": "Unsplash Contributor",
+    "source_url": "https://unsplash.com/photos/strength-deadlift-drill",
+    "license": "Unsplash License",
+    "created_at": "2026-10-17T16:32:36.673Z"
+  },
+  {
+    "id": "lib-class-class-team-conditioning",
+    "path": "library/class/class-team-conditioning.jpg",
+    "kind": "image",
+    "category": "class",
+    "tags": [
+      "class",
+      "conditioning",
+      "team",
+      "workout"
+    ],
+    "width": 1920,
+    "height": 1080,
+    "alt_en": "Indoor athletic team conditioning workout",
+    "alt_vi": "Bài tập thể lực và sức bền đồng đội trong nhà",
+    "credit": "Bruce Mars",
+    "source_url": "https://unsplash.com/photos/Bruce-Mars",
+    "license": "Unsplash License",
+    "created_at": "2026-10-17T13:10:34.826Z"
+  },
+  {
+    "id": "lib-class-class-tricep-strength-workout",
+    "path": "library/class/class-tricep-strength-workout.jpg",
+    "kind": "image",
+    "category": "class",
+    "tags": [
+      "class",
+      "tricep",
+      "strength",
+      "workout"
+    ],
+    "width": 1920,
+    "height": 1080,
+    "alt_en": "Athlete performing tricep cable pushdown exercise in gym",
+    "alt_vi": "Vận động viên thực hiện bài tập kéo cáp cơ tay sau trong phòng tập",
+    "credit": "Unsplash Contributor",
+    "source_url": "https://unsplash.com/photos/tricep-cable-workout",
+    "license": "Unsplash License",
+    "created_at": "2026-10-17T16:32:36.673Z"
+  },
+  {
+    "id": "lib-class-class-youth-academy-session",
+    "path": "library/class/class-youth-academy-session.jpg",
+    "kind": "image",
+    "category": "class",
+    "tags": [
+      "class",
+      "youth",
+      "academy",
+      "skills"
+    ],
+    "width": 1920,
+    "height": 1080,
+    "alt_en": "Youth sports academy foundation skills training",
+    "alt_vi": "Lớp đào tạo kỹ năng nền tảng cho học viên trẻ",
+    "credit": "Geert Pieters",
+    "source_url": "https://unsplash.com/photos/Geert-Pieters",
+    "license": "Unsplash License",
+    "created_at": "2026-10-17T13:10:34.826Z"
+  },
+  {
+    "id": "lib-coach-avatar-01",
+    "path": "library/coach/avatar-01.jpg",
+    "kind": "image",
+    "category": "coach",
+    "tags": [
+      "coach",
+      "avatar"
+    ],
+    "width": 600,
+    "height": 400,
+    "alt_en": "Coach avatar candidate: tennis player",
+    "alt_vi": "Ảnh đại diện HLV gợi ý: tennis player",
+    "credit": "Oliver Sjöström",
+    "source_url": "https://stocksnap.io/photo/tennis-player-GGQVLCTSWI",
+    "license": "CC0",
+    "created_at": "2026-10-17T16:31:50.780Z"
+  },
+  {
+    "id": "lib-coach-avatar-02",
+    "path": "library/coach/avatar-02.jpg",
+    "kind": "image",
+    "category": "coach",
+    "tags": [
+      "coach",
+      "avatar"
+    ],
+    "width": 600,
+    "height": 900,
+    "alt_en": "Coach avatar candidate: tennis player",
+    "alt_vi": "Ảnh đại diện HLV gợi ý: tennis player",
+    "credit": "Oliver Sjöström",
+    "source_url": "https://stocksnap.io/photo/tennis-player-QYIGLB4JE9",
+    "license": "CC0",
+    "created_at": "2026-10-17T16:31:50.780Z"
+  },
+  {
+    "id": "lib-coach-avatar-03",
+    "path": "library/coach/avatar-03.jpg",
+    "kind": "image",
+    "category": "coach",
+    "tags": [
+      "coach",
+      "avatar"
+    ],
+    "width": 600,
+    "height": 337,
+    "alt_en": "Coach avatar candidate: tennis player",
+    "alt_vi": "Ảnh đại diện HLV gợi ý: tennis player",
+    "credit": "Unknown",
+    "source_url": "https://www.rawpixel.com/image/3303116/free-photo-image-tennis-sport-court",
+    "license": "CC0",
+    "created_at": "2026-10-17T16:31:50.780Z"
+  },
+  {
+    "id": "lib-coach-avatar-04",
+    "path": "library/coach/avatar-04.jpg",
+    "kind": "image",
+    "category": "coach",
+    "tags": [
+      "coach",
+      "avatar"
+    ],
+    "width": 600,
+    "height": 793,
+    "alt_en": "Coach avatar candidate: basketball player",
+    "alt_vi": "Ảnh đại diện HLV gợi ý: basketball player",
+    "credit": "usdoe",
+    "source_url": "https://www.rawpixel.com/image/8738420/basketball-player-oak-ridge",
+    "license": "CC0",
+    "created_at": "2026-10-17T16:31:50.780Z"
+  },
+  {
+    "id": "lib-coach-avatar-05",
+    "path": "library/coach/avatar-05.jpg",
+    "kind": "image",
+    "category": "coach",
+    "tags": [
+      "coach",
+      "avatar"
+    ],
+    "width": 600,
+    "height": 399,
+    "alt_en": "Coach avatar candidate: basketball player",
+    "alt_vi": "Ảnh đại diện HLV gợi ý: basketball player",
+    "credit": "The African Union Mission in Somalia",
+    "source_url": "https://www.rawpixel.com/image/3372886/free-photo-image-basketball-activity-africa",
+    "license": "CC0",
+    "created_at": "2026-10-17T16:31:50.780Z"
+  },
+  {
+    "id": "lib-coach-avatar-06",
+    "path": "library/coach/avatar-06.jpg",
+    "kind": "image",
+    "category": "coach",
+    "tags": [
+      "coach",
+      "avatar"
+    ],
+    "width": 600,
+    "height": 399,
+    "alt_en": "Coach avatar candidate: basketball player",
+    "alt_vi": "Ảnh đại diện HLV gợi ý: basketball player",
+    "credit": "The African Union Mission in Somalia",
+    "source_url": "https://www.rawpixel.com/image/3373635/free-photo-image-apparel-basketball-court",
+    "license": "CC0",
+    "created_at": "2026-10-17T16:31:50.780Z"
+  },
+  {
+    "id": "lib-coach-avatar-07",
+    "path": "library/coach/avatar-07.jpg",
+    "kind": "image",
+    "category": "coach",
+    "tags": [
+      "coach",
+      "avatar"
+    ],
+    "width": 600,
+    "height": 354,
+    "alt_en": "Coach avatar candidate: volleyball player",
+    "alt_vi": "Ảnh đại diện HLV gợi ý: volleyball player",
+    "credit": "Carol M Highsmith",
+    "source_url": "https://www.rawpixel.com/image/8068667/photo-image-beach-public-domain-united-states",
+    "license": "CC0",
+    "created_at": "2026-10-17T16:31:50.780Z"
+  },
+  {
+    "id": "lib-coach-avatar-08",
+    "path": "library/coach/avatar-08.jpg",
+    "kind": "image",
+    "category": "coach",
+    "tags": [
+      "coach",
+      "avatar"
+    ],
+    "width": 600,
+    "height": 400,
+    "alt_en": "Coach avatar candidate: volleyball player",
+    "alt_vi": "Ảnh đại diện HLV gợi ý: volleyball player",
+    "credit": "AMISOM Public Information",
+    "source_url": "https://www.flickr.com/photos/61765479@N08/51873594074",
+    "license": "CC0",
+    "created_at": "2026-10-17T16:31:50.780Z"
+  },
+  {
+    "id": "lib-coach-avatar-09",
+    "path": "library/coach/avatar-09.jpg",
+    "kind": "image",
+    "category": "coach",
+    "tags": [
+      "coach",
+      "avatar"
+    ],
+    "width": 600,
+    "height": 400,
+    "alt_en": "Coach avatar candidate: volleyball player",
+    "alt_vi": "Ảnh đại diện HLV gợi ý: volleyball player",
+    "credit": "atmis.somalia",
+    "source_url": "https://www.flickr.com/photos/195242906@N08/52802994663",
+    "license": "CC0",
+    "created_at": "2026-10-17T16:31:50.780Z"
+  },
+  {
+    "id": "lib-coach-avatar-10",
+    "path": "library/coach/avatar-10.jpg",
+    "kind": "image",
+    "category": "coach",
+    "tags": [
+      "coach",
+      "avatar"
+    ],
+    "width": 600,
+    "height": 400,
+    "alt_en": "Coach avatar candidate: runner",
+    "alt_vi": "Ảnh đại diện HLV gợi ý: runner",
+    "credit": "Abigail Keenan",
+    "source_url": "https://stocksnap.io/photo/runner-stretching-T3JL9DM56G",
+    "license": "CC0",
+    "created_at": "2026-10-17T16:31:50.780Z"
+  },
+  {
+    "id": "lib-coach-avatar-11",
+    "path": "library/coach/avatar-11.jpg",
+    "kind": "image",
+    "category": "coach",
+    "tags": [
+      "coach",
+      "avatar"
+    ],
+    "width": 600,
+    "height": 400,
+    "alt_en": "Coach avatar candidate: runner",
+    "alt_vi": "Ảnh đại diện HLV gợi ý: runner",
+    "credit": "Dave Meier",
+    "source_url": "https://stocksnap.io/photo/running-runner-0EEC17A076",
+    "license": "CC0",
+    "created_at": "2026-10-17T16:31:50.780Z"
+  },
+  {
+    "id": "lib-coach-avatar-12",
+    "path": "library/coach/avatar-12.jpg",
+    "kind": "image",
+    "category": "coach",
+    "tags": [
+      "coach",
+      "avatar"
+    ],
+    "width": 600,
+    "height": 400,
+    "alt_en": "Coach avatar candidate: personal trainer",
+    "alt_vi": "Ảnh đại diện HLV gợi ý: personal trainer",
+    "credit": "tsquaredlab",
+    "source_url": "https://www.flickr.com/photos/196460084@N04/52706492590",
+    "license": "CC0",
+    "created_at": "2026-10-17T16:31:50.780Z"
+  },
+  {
+    "id": "lib-coach-avatar-13",
+    "path": "library/coach/avatar-13.jpg",
+    "kind": "image",
+    "category": "coach",
+    "tags": [
+      "coach",
+      "avatar"
+    ],
+    "width": 600,
+    "height": 377,
+    "alt_en": "Coach avatar candidate: personal trainer",
+    "alt_vi": "Ảnh đại diện HLV gợi ý: personal trainer",
+    "credit": "Unknown",
+    "source_url": "https://www.rawpixel.com/image/5925411/photo-image-public-domain-free-workout",
+    "license": "CC0",
+    "created_at": "2026-10-17T16:31:50.780Z"
+  },
+  {
+    "id": "lib-coach-avatar-14",
+    "path": "library/coach/avatar-14.jpg",
+    "kind": "image",
+    "category": "coach",
+    "tags": [
+      "coach",
+      "avatar"
+    ],
+    "width": 600,
+    "height": 400,
+    "alt_en": "Coach avatar candidate: personal trainer",
+    "alt_vi": "Ảnh đại diện HLV gợi ý: personal trainer",
+    "credit": "Direct Media",
+    "source_url": "https://stocksnap.io/photo/fitness-male-46YBDQQ43I",
+    "license": "CC0",
+    "created_at": "2026-10-17T16:31:50.780Z"
+  },
+  {
+    "id": "lib-coach-avatar-15",
+    "path": "library/coach/avatar-15.jpg",
+    "kind": "image",
+    "category": "coach",
+    "tags": [
+      "coach",
+      "avatar"
+    ],
+    "width": 600,
+    "height": 398,
+    "alt_en": "Coach avatar candidate: gym workout",
+    "alt_vi": "Ảnh đại diện HLV gợi ý: gym workout",
+    "credit": "Scott Webb",
+    "source_url": "https://stocksnap.io/photo/girl-woman-ZFIQC5CZRP",
+    "license": "CC0",
+    "created_at": "2026-10-17T16:31:50.780Z"
+  },
+  {
+    "id": "lib-coach-avatar-16",
+    "path": "library/coach/avatar-16.jpg",
+    "kind": "image",
+    "category": "coach",
+    "tags": [
+      "coach",
+      "avatar"
+    ],
+    "width": 600,
+    "height": 400,
+    "alt_en": "Coach avatar candidate: gym workout",
+    "alt_vi": "Ảnh đại diện HLV gợi ý: gym workout",
+    "credit": "Bruce Mars",
+    "source_url": "https://stocksnap.io/photo/woman-workout-MO8FFFHRSS",
+    "license": "CC0",
+    "created_at": "2026-10-17T16:31:50.780Z"
+  },
+  {
+    "id": "lib-coach-avatar-17",
+    "path": "library/coach/avatar-17.jpg",
+    "kind": "image",
+    "category": "coach",
+    "tags": [
+      "coach",
+      "avatar"
+    ],
+    "width": 555,
+    "height": 1024,
+    "alt_en": "Coach avatar candidate: soccer player",
+    "alt_vi": "Ảnh đại diện HLV gợi ý: soccer player",
+    "credit": "Unknown",
+    "source_url": "https://www.rawpixel.com/image/8924805/soccer-player",
+    "license": "CC0",
+    "created_at": "2026-10-17T16:31:50.780Z"
+  },
+  {
+    "id": "lib-coach-avatar-18",
+    "path": "library/coach/avatar-18.jpg",
+    "kind": "image",
+    "category": "coach",
+    "tags": [
+      "coach",
+      "avatar"
+    ],
+    "width": 600,
+    "height": 449,
+    "alt_en": "Coach avatar candidate: table tennis",
+    "alt_vi": "Ảnh đại diện HLV gợi ý: table tennis",
+    "credit": "keramotul.islam",
+    "source_url": "https://www.flickr.com/photos/185731357@N07/51411701957",
+    "license": "CC0",
+    "created_at": "2026-10-17T16:31:50.780Z"
+  },
+  {
+    "id": "lib-coach-avatar-19",
+    "path": "library/coach/avatar-19.jpg",
+    "kind": "image",
+    "category": "coach",
+    "tags": [
+      "coach",
+      "avatar"
+    ],
+    "width": 600,
+    "height": 400,
+    "alt_en": "Coach avatar candidate: table tennis",
+    "alt_vi": "Ảnh đại diện HLV gợi ý: table tennis",
+    "credit": "thewhitehouse",
+    "source_url": "https://www.rawpixel.com/image/8708672/photo-image-public-domain-person-white",
+    "license": "CC0",
+    "created_at": "2026-10-17T16:31:50.780Z"
+  },
+  {
+    "id": "lib-coach-avatar-20",
+    "path": "library/coach/avatar-20.jpg",
+    "kind": "image",
+    "category": "coach",
+    "tags": [
+      "coach",
+      "avatar"
+    ],
+    "width": 600,
+    "height": 400,
+    "alt_en": "Coach avatar candidate: cyclist",
+    "alt_vi": "Ảnh đại diện HLV gợi ý: cyclist",
+    "credit": "NewcastleGateshead",
+    "source_url": "https://www.flickr.com/photos/51877986@N02/51553198621",
+    "license": "CC0",
+    "created_at": "2026-10-17T16:31:50.780Z"
+  },
+  {
+    "id": "lib-coach-avatar-21",
+    "path": "library/coach/avatar-21.jpg",
+    "kind": "image",
+    "category": "coach",
+    "tags": [
+      "coach",
+      "avatar"
+    ],
+    "width": 600,
+    "height": 354,
+    "alt_en": "Coach avatar candidate: cyclist",
+    "alt_vi": "Ảnh đại diện HLV gợi ý: cyclist",
+    "credit": "Dave Meier",
+    "source_url": "https://stocksnap.io/photo/cyclist-cycling-3D75CDE93A",
+    "license": "CC0",
+    "created_at": "2026-10-17T16:31:50.780Z"
+  },
+  {
+    "id": "lib-coach-avatar-22",
+    "path": "library/coach/avatar-22.jpg",
+    "kind": "image",
+    "category": "coach",
+    "tags": [
+      "coach",
+      "avatar"
+    ],
+    "width": 600,
+    "height": 400,
+    "alt_en": "Coach avatar candidate: yoga",
+    "alt_vi": "Ảnh đại diện HLV gợi ý: yoga",
+    "credit": "Patrick Hendry",
+    "source_url": "https://stocksnap.io/photo/taichee-yoga-D8SW90PLFX",
+    "license": "CC0",
+    "created_at": "2026-10-17T16:31:50.780Z"
+  },
+  {
+    "id": "lib-coach-avatar-23",
+    "path": "library/coach/avatar-23.jpg",
+    "kind": "image",
+    "category": "coach",
+    "tags": [
+      "coach",
+      "avatar"
+    ],
+    "width": 600,
+    "height": 400,
+    "alt_en": "Coach avatar candidate: yoga",
+    "alt_vi": "Ảnh đại diện HLV gợi ý: yoga",
+    "credit": "Bruce Mars",
+    "source_url": "https://stocksnap.io/photo/woman-yoga-NK0FIGBQJM",
+    "license": "CC0",
+    "created_at": "2026-10-17T16:31:50.780Z"
+  },
+  {
+    "id": "lib-coach-avatar-24",
+    "path": "library/coach/avatar-24.jpg",
+    "kind": "image",
+    "category": "coach",
+    "tags": [
+      "coach",
+      "avatar"
+    ],
+    "width": 600,
+    "height": 400,
+    "alt_en": "Coach avatar candidate: yoga",
+    "alt_vi": "Ảnh đại diện HLV gợi ý: yoga",
+    "credit": "Aral Tasher",
+    "source_url": "https://stocksnap.io/photo/yoga-pose-PDCKFINKM5",
+    "license": "CC0",
+    "created_at": "2026-10-17T16:31:50.780Z"
+  },
+  {
+    "id": "lib-coach-avatar-25",
+    "path": "library/coach/avatar-25.jpg",
+    "kind": "image",
+    "category": "coach",
+    "tags": [
+      "coach",
+      "avatar"
+    ],
+    "width": 600,
+    "height": 400,
+    "alt_en": "Coach avatar candidate: boxing training",
+    "alt_vi": "Ảnh đại diện HLV gợi ý: boxing training",
+    "credit": "sasint",
+    "source_url": "https://stocksnap.io/photo/boxing-asia-48EKYDFECS",
+    "license": "CC0",
+    "created_at": "2026-10-17T16:31:50.780Z"
+  },
+  {
+    "id": "lib-coach-avatar-26",
+    "path": "library/coach/avatar-26.jpg",
+    "kind": "image",
+    "category": "coach",
+    "tags": [
+      "coach",
+      "avatar"
+    ],
+    "width": 600,
+    "height": 400,
+    "alt_en": "Coach avatar candidate: fitness woman",
+    "alt_vi": "Ảnh đại diện HLV gợi ý: fitness woman",
+    "credit": "The Lazy Artist Gallery",
+    "source_url": "https://stocksnap.io/photo/fitness-woman-MIBKRELQIO",
+    "license": "CC0",
+    "created_at": "2026-10-17T16:31:50.780Z"
+  },
+  {
+    "id": "lib-coach-avatar-27",
+    "path": "library/coach/avatar-27.jpg",
+    "kind": "image",
+    "category": "coach",
+    "tags": [
+      "coach",
+      "avatar"
+    ],
+    "width": 600,
+    "height": 400,
+    "alt_en": "Coach avatar candidate: fitness woman",
+    "alt_vi": "Ảnh đại diện HLV gợi ý: fitness woman",
+    "credit": "The Lazy Artist Gallery",
+    "source_url": "https://stocksnap.io/photo/fitness-woman-SSO1M7IJTN",
+    "license": "CC0",
+    "created_at": "2026-10-17T16:31:50.780Z"
+  },
+  {
+    "id": "lib-coach-coach-asian-athlete-stretching",
+    "path": "library/coach/coach-asian-athlete-stretching.jpg",
+    "kind": "image",
+    "category": "coach",
+    "tags": [
+      "coach",
+      "stretching",
+      "court",
+      "portrait"
+    ],
+    "width": 900,
+    "height": 1125,
+    "alt_en": "Athletic coach stretching on court",
+    "alt_vi": "Huấn luyện viên khởi động giãn cơ trên sân",
+    "credit": "Form",
+    "source_url": "https://unsplash.com/photos/Form",
+    "license": "Unsplash License",
+    "created_at": "2026-10-16T07:55:38.645Z"
+  },
+  {
+    "id": "lib-coach-coach-asian-female-trainer",
+    "path": "library/coach/coach-asian-female-trainer.jpg",
+    "kind": "image",
+    "category": "coach",
+    "tags": [
+      "coach",
+      "fitness",
+      "female",
+      "portrait"
+    ],
+    "width": 900,
+    "height": 1125,
+    "alt_en": "Athletic coach portrait in sportswear",
+    "alt_vi": "Chân dung huấn luyện viên nữ trong trang phục thể thao",
+    "credit": "Valerie Elash",
+    "source_url": "https://unsplash.com/photos/Valerie-Elash",
+    "license": "Unsplash License",
+    "created_at": "2026-10-16T07:55:38.416Z"
+  },
+  {
+    "id": "lib-coach-coach-asian-sports-woman",
+    "path": "library/coach/coach-asian-sports-woman.jpg",
+    "kind": "image",
+    "category": "coach",
+    "tags": [
+      "coach",
+      "sports",
+      "female",
+      "portrait"
+    ],
+    "width": 900,
+    "height": 1125,
+    "alt_en": "Active female sports coach portrait",
+    "alt_vi": "Chân dung huấn luyện viên thể thao nữ năng động",
+    "credit": "Courtney Cook",
+    "source_url": "https://unsplash.com/photos/Courtney-Cook",
+    "license": "Unsplash License",
+    "created_at": "2026-10-16T07:55:39.202Z"
+  },
+  {
+    "id": "lib-coach-coach-badminton-instructor-male",
+    "path": "library/coach/coach-badminton-instructor-male.jpg",
+    "kind": "image",
+    "category": "coach",
+    "tags": [
+      "coach",
+      "dedicated",
+      "portrait"
+    ],
+    "width": 900,
+    "height": 1125,
+    "alt_en": "Dedicated sports coach portrait",
+    "alt_vi": "Chân dung huấn luyện viên thể thao tâm huyết",
+    "credit": "Stefan Stefancik",
+    "source_url": "https://unsplash.com/photos/Stefan-Stefancik",
+    "license": "Unsplash License",
+    "created_at": "2026-10-16T07:55:39.427Z"
+  },
+  {
+    "id": "lib-coach-coach-fitness-gym-trainer",
+    "path": "library/coach/coach-fitness-gym-trainer.jpg",
+    "kind": "image",
+    "category": "coach",
+    "tags": [
+      "coach",
+      "fitness",
+      "gym",
+      "portrait"
+    ],
+    "width": 900,
+    "height": 1125,
+    "alt_en": "Fitness trainer ready for training session",
+    "alt_vi": "Huấn luyện viên thể hình sẵn sàng cho buổi tập",
+    "credit": "Benjamin Klaver",
+    "source_url": "https://unsplash.com/photos/Benjamin-Klaver",
+    "license": "Unsplash License",
+    "created_at": "2026-10-16T07:55:38.779Z"
+  },
+  {
+    "id": "lib-coach-coach-indoor-sports-trainer",
+    "path": "library/coach/coach-indoor-sports-trainer.jpg",
+    "kind": "image",
+    "category": "coach",
+    "tags": [
+      "coach",
+      "indoor",
+      "gear",
+      "portrait"
+    ],
+    "width": 900,
+    "height": 1125,
+    "alt_en": "Indoor sports coach with athletic gear",
+    "alt_vi": "Huấn luyện viên thể thao trong nhà với trang thiết bị tập luyện",
+    "credit": "Karsten Winegeart",
+    "source_url": "https://unsplash.com/photos/Karsten-Winegeart",
+    "license": "Unsplash License",
+    "created_at": "2026-10-16T07:55:39.018Z"
+  },
+  {
+    "id": "lib-coach-coach-le-quoc-viet",
+    "path": "library/coach/coach-le-quoc-viet.jpg",
+    "kind": "image",
+    "category": "coach",
+    "tags": [
+      "coach",
+      "volleyball",
+      "male",
+      "portrait"
+    ],
+    "width": 900,
+    "height": 1125,
+    "alt_en": "Coach Le Quoc Viet portrait, volleyball coach",
+    "alt_vi": "Chân dung HLV bóng chuyền Lê Quốc Việt",
+    "credit": "Warren Wong",
+    "source_url": "https://unsplash.com/photos/Warren-Wong",
+    "license": "Unsplash License",
+    "created_at": "2026-10-16T07:55:38.091Z"
+  },
+  {
+    "id": "lib-coach-coach-minh-quan",
+    "path": "library/coach/coach-minh-quan.jpg",
+    "kind": "image",
+    "category": "coach",
+    "tags": [
+      "coach",
+      "fitness",
+      "conditioning",
+      "portrait"
+    ],
+    "width": 900,
+    "height": 1125,
+    "alt_en": "Coach Minh Quan portrait, fitness and conditioning coach",
+    "alt_vi": "Chân dung HLV thể lực Minh Quân",
+    "credit": "Albert Dera",
+    "source_url": "https://unsplash.com/photos/Albert-Dera",
+    "license": "Unsplash License",
+    "created_at": "2026-10-16T07:55:38.231Z"
+  },
+  {
+    "id": "lib-coach-coach-nguyen-minh-khoa",
+    "path": "library/coach/coach-nguyen-minh-khoa.jpg",
+    "kind": "image",
+    "category": "coach",
+    "tags": [
+      "coach",
+      "badminton",
+      "head-coach",
+      "portrait"
+    ],
+    "width": 900,
+    "height": 1125,
+    "alt_en": "Coach Nguyen Minh Khoa portrait, badminton head coach",
+    "alt_vi": "Chân dung HLV trưởng cầu lông Nguyễn Minh Khoa",
+    "credit": "Joseph Gonzalez",
+    "source_url": "https://unsplash.com/photos/Joseph-Gonzalez",
+    "license": "Unsplash License",
+    "created_at": "2026-10-16T07:55:37.358Z"
+  },
+  {
+    "id": "lib-coach-coach-pham-duc-anh",
+    "path": "library/coach/coach-pham-duc-anh.jpg",
+    "kind": "image",
+    "category": "coach",
+    "tags": [
+      "coach",
+      "basketball",
+      "male",
+      "portrait"
+    ],
+    "width": 900,
+    "height": 1125,
+    "alt_en": "Coach Pham Duc Anh portrait, basketball coach",
+    "alt_vi": "Chân dung HLV bóng rổ Phạm Đức Anh",
+    "credit": "Jurica Koletić",
+    "source_url": "https://unsplash.com/photos/Jurica-Koletic",
+    "license": "Unsplash License",
+    "created_at": "2026-10-16T07:55:37.912Z"
+  },
+  {
+    "id": "lib-coach-coach-professional-athletic-female",
+    "path": "library/coach/coach-professional-athletic-female.jpg",
+    "kind": "image",
+    "category": "coach",
+    "tags": [
+      "coach",
+      "professional",
+      "portrait"
+    ],
+    "width": 900,
+    "height": 1125,
+    "alt_en": "Professional athletic coach portrait",
+    "alt_vi": "Chân dung huấn luyện viên chuyên nghiệp",
+    "credit": "Christian Buehner",
+    "source_url": "https://unsplash.com/photos/Christian-Buehner",
+    "license": "Unsplash License",
+    "created_at": "2026-10-16T07:55:39.316Z"
+  },
+  {
+    "id": "lib-coach-coach-sports-conditioning-man",
+    "path": "library/coach/coach-sports-conditioning-man.jpg",
+    "kind": "image",
+    "category": "coach",
+    "tags": [
+      "coach",
+      "strength",
+      "conditioning",
+      "portrait"
+    ],
+    "width": 900,
+    "height": 1125,
+    "alt_en": "Strength and conditioning coach portrait",
+    "alt_vi": "Chân dung huấn luyện viên thể lực và sức mạnh",
+    "credit": "Alora Griffiths",
+    "source_url": "https://unsplash.com/photos/Alora-Griffiths",
+    "license": "Unsplash License",
+    "created_at": "2026-10-16T07:55:38.911Z"
+  },
+  {
+    "id": "lib-coach-coach-tran-thi-lan",
+    "path": "library/coach/coach-tran-thi-lan.jpg",
+    "kind": "image",
+    "category": "coach",
+    "tags": [
+      "coach",
+      "badminton",
+      "female",
+      "portrait"
+    ],
+    "width": 900,
+    "height": 1125,
+    "alt_en": "Coach Tran Thi Lan portrait, badminton junior coach",
+    "alt_vi": "Chân dung HLV cầu lông Trần Thị Lan",
+    "credit": "Averie Woodard",
+    "source_url": "https://unsplash.com/photos/Averie-Woodard",
+    "license": "Unsplash License",
+    "created_at": "2026-10-16T07:55:37.712Z"
+  },
+  {
+    "id": "lib-coach-coach-young-athlete-trainer",
+    "path": "library/coach/coach-young-athlete-trainer.jpg",
+    "kind": "image",
+    "category": "coach",
+    "tags": [
+      "coach",
+      "athletic",
+      "male",
+      "portrait"
+    ],
+    "width": 900,
+    "height": 1125,
+    "alt_en": "Young athletic trainer portrait",
+    "alt_vi": "Chân dung huấn luyện viên trẻ năng động",
+    "credit": "Brooke Cagle",
+    "source_url": "https://unsplash.com/photos/Brooke-Cagle",
+    "license": "Unsplash License",
+    "created_at": "2026-10-16T07:55:38.537Z"
+  },
+  {
+    "id": "lib-equipment-equipment-1-shuttlecocks-yonex-aerosensa-20",
+    "path": "library/equipment/equipment-1-shuttlecocks-yonex-aerosensa-20.jpg",
+    "kind": "image",
+    "category": "equipment",
+    "tags": [
+      "equipment",
+      "equipment"
+    ],
+    "width": 1024,
+    "height": 1365,
+    "alt_en": "equipment: Shuttlecocks Yonex Aerosensa 20",
+    "alt_vi": "Hình ảnh equipment: Shuttlecocks Yonex Aerosensa 20",
+    "credit": "Arne Nordmann (user:norro), Germany",
+    "source_url": "https://commons.wikimedia.org/wiki/File%3AShuttlecocks%20Yonex%20Aerosensa%2020.jpg",
+    "license": "CC BY-SA 3.0",
+    "created_at": "2026-10-16T07:58:08.177Z"
+  },
+  {
+    "id": "lib-equipment-equipment-2-volant-badminton",
+    "path": "library/equipment/equipment-2-volant-badminton.jpg",
+    "kind": "image",
+    "category": "equipment",
+    "tags": [
+      "equipment",
+      "equipment"
+    ],
+    "width": 1024,
+    "height": 768,
+    "alt_en": "equipment: Volant badminton",
+    "alt_vi": "Hình ảnh equipment: Volant badminton",
+    "credit": "No machine-readable author provided. Badplayer~commonswiki assumed (based on copyright claims).",
+    "source_url": "https://commons.wikimedia.org/wiki/File%3AVolant%20badminton.jpg",
+    "license": "CC BY-SA 2.5",
+    "created_at": "2026-10-16T07:58:09.062Z"
+  },
+  {
+    "id": "lib-equipment-equipment-3-koogan-badminton-feather-shuttlecoc",
+    "path": "library/equipment/equipment-3-koogan-badminton-feather-shuttlecoc.jpg",
+    "kind": "image",
+    "category": "equipment",
+    "tags": [
+      "equipment",
+      "equipment"
+    ],
+    "width": 1024,
+    "height": 768,
+    "alt_en": "equipment: Koogan badminton feather shuttlecock 01",
+    "alt_vi": "Hình ảnh equipment: Koogan badminton feather shuttlecock 01",
+    "credit": "Stanislas PERRIN",
+    "source_url": "https://commons.wikimedia.org/wiki/File%3AKoogan%20badminton%20feather%20shuttlecock%2001.JPG",
+    "license": "Public domain",
+    "created_at": "2026-10-16T07:58:09.294Z"
+  },
+  {
+    "id": "lib-equipment-equipment-4-speeder-match",
+    "path": "library/equipment/equipment-4-speeder-match.jpg",
+    "kind": "image",
+    "category": "equipment",
+    "tags": [
+      "equipment",
+      "equipment"
+    ],
+    "width": 1024,
+    "height": 834,
+    "alt_en": "equipment: Speeder-match",
+    "alt_vi": "Hình ảnh equipment: Speeder-match",
+    "credit": "Pierre alex",
+    "source_url": "https://commons.wikimedia.org/wiki/File%3ASpeeder-match.jpg",
+    "license": "CC BY-SA 3.0",
+    "created_at": "2026-10-16T07:58:10.023Z"
+  },
+  {
+    "id": "lib-equipment-equipment-5-fjerbolde",
+    "path": "library/equipment/equipment-5-fjerbolde.jpg",
+    "kind": "image",
+    "category": "equipment",
+    "tags": [
+      "equipment",
+      "equipment"
+    ],
+    "width": 1024,
+    "height": 819,
+    "alt_en": "equipment: Fjerbolde",
+    "alt_vi": "Hình ảnh equipment: Fjerbolde",
+    "credit": "Hansjorn at da.wikipedia",
+    "source_url": "https://commons.wikimedia.org/wiki/File%3AFjerbolde.jpg",
+    "license": "CC BY-SA 3.0",
+    "created_at": "2026-10-16T07:58:10.935Z"
+  },
+  {
+    "id": "lib-equipment-equipment-6-badminton-1",
+    "path": "library/equipment/equipment-6-badminton-1.jpg",
+    "kind": "image",
+    "category": "equipment",
+    "tags": [
+      "equipment",
+      "equipment"
+    ],
+    "width": 1024,
+    "height": 642,
+    "alt_en": "equipment: Badminton 1",
+    "alt_vi": "Hình ảnh equipment: Badminton 1",
+    "credit": "Kaparycha Konstantin at cs.wikipedia",
+    "source_url": "https://commons.wikimedia.org/wiki/File%3ABadminton%201.jpg",
+    "license": "Public domain",
+    "created_at": "2026-10-16T07:58:11.523Z"
+  },
+  {
+    "id": "lib-equipment-equipment-7-speeder",
+    "path": "library/equipment/equipment-7-speeder.jpg",
+    "kind": "image",
+    "category": "equipment",
+    "tags": [
+      "equipment",
+      "equipment"
+    ],
+    "width": 1024,
+    "height": 784,
+    "alt_en": "equipment: Speeder",
+    "alt_vi": "Hình ảnh equipment: Speeder",
+    "credit": "Martin Thoma (MartinThoma at de.wikipedia)",
+    "source_url": "https://commons.wikimedia.org/wiki/File%3ASpeeder.jpg",
+    "license": "Public domain",
+    "created_at": "2026-10-16T07:58:12.262Z"
+  },
+  {
+    "id": "lib-equipment-equipment-8-chien-volant-badminton",
+    "path": "library/equipment/equipment-8-chien-volant-badminton.jpg",
+    "kind": "image",
+    "category": "equipment",
+    "tags": [
+      "equipment",
+      "equipment"
+    ],
+    "width": 1024,
+    "height": 876,
+    "alt_en": "equipment: Chien volant badminton",
+    "alt_vi": "Hình ảnh equipment: Chien volant badminton",
+    "credit": "Fabien Foixet",
+    "source_url": "https://commons.wikimedia.org/wiki/File%3AChien%20volant%20badminton.jpg",
+    "license": "CC BY-SA 3.0",
+    "created_at": "2026-10-16T07:58:15.860Z"
+  },
+  {
+    "id": "lib-equipment-equipment-barbell-grip-close-up",
+    "path": "library/equipment/equipment-barbell-grip-close-up.jpg",
+    "kind": "image",
+    "category": "equipment",
+    "tags": [
+      "equipment",
+      "barbell",
+      "grip",
+      "close-up"
+    ],
+    "width": 1920,
+    "height": 1080,
+    "alt_en": "Close-up of hand gripping knurled Olympic barbell with weight plate",
+    "alt_vi": "Cận cảnh bàn tay nắm thanh tạ đòn Olympic và bánh tạ",
+    "credit": "Unsplash Contributor",
+    "source_url": "https://unsplash.com/photos/barbell-grip-close-up",
+    "license": "Unsplash License",
+    "created_at": "2026-10-17T16:32:36.673Z"
+  },
+  {
+    "id": "lib-equipment-equipment-dumbbells-rack",
+    "path": "library/equipment/equipment-dumbbells-rack.jpg",
+    "kind": "image",
+    "category": "equipment",
+    "tags": [
+      "equipment",
+      "dumbbells",
+      "rack",
+      "gym"
+    ],
+    "width": 1920,
+    "height": 1080,
+    "alt_en": "Rows of black dumbbells arranged on gym equipment rack",
+    "alt_vi": "Giá tạ tay chuyên dụng sắp xếp gọn gàng trong phòng gym",
+    "credit": "Unsplash Contributor",
+    "source_url": "https://unsplash.com/photos/gym-dumbbells-rack",
+    "license": "Unsplash License",
+    "created_at": "2026-10-17T16:32:36.673Z"
+  },
+  {
+    "id": "lib-equipment-equipment-resistance-band-dumbbells",
+    "path": "library/equipment/equipment-resistance-band-dumbbells.jpg",
+    "kind": "image",
+    "category": "equipment",
+    "tags": [
+      "equipment",
+      "resistance-band",
+      "dumbbells",
+      "fitness"
+    ],
+    "width": 1920,
+    "height": 1080,
+    "alt_en": "Resistance training band and hand dumbbells on wooden floor",
+    "alt_vi": "Dây kháng lực và tạ tay tập luyện thể lực trên sàn gỗ",
+    "credit": "Unsplash Contributor",
+    "source_url": "https://unsplash.com/photos/resistance-band-dumbbells",
+    "license": "Unsplash License",
+    "created_at": "2026-10-17T16:32:36.673Z"
+  },
+  {
+    "id": "lib-event-event-ceremony-hall-gathering",
+    "path": "library/event/event-ceremony-hall-gathering.jpg",
+    "kind": "image",
+    "category": "event",
+    "tags": [
+      "event",
+      "ceremony",
+      "gathering",
+      "hall"
+    ],
+    "width": 1920,
+    "height": 1080,
+    "alt_en": "Athletes and spectators gathered in tournament hall during ceremony",
+    "alt_vi": "Các đoàn vận động viên và khán giả tề tựu tại lễ khai mạc giải đấu",
+    "credit": "MERLIN S",
+    "source_url": "https://unsplash.com/photos/people-standing-in-a-large-hall-during-an-event-Wh401Qh2HSk",
+    "license": "Unsplash License",
+    "created_at": "2026-10-17T16:32:36.673Z"
+  },
+  {
+    "id": "lib-event-event-championship-arena",
+    "path": "library/event/event-championship-arena.jpg",
+    "kind": "image",
+    "category": "event",
+    "tags": [
+      "event",
+      "tournament",
+      "championship",
+      "floodlights"
+    ],
+    "width": 1920,
+    "height": 1080,
+    "alt_en": "Championship tournament court with floodlights",
+    "alt_vi": "Sân đấu giải vô địch rực sáng dưới dàn đèn thi đấu",
+    "credit": "Braden Collum",
+    "source_url": "https://unsplash.com/photos/Braden-Collum",
+    "license": "Unsplash License",
+    "created_at": "2026-10-17T13:10:34.826Z"
+  },
+  {
+    "id": "lib-event-event-championship-sports-hall",
+    "path": "library/event/event-championship-sports-hall.jpg",
+    "kind": "image",
+    "category": "event",
+    "tags": [
+      "event",
+      "championship",
+      "competition",
+      "arena"
+    ],
+    "width": 1920,
+    "height": 1080,
+    "alt_en": "Championship competition game in indoor multi-sport arena",
+    "alt_vi": "Trận tranh chức vô địch sôi nổi trong nhà thi đấu đa năng",
+    "credit": "Alejandro Stuardo",
+    "source_url": "https://unsplash.com/photos/volleyball-match-in-indoor-sports-hall-5lOYEGsM4ZQ",
+    "license": "Unsplash License",
+    "created_at": "2026-10-17T16:32:36.673Z"
+  },
+  {
+    "id": "lib-event-event-tournament-final-match",
+    "path": "library/event/event-tournament-final-match.jpg",
+    "kind": "image",
+    "category": "event",
+    "tags": [
+      "event",
+      "final",
+      "tournament",
+      "showdown"
+    ],
+    "width": 1920,
+    "height": 1080,
+    "alt_en": "Final tournament showdown on indoor court",
+    "alt_vi": "Trận chung kết giải đấu thể thao trên sân trong nhà",
+    "credit": "Alejandro Stuardo",
+    "source_url": "https://unsplash.com/photos/volleyball-match-on-indoor-wooden-court-GVpsBRLJZ1A",
+    "license": "Unsplash License",
+    "created_at": "2026-10-17T16:32:36.673Z"
+  },
+  {
+    "id": "lib-event-event-tournament-spectator-crowd",
+    "path": "library/event/event-tournament-spectator-crowd.jpg",
+    "kind": "image",
+    "category": "event",
+    "tags": [
+      "event",
+      "spectators",
+      "crowd",
+      "cheering"
+    ],
+    "width": 1920,
+    "height": 1080,
+    "alt_en": "Audience and spectators cheering during tournament event",
+    "alt_vi": "Khán giả cổ vũ sôi nổi tại sự kiện thể thao trong hội trường",
+    "credit": "Ufoma Ojo",
+    "source_url": "https://unsplash.com/photos/a-large-group-of-people-gathered-in-an-auditorium-V8Z-RdGs5M8",
+    "license": "Unsplash License",
+    "created_at": "2026-10-17T16:32:36.673Z"
+  },
+  {
+    "id": "lib-event-event-tournament-spectator-hall",
+    "path": "library/event/event-tournament-spectator-hall.jpg",
+    "kind": "image",
+    "category": "event",
+    "tags": [
+      "event",
+      "spectators",
+      "crowd",
+      "finals"
+    ],
+    "width": 1920,
+    "height": 1080,
+    "alt_en": "Excited spectator crowd watching final match",
+    "alt_vi": "Khán giả hào hứng cổ vũ trận chung kết kịch tính",
+    "credit": "Florian Olivo",
+    "source_url": "https://unsplash.com/photos/Florian-Olivo",
+    "license": "Unsplash License",
+    "created_at": "2026-10-17T13:10:34.826Z"
+  },
+  {
+    "id": "lib-event-event-volleyball-championship-hall",
+    "path": "library/event/event-volleyball-championship-hall.jpg",
+    "kind": "image",
+    "category": "event",
+    "tags": [
+      "event",
+      "tournament",
+      "volleyball",
+      "match"
+    ],
+    "width": 1920,
+    "height": 1080,
+    "alt_en": "Volleyball tournament match in full swing in sports hall",
+    "alt_vi": "Trận thi đấu giải bóng chuyền sôi nổi trong nhà thi đấu",
+    "credit": "Alejandro Stuardo",
+    "source_url": "https://unsplash.com/photos/volleyball-match-on-indoor-wooden-court-Hic3ZZPen2o",
+    "license": "Unsplash License",
+    "created_at": "2026-10-17T16:32:36.673Z"
+  },
+  {
+    "id": "lib-event-event-volleyball-trophies-ceremony",
+    "path": "library/event/event-volleyball-trophies-ceremony.jpg",
+    "kind": "image",
+    "category": "event",
+    "tags": [
+      "event",
+      "trophy",
+      "ceremony",
+      "volleyball",
+      "award"
+    ],
+    "width": 1920,
+    "height": 1080,
+    "alt_en": "Award ceremony table with volleyball tournament trophies in arena",
+    "alt_vi": "Bàn trao giải với cúp vô địch bóng chuyền trong nhà thi đấu",
+    "credit": "Luis Dejud",
+    "source_url": "https://unsplash.com/photos/people-with-volleyball-trophies-at-ceremony-qEj65xKmTZ4",
+    "license": "Unsplash License",
+    "created_at": "2026-10-17T16:32:36.673Z"
+  },
+  {
+    "id": "lib-facility-facility-arena-competition-mats",
+    "path": "library/facility/facility-arena-competition-mats.jpg",
+    "kind": "image",
+    "category": "facility",
+    "tags": [
+      "facility",
+      "stadium",
+      "competition",
+      "mats"
+    ],
+    "width": 1920,
+    "height": 1080,
+    "alt_en": "Indoor sports hall with competition floor and spectator stands",
+    "alt_vi": "Nhà thi đấu đa năng trải sàn thi đấu chuyên nghiệp và khán đài",
+    "credit": "ARTO SURAJ",
+    "source_url": "https://unsplash.com/photos/empty-indoor-stadium-with-blue-and-red-mat-pKU2ydvsysM",
+    "license": "Unsplash License",
+    "created_at": "2026-10-17T16:32:36.673Z"
+  },
+  {
+    "id": "lib-facility-facility-arena-exterior-entrance",
+    "path": "library/facility/facility-arena-exterior-entrance.jpg",
+    "kind": "image",
+    "category": "facility",
+    "tags": [
+      "facility",
+      "exterior",
+      "entrance",
+      "building"
+    ],
+    "width": 1920,
+    "height": 1080,
+    "alt_en": "Modern glass frontage and entrance of Arena3 complex",
+    "alt_vi": "Mặt tiền hiện đại và lối vào trung tâm thể thao Arena3",
+    "credit": "Maxime",
+    "source_url": "https://unsplash.com/photos/Maxime",
+    "license": "Unsplash License",
+    "created_at": "2026-10-17T13:10:34.826Z"
+  },
+  {
+    "id": "lib-facility-facility-arena-grandstand-hall",
+    "path": "library/facility/facility-arena-grandstand-hall.jpg",
+    "kind": "image",
+    "category": "facility",
+    "tags": [
+      "facility",
+      "arena",
+      "grandstand",
+      "court",
+      "hall"
+    ],
+    "width": 1920,
+    "height": 1080,
+    "alt_en": "Empty indoor sports arena with spectator seating and court markings",
+    "alt_vi": "Toàn cảnh nhà thi đấu thể thao đa năng với khán đài và mặt sân tiêu chuẩn",
+    "credit": "ARTO SURAJ",
+    "source_url": "https://unsplash.com/photos/empty-indoor-sports-arena-with-seating-and-court-markings-okCrVJ6hI7o",
+    "license": "Unsplash License",
+    "created_at": "2026-10-17T16:32:36.673Z"
+  },
+  {
+    "id": "lib-facility-facility-arena-red-seating",
+    "path": "library/facility/facility-arena-red-seating.jpg",
+    "kind": "image",
+    "category": "facility",
+    "tags": [
+      "facility",
+      "arena",
+      "seating",
+      "stadium"
+    ],
+    "width": 1920,
+    "height": 1080,
+    "alt_en": "Multi-sport arena with red stadium seats and tournament floor",
+    "alt_vi": "Khu phức hợp thể thao với hàng ghế khán đài đỏ và sàn thi đấu",
+    "credit": "ARTO SURAJ",
+    "source_url": "https://unsplash.com/photos/empty-indoor-sports-arena-with-red-seating-and-blue-mats-lU2hfJSVSDI",
+    "license": "Unsplash License",
+    "created_at": "2026-10-17T16:32:36.673Z"
+  },
+  {
+    "id": "lib-facility-facility-cardio-gym-studio",
+    "path": "library/facility/facility-cardio-gym-studio.jpg",
+    "kind": "image",
+    "category": "facility",
+    "tags": [
+      "facility",
+      "cardio",
+      "gym",
+      "bikes"
+    ],
+    "width": 1920,
+    "height": 1080,
+    "alt_en": "Modern gym facility with stationary bikes and strength equipment",
+    "alt_vi": "Phòng tập thể thao với xe đạp tập và máy tập thể lực hiện đại",
+    "credit": "Unsplash Contributor",
+    "source_url": "https://unsplash.com/photos/gym-cardio-studio",
+    "license": "Unsplash License",
+    "created_at": "2026-10-17T16:32:36.673Z"
+  },
+  {
+    "id": "lib-facility-facility-court-spectator-benches",
+    "path": "library/facility/facility-court-spectator-benches.jpg",
+    "kind": "image",
+    "category": "facility",
+    "tags": [
+      "facility",
+      "seating",
+      "viewing",
+      "spectators"
+    ],
+    "width": 1920,
+    "height": 1080,
+    "alt_en": "Indoor court with tiered viewing seating for spectators",
+    "alt_vi": "Khu vực khán đài bậc thang dành cho khán giả cổ vũ các trận đấu",
+    "credit": "Jonathan Ikemura",
+    "source_url": "https://unsplash.com/photos/a-basketball-court-with-rows-of-empty-seats-k7JFRw2keyo",
+    "license": "Unsplash License",
+    "created_at": "2026-10-17T16:32:36.673Z"
+  },
+  {
+    "id": "lib-facility-facility-fitness-studio",
+    "path": "library/facility/facility-fitness-studio.jpg",
+    "kind": "image",
+    "category": "facility",
+    "tags": [
+      "facility",
+      "fitness",
+      "studio",
+      "gym",
+      "treadmills"
+    ],
+    "width": 1920,
+    "height": 1080,
+    "alt_en": "Modern fitness studio with treadmills and weight machines",
+    "alt_vi": "Phòng tập thể hình với máy chạy bộ và trang thiết bị hiện đại",
+    "credit": "Unsplash Contributor",
+    "source_url": "https://unsplash.com/photos/gym-fitness-studio",
+    "license": "Unsplash License",
+    "created_at": "2026-10-17T16:32:36.673Z"
+  },
+  {
+    "id": "lib-facility-facility-free-weights-area",
+    "path": "library/facility/facility-free-weights-area.jpg",
+    "kind": "image",
+    "category": "facility",
+    "tags": [
+      "facility",
+      "free-weights",
+      "dumbbells",
+      "area"
+    ],
+    "width": 1920,
+    "height": 1080,
+    "alt_en": "Free weights area with dumbbell rack and workout floor",
+    "alt_vi": "Khu vực tập tạ tự do với các giá tạ tay và sàn tập chuyên dụng",
+    "credit": "Unsplash Contributor",
+    "source_url": "https://unsplash.com/photos/gym-free-weights-area",
+    "license": "Unsplash License",
+    "created_at": "2026-10-17T16:32:36.673Z"
+  },
+  {
+    "id": "lib-facility-facility-hardwood-gym-hall",
+    "path": "library/facility/facility-hardwood-gym-hall.jpg",
+    "kind": "image",
+    "category": "facility",
+    "tags": [
+      "facility",
+      "hardwood",
+      "gym",
+      "hall"
+    ],
+    "width": 1920,
+    "height": 1080,
+    "alt_en": "Spacious indoor sports gymnasium with polished hardwood flooring",
+    "alt_vi": "Nhà tập luyện thể thao rộng lớn với sàn gỗ đánh bóng cao cấp",
+    "credit": "Dmitry Ant",
+    "source_url": "https://unsplash.com/photos/a-large-indoor-gym-with-hard-wood-flooring-Ft1VsaXvnRc",
+    "license": "Unsplash License",
+    "created_at": "2026-10-17T16:32:36.673Z"
+  },
+  {
+    "id": "lib-facility-facility-indoor-court-markings",
+    "path": "library/facility/facility-indoor-court-markings.jpg",
+    "kind": "image",
+    "category": "facility",
+    "tags": [
+      "facility",
+      "court-markings",
+      "lines",
+      "floor"
+    ],
+    "width": 1920,
+    "height": 1080,
+    "alt_en": "Crisp professional court markings on indoor athletic floor",
+    "alt_vi": "Đường kẻ sân thi đấu sắc nét trên nền sàn thể thao chuyên dụng",
+    "credit": "Andy Kuo",
+    "source_url": "https://unsplash.com/photos/an-indoor-basketball-court-with-green-and-yellow-lines-ef4g4xpLouI",
+    "license": "Unsplash License",
+    "created_at": "2026-10-17T16:32:36.673Z"
+  },
+  {
+    "id": "lib-facility-facility-indoor-spectator-tier",
+    "path": "library/facility/facility-indoor-spectator-tier.jpg",
+    "kind": "image",
+    "category": "facility",
+    "tags": [
+      "facility",
+      "grandstand",
+      "seating",
+      "tier"
+    ],
+    "width": 1920,
+    "height": 1080,
+    "alt_en": "Indoor arena grandstand seating and competition court view",
+    "alt_vi": "Khu vực khán đài và tầm nhìn bao quát toàn bộ sàn thi đấu trong nhà",
+    "credit": "ARTO SURAJ",
+    "source_url": "https://unsplash.com/photos/empty-indoor-sports-arena-with-spectator-seating-_XlTp6nHbm0",
+    "license": "Unsplash License",
+    "created_at": "2026-10-17T16:32:36.673Z"
+  },
+  {
+    "id": "lib-facility-facility-locker-room",
+    "path": "library/facility/facility-locker-room.jpg",
+    "kind": "image",
+    "category": "facility",
+    "tags": [
+      "facility",
+      "locker",
+      "room",
+      "changing"
+    ],
+    "width": 1920,
+    "height": 1080,
+    "alt_en": "Clean and secure athlete locker room facilities",
+    "alt_vi": "Phòng thay đồ tiện nghi và an toàn cho vận động viên",
+    "credit": "Sanholic",
+    "source_url": "https://unsplash.com/photos/Sanholic",
+    "license": "Unsplash License",
+    "created_at": "2026-10-17T13:10:34.826Z"
+  },
+  {
+    "id": "lib-facility-facility-multi-court-arena-view",
+    "path": "library/facility/facility-multi-court-arena-view.jpg",
+    "kind": "image",
+    "category": "facility",
+    "tags": [
+      "facility",
+      "overview",
+      "bleachers",
+      "complex"
+    ],
+    "width": 1920,
+    "height": 1080,
+    "alt_en": "Panoramic overview of indoor sports complex courts and bleachers",
+    "alt_vi": "Toàn cảnh các sân thể thao và khán đài trong khu liên hợp thể thao",
+    "credit": "Irish83",
+    "source_url": "https://unsplash.com/photos/badminton-court-in-indoor-sports-arena-6qTZBVH2h4Y",
+    "license": "Unsplash License",
+    "created_at": "2026-10-17T16:32:36.673Z"
+  },
+  {
+    "id": "lib-facility-facility-sports-hall-flooring",
+    "path": "library/facility/facility-sports-hall-flooring.jpg",
+    "kind": "image",
+    "category": "facility",
+    "tags": [
+      "facility",
+      "floor",
+      "court",
+      "sports-hall"
+    ],
+    "width": 1920,
+    "height": 1080,
+    "alt_en": "Sports arena multi-purpose court floor surface",
+    "alt_vi": "Mặt sàn thi đấu thảm chuyên dụng trong nhà thể thao đa năng",
+    "credit": "ARTO SURAJ",
+    "source_url": "https://unsplash.com/photos/empty-indoor-sports-arena-with-blue-and-red-matting-Mll0kFmv8y4",
+    "license": "Unsplash License",
+    "created_at": "2026-10-17T16:32:36.673Z"
+  },
+  {
+    "id": "lib-facility-facility-sports-reception",
+    "path": "library/facility/facility-sports-reception.jpg",
+    "kind": "image",
+    "category": "facility",
+    "tags": [
+      "facility",
+      "reception",
+      "desk",
+      "lobby"
+    ],
+    "width": 1920,
+    "height": 1080,
+    "alt_en": "Modern sports complex front desk and welcoming reception",
+    "alt_vi": "Quầy lễ tân đón tiếp hiện đại của trung tâm thể thao",
+    "credit": "Rishabh Malhotra",
+    "source_url": "https://unsplash.com/photos/Rishabh-Malhotra",
+    "license": "Unsplash License",
+    "created_at": "2026-10-17T13:10:34.826Z"
+  },
+  {
+    "id": "lib-facility-facility-weight-training-machines",
+    "path": "library/facility/facility-weight-training-machines.jpg",
+    "kind": "image",
+    "category": "facility",
+    "tags": [
+      "facility",
+      "weight-training",
+      "machines",
+      "gym"
+    ],
+    "width": 1920,
+    "height": 1080,
+    "alt_en": "Commercial multi-station cable machines in fitness center",
+    "alt_vi": "Khu vực máy tập tạ khối đa năng trong trung tâm thể thao",
+    "credit": "Unsplash Contributor",
+    "source_url": "https://unsplash.com/photos/weight-training-facility",
+    "license": "Unsplash License",
+    "created_at": "2026-10-17T16:32:36.673Z"
+  },
+  {
+    "id": "lib-other-sports-other-futsal-ball-step",
+    "path": "library/other-sports/other-futsal-ball-step.jpg",
+    "kind": "image",
+    "category": "other-sports",
+    "tags": [
+      "futsal",
+      "ball",
+      "step",
+      "other-sports"
+    ],
+    "width": 1920,
+    "height": 1080,
+    "alt_en": "Player foot resting on soccer ball before play",
+    "alt_vi": "Chân vận động viên đặt trên quả bóng chuẩn bị thi đấu",
+    "credit": "Unsplash Contributor",
+    "source_url": "https://unsplash.com/photos/soccer-ball-step",
+    "license": "Unsplash License",
+    "created_at": "2026-10-17T16:32:36.673Z"
+  },
+  {
+    "id": "lib-other-sports-other-futsal-ball-turf",
+    "path": "library/other-sports/other-futsal-ball-turf.jpg",
+    "kind": "image",
+    "category": "other-sports",
+    "tags": [
+      "futsal",
+      "ball",
+      "turf",
+      "other-sports"
+    ],
+    "width": 1920,
+    "height": 1080,
+    "alt_en": "Soccer ball and athletic cleat on artificial turf",
+    "alt_vi": "Quả bóng đá và giày thi đấu trên sân cỏ nhân tạo",
+    "credit": "Unsplash Contributor",
+    "source_url": "https://unsplash.com/photos/soccer-ball-turf",
+    "license": "Unsplash License",
+    "created_at": "2026-10-17T16:32:36.673Z"
+  },
+  {
+    "id": "lib-other-sports-other-futsal-indoor-match-contest",
+    "path": "library/other-sports/other-futsal-indoor-match-contest.jpg",
+    "kind": "image",
+    "category": "other-sports",
+    "tags": [
+      "futsal",
+      "indoor",
+      "soccer",
+      "contest"
+    ],
+    "width": 1920,
+    "height": 1080,
+    "alt_en": "Players contesting ball possession in indoor soccer match",
+    "alt_vi": "Pha tranh chấp bóng kịch tính trong trận bóng đá futsal trong nhà",
+    "credit": "Alfonso Scarpa",
+    "source_url": "https://unsplash.com/photos/two-men-playing-indoor-soccer-on-a-court-B5CoiKiHJ3U",
+    "license": "Unsplash License",
+    "created_at": "2026-10-17T16:32:36.673Z"
+  },
+  {
+    "id": "lib-other-sports-other-futsal-wooden-court-duel",
+    "path": "library/other-sports/other-futsal-wooden-court-duel.jpg",
+    "kind": "image",
+    "category": "other-sports",
+    "tags": [
+      "futsal",
+      "indoor",
+      "wooden-court",
+      "duel"
+    ],
+    "width": 1920,
+    "height": 1080,
+    "alt_en": "Two players competing in futsal match on indoor wooden court",
+    "alt_vi": "Hai cầu thủ thi đấu futsal đối kháng trên sàn gỗ trong nhà",
+    "credit": "Alfonso Scarpa",
+    "source_url": "https://unsplash.com/photos/two-men-playing-futsal-indoors-on-a-wooden-court-9ckhCcL3LuM",
+    "license": "Unsplash License",
+    "created_at": "2026-10-17T16:32:36.673Z"
+  },
+  {
+    "id": "lib-other-sports-other-pickleball-court-paddle-ball",
+    "path": "library/other-sports/other-pickleball-court-paddle-ball.jpg",
+    "kind": "image",
+    "category": "other-sports",
+    "tags": [
+      "pickleball",
+      "paddle",
+      "ball",
+      "court"
+    ],
+    "width": 1920,
+    "height": 1080,
+    "alt_en": "Pickleball paddle and bright green ball on textured court",
+    "alt_vi": "Vợt pickleball và bóng xanh neon trên mặt sân nhám chuyên dụng",
+    "credit": "eedgar ivann",
+    "source_url": "https://unsplash.com/photos/pickleball-paddle-and-ball-rest-on-the-court-zpy9Lh5aRgg",
+    "license": "Unsplash License",
+    "created_at": "2026-10-17T16:32:36.673Z"
+  },
+  {
+    "id": "lib-other-sports-other-pickleball-indoor-facility",
+    "path": "library/other-sports/other-pickleball-indoor-facility.jpg",
+    "kind": "image",
+    "category": "other-sports",
+    "tags": [
+      "pickleball",
+      "indoor",
+      "facility",
+      "court"
+    ],
+    "width": 1920,
+    "height": 1080,
+    "alt_en": "Player with pickleball paddle in modern indoor court facility",
+    "alt_vi": "Vận động viên cầm vợt pickleball trong khu phức hợp sân trong nhà",
+    "credit": "Karl Joshua Bernal",
+    "source_url": "https://unsplash.com/photos/woman-with-pickleball-paddle-in-court-HftNvT_UsGE",
+    "license": "Unsplash License",
+    "created_at": "2026-10-17T16:32:36.673Z"
+  },
+  {
+    "id": "lib-other-sports-other-pickleball-rally-match",
+    "path": "library/other-sports/other-pickleball-rally-match.jpg",
+    "kind": "image",
+    "category": "other-sports",
+    "tags": [
+      "pickleball",
+      "match",
+      "rally",
+      "indoor"
+    ],
+    "width": 1920,
+    "height": 1080,
+    "alt_en": "Players competing in pickleball match on indoor court",
+    "alt_vi": "Pha bóng giao tranh kịch tính trên sân pickleball trong nhà",
+    "credit": "Karl Joshua Bernal",
+    "source_url": "https://unsplash.com/photos/people-playing-pickleball-on-indoor-court-ZCToRox3q-g",
+    "license": "Unsplash License",
+    "created_at": "2026-10-17T16:32:36.673Z"
+  },
+  {
+    "id": "lib-other-sports-other-pickleball-social-play",
+    "path": "library/other-sports/other-pickleball-social-play.jpg",
+    "kind": "image",
+    "category": "other-sports",
+    "tags": [
+      "pickleball",
+      "social",
+      "net",
+      "club"
+    ],
+    "width": 1920,
+    "height": 1080,
+    "alt_en": "Athletes enjoying pickleball by the net in indoor sports club",
+    "alt_vi": "Các thành viên giao lưu bên lưới pickleball sân trong nhà",
+    "credit": "Karl Joshua Bernal",
+    "source_url": "https://unsplash.com/photos/adults-laughing-by-indoor-pickleball-net-HrNuH0UY61E",
+    "license": "Unsplash License",
+    "created_at": "2026-10-17T16:32:36.673Z"
+  },
+  {
+    "id": "lib-other-sports-other-table-tennis-blue-table",
+    "path": "library/other-sports/other-table-tennis-blue-table.jpg",
+    "kind": "image",
+    "category": "other-sports",
+    "tags": [
+      "other-sports",
+      "table-tennis",
+      "paddle",
+      "table"
+    ],
+    "width": 1920,
+    "height": 1080,
+    "alt_en": "Competition table tennis table and paddle ready for game",
+    "alt_vi": "Bàn bóng bàn thi đấu và vợt chuẩn bị vào trận",
+    "credit": "Vladislav Babienko",
+    "source_url": "https://unsplash.com/photos/Vladislav-Babienko",
+    "license": "Unsplash License",
+    "created_at": "2026-10-17T13:10:34.826Z"
+  },
+  {
+    "id": "lib-other-sports-other-table-tennis-hall-doubles",
+    "path": "library/other-sports/other-table-tennis-hall-doubles.jpg",
+    "kind": "image",
+    "category": "other-sports",
+    "tags": [
+      "table-tennis",
+      "doubles",
+      "hall",
+      "sports"
+    ],
+    "width": 1920,
+    "height": 1080,
+    "alt_en": "Table tennis doubles game in indoor sports hall",
+    "alt_vi": "Trận đấu bóng bàn đôi trên bàn xanh trong nhà thể thao",
+    "credit": "Alejandro Stuardo",
+    "source_url": "https://unsplash.com/photos/women-playing-table-tennis-in-hall-7hRdtdDBWbU",
+    "license": "Unsplash License",
+    "created_at": "2026-10-17T16:32:36.673Z"
+  },
+  {
+    "id": "lib-other-sports-other-table-tennis-match-referee",
+    "path": "library/other-sports/other-table-tennis-match-referee.jpg",
+    "kind": "image",
+    "category": "other-sports",
+    "tags": [
+      "table-tennis",
+      "match",
+      "referee",
+      "indoor"
+    ],
+    "width": 1920,
+    "height": 1080,
+    "alt_en": "Table tennis competition match in indoor sports facility",
+    "alt_vi": "Bốn người thi đấu bóng bàn trong nhà thi đấu có trọng tài",
+    "credit": "Alejandro Stuardo",
+    "source_url": "https://unsplash.com/photos/table-tennis-match-with-referee-xbjtiXMaL4c",
+    "license": "Unsplash License",
+    "created_at": "2026-10-17T16:32:36.673Z"
+  },
+  {
+    "id": "lib-other-sports-other-table-tennis-net-setup",
+    "path": "library/other-sports/other-table-tennis-net-setup.jpg",
+    "kind": "image",
+    "category": "other-sports",
+    "tags": [
+      "other-sports",
+      "table-tennis",
+      "net",
+      "ball"
+    ],
+    "width": 1920,
+    "height": 1080,
+    "alt_en": "Table tennis net clamp and white celluloid ball",
+    "alt_vi": "Cọc lưới bóng bàn và quả bóng trắng chuyên dụng",
+    "credit": "Mikhail Nilov",
+    "source_url": "https://unsplash.com/photos/Mikhail-Nilov",
+    "license": "Unsplash License",
+    "created_at": "2026-10-17T13:10:34.826Z"
+  },
+  {
+    "id": "lib-other-sports-other-tennis-ball-spin",
+    "path": "library/other-sports/other-tennis-ball-spin.jpg",
+    "kind": "image",
+    "category": "other-sports",
+    "tags": [
+      "tennis",
+      "ball",
+      "spin",
+      "other-sports"
+    ],
+    "width": 1920,
+    "height": 1080,
+    "alt_en": "Spinning yellow tennis ball with water droplets spray",
+    "alt_vi": "Bóng tennis xoáy nước tuyệt đẹp trên nền tối",
+    "credit": "Unsplash Contributor",
+    "source_url": "https://unsplash.com/photos/tennis-ball-spin",
+    "license": "Unsplash License",
+    "created_at": "2026-10-17T16:32:36.673Z"
+  },
+  {
+    "id": "lib-other-sports-other-tennis-court-indoor",
+    "path": "library/other-sports/other-tennis-court-indoor.jpg",
+    "kind": "image",
+    "category": "other-sports",
+    "tags": [
+      "other-sports",
+      "tennis",
+      "court",
+      "hardcourt"
+    ],
+    "width": 1920,
+    "height": 1080,
+    "alt_en": "Indoor hardcourt tennis court with pristine net",
+    "alt_vi": "Sân quần vợt mặt sân cứng trong nhà tiêu chuẩn",
+    "credit": "Moises Alex",
+    "source_url": "https://unsplash.com/photos/Moises-Alex",
+    "license": "Unsplash License",
+    "created_at": "2026-10-17T13:10:34.826Z"
+  },
+  {
+    "id": "lib-other-sports-other-tennis-forehand-drive",
+    "path": "library/other-sports/other-tennis-forehand-drive.jpg",
+    "kind": "image",
+    "category": "other-sports",
+    "tags": [
+      "tennis",
+      "forehand",
+      "racket",
+      "action"
+    ],
+    "width": 1920,
+    "height": 1080,
+    "alt_en": "Player swinging tennis racket in powerful forehand stroke",
+    "alt_vi": "Vận động viên vung vợt thực hiện cú thuận tay tennis mạnh mẽ",
+    "credit": "Dmitriy Ignatenko",
+    "source_url": "https://unsplash.com/photos/a-man-is-swinging-a-tennis-racket-on-a-court-rl1XrMSfkAo",
+    "license": "Unsplash License",
+    "created_at": "2026-10-17T16:32:36.673Z"
+  },
+  {
+    "id": "lib-other-sports-other-tennis-net-court-view",
+    "path": "library/other-sports/other-tennis-net-court-view.jpg",
+    "kind": "image",
+    "category": "other-sports",
+    "tags": [
+      "tennis",
+      "court",
+      "net",
+      "lines"
+    ],
+    "width": 1920,
+    "height": 1080,
+    "alt_en": "Tennis court with net and boundary lines",
+    "alt_vi": "Sân tennis với lưới ngăn tiêu chuẩn và vạch kẻ sân",
+    "credit": "Tim Chow",
+    "source_url": "https://unsplash.com/photos/a-tennis-court-with-a-net-on-it-0PRyJ8acqbw",
+    "license": "Unsplash License",
+    "created_at": "2026-10-17T16:32:36.673Z"
+  },
+  {
+    "id": "lib-volleyball-volleyball-airborne-defense",
+    "path": "library/volleyball/volleyball-airborne-defense.jpg",
+    "kind": "image",
+    "category": "volleyball",
+    "tags": [
+      "volleyball",
+      "airborne",
+      "defense",
+      "net"
+    ],
+    "width": 1920,
+    "height": 1080,
+    "alt_en": "Volleyball players airborne at net defending attack",
+    "alt_vi": "Pha bay người chắn bóng đỉnh cao trên không trung",
+    "credit": "daniil kazorin",
+    "source_url": "https://unsplash.com/photos/volleyball-players-jumping-at-the-net-JsPEdQqhlVw",
+    "license": "Unsplash License",
+    "created_at": "2026-10-17T16:32:36.673Z"
+  },
+  {
+    "id": "lib-volleyball-volleyball-ball-on-court",
+    "path": "library/volleyball/volleyball-ball-on-court.jpg",
+    "kind": "image",
+    "category": "volleyball",
+    "tags": [
+      "volleyball",
+      "ball",
+      "leather",
+      "court"
+    ],
+    "width": 1920,
+    "height": 1080,
+    "alt_en": "Official leather volleyball resting beside court line",
+    "alt_vi": "Quả bóng chuyền da chuyên dụng đặt cạnh vạch sân",
+    "credit": "Jeffrey F Lin",
+    "source_url": "https://unsplash.com/photos/Jeffrey-F-Lin",
+    "license": "Unsplash License",
+    "created_at": "2026-10-17T13:10:34.826Z"
+  },
+  {
+    "id": "lib-volleyball-volleyball-beach-sunset",
+    "path": "library/volleyball/volleyball-beach-sunset.jpg",
+    "kind": "image",
+    "category": "volleyball",
+    "tags": [
+      "volleyball",
+      "sunset",
+      "spike",
+      "net"
+    ],
+    "width": 1920,
+    "height": 1080,
+    "alt_en": "Volleyball players spiking over the net at sunset",
+    "alt_vi": "Pha đập bóng chuyền qua lưới dưới ánh hoàng hôn",
+    "credit": "Unsplash Contributor",
+    "source_url": "https://unsplash.com/photos/beach-volleyball-sunset",
+    "license": "Unsplash License",
+    "created_at": "2026-10-17T16:32:36.673Z"
+  },
+  {
+    "id": "lib-volleyball-volleyball-blocking-at-net",
+    "path": "library/volleyball/volleyball-blocking-at-net.jpg",
+    "kind": "image",
+    "category": "volleyball",
+    "tags": [
+      "volleyball",
+      "block",
+      "net",
+      "indoor",
+      "match"
+    ],
+    "width": 1920,
+    "height": 1080,
+    "alt_en": "Volleyball players jumping to block a ball at the net during match",
+    "alt_vi": "Các vận động viên bóng chuyền bật cao chắn bóng trên lưới",
+    "credit": "daniil kazorin",
+    "source_url": "https://unsplash.com/photos/volleyball-players-blocking-at-the-net-Ipcbpw4rrmw",
+    "license": "Unsplash License",
+    "created_at": "2026-10-17T16:32:36.673Z"
+  },
+  {
+    "id": "lib-volleyball-volleyball-cross-court-hit",
+    "path": "library/volleyball/volleyball-cross-court-hit.jpg",
+    "kind": "image",
+    "category": "volleyball",
+    "tags": [
+      "volleyball",
+      "cross-court",
+      "spike",
+      "skill"
+    ],
+    "width": 1920,
+    "height": 1080,
+    "alt_en": "Volleyball player spiking ball cross-court over net",
+    "alt_vi": "Cú đập bóng chéo sân đầy kỹ thuật và chuẩn xác",
+    "credit": "daniil kazorin",
+    "source_url": "https://unsplash.com/photos/volleyball-player-spiking-ball-over-net-fOM-3K8E88c",
+    "license": "Unsplash License",
+    "created_at": "2026-10-17T16:32:36.673Z"
+  },
+  {
+    "id": "lib-volleyball-volleyball-jump-serve-action",
+    "path": "library/volleyball/volleyball-jump-serve-action.jpg",
+    "kind": "image",
+    "category": "volleyball",
+    "tags": [
+      "volleyball",
+      "serve",
+      "jump",
+      "power"
+    ],
+    "width": 1920,
+    "height": 1080,
+    "alt_en": "Powerful jump serve execution in sports hall",
+    "alt_vi": "Cú phát bóng tấn công uy lực trong nhà thi đấu",
+    "credit": "Vladislav Babienko",
+    "source_url": "https://unsplash.com/photos/Vladislav-Babienko",
+    "license": "Unsplash License",
+    "created_at": "2026-10-17T13:10:34.826Z"
+  },
+  {
+    "id": "lib-volleyball-volleyball-match-point-spike",
+    "path": "library/volleyball/volleyball-match-point-spike.jpg",
+    "kind": "image",
+    "category": "volleyball",
+    "tags": [
+      "volleyball",
+      "match-point",
+      "spike",
+      "attack"
+    ],
+    "width": 1920,
+    "height": 1080,
+    "alt_en": "Volleyball player jumping to spike decisive ball during match",
+    "alt_vi": "Pha đập bóng uy lực ghi điểm quyết định trong trận đấu",
+    "credit": "daniil kazorin",
+    "source_url": "https://unsplash.com/photos/volleyball-player-spiking-ball-during-match-UMzvVwp58qI",
+    "license": "Unsplash License",
+    "created_at": "2026-10-17T16:32:36.673Z"
+  },
+  {
+    "id": "lib-volleyball-volleyball-net-action-arena",
+    "path": "library/volleyball/volleyball-net-action-arena.jpg",
+    "kind": "image",
+    "category": "volleyball",
+    "tags": [
+      "volleyball",
+      "arena",
+      "net",
+      "competing"
+    ],
+    "width": 1920,
+    "height": 1080,
+    "alt_en": "Volleyball players in arena competing at the net",
+    "alt_vi": "Vận động viên thi đấu tranh chấp bóng trên lưới tại nhà thi đấu",
+    "credit": "daniil kazorin",
+    "source_url": "https://unsplash.com/photos/volleyball-players-competing-at-the-net-aKiQxdfhb4w",
+    "license": "Unsplash License",
+    "created_at": "2026-10-17T16:32:36.673Z"
+  },
+  {
+    "id": "lib-volleyball-volleyball-powerful-spike",
+    "path": "library/volleyball/volleyball-powerful-spike.jpg",
+    "kind": "image",
+    "category": "volleyball",
+    "tags": [
+      "volleyball",
+      "spike",
+      "power",
+      "player"
+    ],
+    "width": 1920,
+    "height": 1080,
+    "alt_en": "Volleyball player in blue jersey spiking ball over net",
+    "alt_vi": "Tay đập bật cao tung cú đập bóng sấm sét qua lưới",
+    "credit": "daniil kazorin",
+    "source_url": "https://unsplash.com/photos/volleyball-player-spiking-ball-in-match-m8BVr2zlYhg",
+    "license": "Unsplash License",
+    "created_at": "2026-10-17T16:32:36.673Z"
+  },
+  {
+    "id": "lib-volleyball-volleyball-spike-block-drill",
+    "path": "library/volleyball/volleyball-spike-block-drill.jpg",
+    "kind": "image",
+    "category": "volleyball",
+    "tags": [
+      "volleyball",
+      "spike",
+      "block",
+      "duel"
+    ],
+    "width": 1920,
+    "height": 1080,
+    "alt_en": "Spike and double block duel above the net",
+    "alt_vi": "Pha đập bóng đối đầu hàng chắn đôi trên lưới",
+    "credit": "Andrew Stutesman",
+    "source_url": "https://unsplash.com/photos/Andrew-Stutesman",
+    "license": "Unsplash License",
+    "created_at": "2026-10-17T13:10:34.826Z"
+  },
+  {
+    "id": "lib-volleyball-volleyball-spike-vs-double-block",
+    "path": "library/volleyball/volleyball-spike-vs-double-block.jpg",
+    "kind": "image",
+    "category": "volleyball",
+    "tags": [
+      "volleyball",
+      "spike",
+      "blockers",
+      "action"
+    ],
+    "width": 1920,
+    "height": 1080,
+    "alt_en": "Volleyball player spiking ball over net against two jumping blockers",
+    "alt_vi": "Vận động viên bật đập bóng qua hàng chắn đôi trên lưới",
+    "credit": "daniil kazorin",
+    "source_url": "https://unsplash.com/photos/volleyball-players-spiking-and-blocking-7pxQ66sDr5s",
+    "license": "Unsplash License",
+    "created_at": "2026-10-17T16:32:36.673Z"
+  },
+  {
+    "id": "lib-volleyball-volleyball-two-man-block",
+    "path": "library/volleyball/volleyball-two-man-block.jpg",
+    "kind": "image",
+    "category": "volleyball",
+    "tags": [
+      "volleyball",
+      "defense",
+      "block",
+      "teamwork"
+    ],
+    "width": 1920,
+    "height": 1080,
+    "alt_en": "Two volleyball players in blue jerseys forming defensive block",
+    "alt_vi": "Hai tay chắn phối hợp dựng bức tường phòng ngự trên lưới",
+    "credit": "daniil kazorin",
+    "source_url": "https://unsplash.com/photos/volleyball-players-blocking-at-net-SJ5Ofc_sOGM",
+    "license": "Unsplash License",
+    "created_at": "2026-10-17T16:32:36.673Z"
+  },
+  {
+    "id": "legacy-lounge",
+    "path": "lounge.jpg",
+    "kind": "image",
+    "category": "legacy",
+    "tags": [
+      "legacy",
+      "lounge"
+    ],
+    "width": 1280,
+    "height": 720,
+    "alt_en": "Arena3 site asset: lounge",
+    "alt_vi": "Tài nguyên Arena3: lounge",
+    "credit": "Arena3 Studio",
+    "source_url": "https://arena3.vn",
+    "license": "project",
+    "created_at": "2026-10-16T07:58:30.214Z"
+  },
+  {
+    "id": "legacy-member-card",
+    "path": "member-card.jpg",
+    "kind": "image",
+    "category": "legacy",
+    "tags": [
+      "legacy",
+      "member-card"
+    ],
+    "width": 1280,
+    "height": 720,
+    "alt_en": "Arena3 site asset: member-card",
+    "alt_vi": "Tài nguyên Arena3: member-card",
+    "credit": "Arena3 Studio",
+    "source_url": "https://arena3.vn",
+    "license": "project",
+    "created_at": "2026-10-16T07:58:30.214Z"
+  },
+  {
+    "id": "legacy-racket",
+    "path": "racket.jpg",
+    "kind": "image",
+    "category": "legacy",
+    "tags": [
+      "legacy",
+      "racket"
+    ],
+    "width": 1280,
+    "height": 720,
+    "alt_en": "Arena3 site asset: racket",
+    "alt_vi": "Tài nguyên Arena3: racket",
+    "credit": "Arena3 Studio",
+    "source_url": "https://arena3.vn",
+    "license": "project",
+    "created_at": "2026-10-16T07:58:30.214Z"
+  },
+  {
+    "id": "legacy-reception-still",
+    "path": "reception-still.jpg",
+    "kind": "image",
+    "category": "legacy",
+    "tags": [
+      "legacy",
+      "reception-still"
+    ],
+    "width": 1280,
+    "height": 720,
+    "alt_en": "Arena3 site asset: reception-still",
+    "alt_vi": "Tài nguyên Arena3: reception-still",
+    "credit": "Arena3 Studio",
+    "source_url": "https://arena3.vn",
+    "license": "project",
+    "created_at": "2026-10-16T07:58:30.214Z"
+  },
+  {
+    "id": "legacy-reception",
+    "path": "reception.jpg",
+    "kind": "image",
+    "category": "legacy",
+    "tags": [
+      "legacy",
+      "reception"
+    ],
+    "width": 1280,
+    "height": 720,
+    "alt_en": "Arena3 site asset: reception",
+    "alt_vi": "Tài nguyên Arena3: reception",
+    "credit": "Arena3 Studio",
+    "source_url": "https://arena3.vn",
+    "license": "project",
+    "created_at": "2026-10-16T07:58:30.214Z"
+  },
+  {
+    "id": "legacy-reception",
+    "path": "reception.mp4",
+    "kind": "video",
+    "category": "legacy",
+    "tags": [
+      "legacy",
+      "reception"
+    ],
+    "width": 1920,
+    "height": 1080,
+    "alt_en": "Arena3 site asset: reception",
+    "alt_vi": "Tài nguyên Arena3: reception",
+    "credit": "Arena3 Studio",
+    "source_url": "https://arena3.vn",
+    "license": "project",
+    "created_at": "2026-10-16T07:58:30.214Z"
+  },
+  {
+    "id": "legacy-smash",
+    "path": "smash.mp4",
+    "kind": "video",
+    "category": "legacy",
+    "tags": [
+      "legacy",
+      "smash"
+    ],
+    "width": 1920,
+    "height": 1080,
+    "alt_en": "Arena3 site asset: smash",
+    "alt_vi": "Tài nguyên Arena3: smash",
+    "credit": "Arena3 Studio",
+    "source_url": "https://arena3.vn",
+    "license": "project",
+    "created_at": "2026-10-16T07:58:30.214Z"
+  },
+  {
+    "id": "legacy-train-progress",
+    "path": "train-progress.jpg",
+    "kind": "image",
+    "category": "legacy",
+    "tags": [
+      "legacy",
+      "train-progress"
+    ],
+    "width": 1280,
+    "height": 720,
+    "alt_en": "Arena3 site asset: train-progress",
+    "alt_vi": "Tài nguyên Arena3: train-progress",
+    "credit": "Arena3 Studio",
+    "source_url": "https://arena3.vn",
+    "license": "project",
+    "created_at": "2026-10-16T07:58:30.214Z"
+  },
+  {
+    "id": "legacy-volleyball-action",
+    "path": "volleyball-action.jpg",
+    "kind": "image",
+    "category": "legacy",
+    "tags": [
+      "legacy",
+      "volleyball-action"
+    ],
+    "width": 1280,
+    "height": 720,
+    "alt_en": "Arena3 site asset: volleyball-action",
+    "alt_vi": "Tài nguyên Arena3: volleyball-action",
+    "credit": "Arena3 Studio",
+    "source_url": "https://arena3.vn",
+    "license": "project",
+    "created_at": "2026-10-16T07:58:30.214Z"
+  },
+  {
+    "id": "legacy-volleyball",
+    "path": "volleyball.jpg",
+    "kind": "image",
+    "category": "legacy",
+    "tags": [
+      "legacy",
+      "volleyball"
+    ],
+    "width": 1280,
+    "height": 720,
+    "alt_en": "Arena3 site asset: volleyball",
+    "alt_vi": "Tài nguyên Arena3: volleyball",
+    "credit": "Arena3 Studio",
+    "source_url": "https://arena3.vn",
+    "license": "project",
+    "created_at": "2026-10-16T07:58:30.214Z"
+  },
+  {
+    "id": "legacy-wellness",
+    "path": "wellness.jpg",
+    "kind": "image",
+    "category": "legacy",
+    "tags": [
+      "legacy",
+      "wellness"
+    ],
+    "width": 1280,
+    "height": 720,
+    "alt_en": "Arena3 site asset: wellness",
+    "alt_vi": "Tài nguyên Arena3: wellness",
+    "credit": "Arena3 Studio",
+    "source_url": "https://arena3.vn",
+    "license": "project",
+    "created_at": "2026-10-16T07:58:30.214Z"
+  }
+]
