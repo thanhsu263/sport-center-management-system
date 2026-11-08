@@ -51,6 +51,8 @@ export const SETTING_RULES: Record<string, SettingRule> = {
   series_discount_pct: int(0, 50),
   loyalty_earn_vnd: int(1000, 10_000_000),
   loyalty_redeem_vnd: int(1, 100_000),
+  member_court_fee_vnd: int(0, 10_000_000),
+  member_day_rate_vnd: int(1, 1_000_000),
   // Column limits: legal_name VARCHAR(190), tax_code VARCHAR(20), address TEXT.
   legal_name: { kind: "text", max: 190 },
   tax_code: { kind: "text", max: 20 },
@@ -85,6 +87,8 @@ const SETTING_LABEL: Record<string, string> = {
   series_discount_pct: "Fixed booking discount",
   loyalty_earn_vnd: "Spend per loyalty point",
   loyalty_redeem_vnd: "Value of a loyalty point",
+  member_court_fee_vnd: "Member court fee per hour",
+  member_day_rate_vnd: "Membership price per day",
   legal_name: "Legal name",
   tax_code: "Tax code",
   address: "Address",

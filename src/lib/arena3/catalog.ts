@@ -133,14 +133,18 @@ export const getPublicCatalog = createServerFn({ method: "POST" }).handler(async
     sql.query<{ open_time: string; close_time: string; hold_minutes: number }>(
       `select open_time::text, close_time::text, hold_minutes from center_settings where id = 1`,
     ),
+    // Active coaches of sports still on offer, minus any the manager switched off in Media, the
+    // ones teaching the most open classes first.
     sql.query<{ id: string; name: string; sports: string[] }>(
-      `select u.id, u.full_name as name,
-              coalesce(array_remove(array_agg(cs.sport::text), null), '{}') as sports
+      `select u.id, u.full_name as name, array_agg(distinct cs.sport::text) as sports
          from users u
-         left join coach_sports cs on cs.user_id = u.id
+         join coach_sports cs on cs.user_id = u.id
+         join sports s on s.code = cs.sport::text and s.enabled and s.retired_at is null
         where u.role = 'coach' and u.status = 'active'
+          and not exists (select 1 from site_assets a where a.slot = 'coach.' || u.id::text and not a.enabled)
         group by u.id, u.full_name
-        order by u.full_name`,
+        order by (select count(*) from classes cl where cl.coach_id = u.id and cl.status = 'open') desc,
+                 u.full_name`,
     ),
   ]);
   // Opening hours and hold length for the landing's copy and grid (see src/lib/venue.ts).
