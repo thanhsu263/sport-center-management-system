@@ -112,24 +112,8 @@ const BYDAY: Record<string, string> = {
   SU: tk("Sun"),
 };
 
-/**
- * What a subscription actually gives its holder, in the words the member reads.
- * Driven by the plan's own grants: a session pack has no court hours to show,
- * and a court-hours pack has no sessions, so each line appears only for a plan
- * that carries it.
- */
-export function planBenefits(s: {
-  plan_court_hours?: number | null;
-  plan_session_quota?: number | null;
-  court_hours_left: string | number;
-  session_left?: number | null;
-  court_discount_pct?: number | null;
-}): string[] {
-  const out: string[] = [];
-  if ((s.plan_court_hours ?? 0) > 0) out.push(t("{n} court hours left", { n: Number(s.court_hours_left) }));
-  if (s.plan_session_quota != null) out.push(t("{n} sessions left", { n: s.session_left ?? 0 }));
-  if ((s.court_discount_pct ?? 0) > 0) out.push(t("{n}% off courts", { n: s.court_discount_pct ?? 0 }));
-  return out.length ? out : [t("Membership")];
+export function monthsLabel(n: number) {
+  return n === 1 ? t("1 month") : t("{n} months", { n });
 }
 
 export function sportLabel(s: string) {
@@ -207,6 +191,8 @@ export const SOURCE_LABEL: Record<string, string> = lazyLabels({
   court: tk("Court rental"),
   booking: tk("Court rental"),
   class: tk("Class"),
+  enrollment: tk("Class seat"),
+  equipment: tk("Equipment hire"),
   membership: tk("Plan"),
   subscription: tk("Plan"),
   walk_in: tk("Walk-in"),
@@ -230,6 +216,7 @@ export function refTypeLabel(r: string) {
       day_pass: tk("Day pass"),
       walkin: tk("Walk-in"),
       equipment: tk("Equipment hire"),
+      enrollment: tk("Class seat"),
     } as Record<string, string>
   )[r];
   return label ? t(label) : r;
@@ -340,4 +327,16 @@ export function parseWeeklyRrule(rrule: string): { days: string[]; hour: number 
     .map((d) => d.trim())
     .filter(Boolean);
   return { days, hour: Number(parts.BYHOUR ?? 18) };
+}
+
+/** The class-list filters: a weekday code ("MO"…) and a part of the day; empty means any. */
+export function classSlotMatches(rrule: string | undefined, day: string, part: string): boolean {
+  if (!day && !part) return true;
+  if (!rrule) return false;
+  const p = parseWeeklyRrule(rrule);
+  if (day && !p.days.includes(day)) return false;
+  if (part === "morning") return p.hour < 12;
+  if (part === "afternoon") return p.hour >= 12 && p.hour < 17;
+  if (part === "evening") return p.hour >= 17;
+  return true;
 }

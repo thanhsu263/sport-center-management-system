@@ -1,3 +1,4 @@
+import type { CancelQuote, CancelTier } from "./contracts";
 import { err } from "./errors";
 import { addDays, ictDateTime, ictWeekday, roundVnd } from "./time";
 
@@ -7,7 +8,7 @@ import { addDays, ictDateTime, ictWeekday, roundVnd } from "./time";
  * only decide, so the rules can be tested without one.
  */
 
-export type CancelTier = { hours: number; refund_pct: number };
+export type { CancelQuote, CancelTier };
 
 /** What most Vietnamese venues publish: 24h+ free, 4–24h half, under 4h nothing. */
 export const DEFAULT_CANCEL_TIERS: CancelTier[] = [
@@ -58,16 +59,6 @@ export function refundPctFor(tiers: CancelTier[], hoursLeft: number): number {
   for (const t of sorted) if (hoursLeft >= t.hours) return t.refund_pct;
   return sorted[sorted.length - 1]?.refund_pct ?? 0;
 }
-
-export type CancelQuote = {
-  hours_left: number;
-  refund_pct: number;
-  paid_vnd: number;
-  refund_vnd: number;
-  fee_vnd: number;
-  /** The centre cancelled, or an emergency: the customer loses nothing. */
-  waived: boolean;
-};
 
 export function quoteCancel(args: {
   tiers: CancelTier[];

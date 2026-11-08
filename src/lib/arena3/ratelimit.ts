@@ -41,14 +41,49 @@ export const RULES = {
   planRequest: { limit: 3, windowMs: 60_000 },
   /** Cumulative guard so a member cannot queue twenty pending requests over an hour. */
   planRequestHourly: { limit: 10, windowMs: 3_600_000 },
-  /** Assistant turns — each one costs a model call. */
+  /** Assistant turns — each one costs a model call (FR-A03). */
   assistant: { limit: 20, windowMs: 60_000 },
+  /**
+   * Opening a support request, from the form or from the assistant.
+   *
+   * Reception reads these by hand, so the real ceiling is how many a person can
+   * be answered — not how many a browser can post. Matches `planRequest`: three
+   * in a minute covers a double-tap and a correction, and no more.
+   */
+  ticketCreate: { limit: 3, windowMs: 60_000 },
+  /** Cumulative guard so one member cannot bury the desk queue over an hour. */
+  ticketCreateHourly: { limit: 10, windowMs: 3_600_000 },
+  /** Chat messages — generous, because a real conversation is bursty. */
+  chatMessage: { limit: 25, windowMs: 10_000 },
+  /**
+   * WebRTC signaling: polls, offers, answers and ICE candidates.
+   *
+   * Sized from the client's own loop, not from the small numbers above: while a
+   * pair is still connecting `p2p.ts` polls every 400ms (~150/minute), and each
+   * poll can be followed by signal posts. 400 a minute leaves room for a busy
+   * negotiation and still stops a tight loop, which matters because every poll
+   * writes a heartbeat row and runs two deletes.
+   */
+  rtcSignal: { limit: 400, windowMs: 60_000 },
+  /**
+   * The relay as a whole, per person rather than per room.
+   *
+   * `rtcSignal` is charged once the room is known, which means a request that
+   * is rejected for a missing or malformed room never reaches it. This one is
+   * charged first, before anything is parsed, so a loop posting junk still
+   * costs its caller something. Wide on purpose: somebody with several
+   * conversations open is legitimately doing several rooms' worth of polling,
+   * and this is here to stop a loop, not to shape normal use.
+   */
+  rtcEndpoint: { limit: 2000, windowMs: 60_000 },
   /** Password changes. */
   passwordChange: { limit: 5, windowMs: 900_000 },
   /** Profile edits. */
   profileUpdate: { limit: 10, windowMs: 300_000 },
   /** Manager media asset uploads. */
   assetUpload: { limit: 60, windowMs: 60_000 },
+  /** A member changing their own profile photo. */
+  avatarUpload: { limit: 10, windowMs: 600_000 },
   /** Manager sport mutations. */
   sportMutation: { limit: 60, windowMs: 60_000 },
 } satisfies Record<string, LimitRule>;
