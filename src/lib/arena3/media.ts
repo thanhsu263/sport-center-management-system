@@ -471,7 +471,19 @@ export function findSlotDef(slot: string): MediaSlotDef | undefined {
       aspect: "1:1",
     };
   }
-  return MEDIA_REGISTRY.find((r) => r.slot === slot);
+  const known = MEDIA_REGISTRY.find((r) => r.slot === slot);
+  if (known || !slot.startsWith("sport.")) return known;
+  // A sport the manager added later: its photo belongs with the other sport photos.
+  return {
+    slot,
+    kind: "image",
+    group: "sport",
+    labelEn: "Sport photo",
+    labelVi: "Ảnh môn",
+    locationEn: "Courts & booking",
+    locationVi: "Sân & đặt sân",
+    aspect: "16:9",
+  };
 }
 
 export function sportPhoto(sport: string): string {

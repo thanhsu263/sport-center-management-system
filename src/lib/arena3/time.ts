@@ -129,3 +129,15 @@ export function slotSpan(start: Date, end: Date, slotMinutes: number): { start: 
   const ceil = (t: number) => Math.ceil((t + ICT_OFFSET_MS) / slotMs) * slotMs - ICT_OFFSET_MS;
   return { start: new Date(floor(start.getTime())), end: new Date(ceil(end.getTime())) };
 }
+
+/** Compute age in years as of today in ICT timezone. */
+export function ageYears(dob?: string | null): number {
+  if (!dob) return 0;
+  const d = new Date(dob);
+  if (Number.isNaN(d.getTime())) return 0;
+  const nowIct = new Date(new Date().toLocaleString("en-US", { timeZone: ICT }));
+  let age = nowIct.getFullYear() - d.getFullYear();
+  const m = nowIct.getMonth() - d.getMonth();
+  if (m < 0 || (m === 0 && nowIct.getDate() < d.getDate())) age -= 1;
+  return Math.max(0, age);
+}

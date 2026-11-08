@@ -1,27 +1,27 @@
 import type { Sql } from "@/lib/db";
 import { hashPassword, randomToken, sha256, verifyPassword } from "./crypto";
+import type { PublicUser, Role } from "./contracts";
 import { err } from "./errors";
 import { one, q } from "./tx";
 
-export type Role = "manager" | "coach" | "receptionist" | "member";
-
-export type PublicUser = {
-  id: string;
-  member_code: string | null;
-  full_name: string;
-  phone: string;
-  email: string | null;
-  role: Role;
-  status: string;
-  date_of_birth: string | null;
-  health_notes: string | null;
-  must_change_password: boolean;
-};
+export type { PublicUser, Role } from "./contracts";
 
 export type AuthUser = PublicUser & { password_hash: string };
 
-const PUBLIC_COLS =
-  "id, member_code, full_name, phone, email, role, status, date_of_birth, health_notes, must_change_password";
+export function avatarUrlSql(alias = "users"): string {
+  return `(select version from user_avatars a where a.user_id = ${alias}.id) as avatar_version`;
+}
+
+export function withAvatarUrl<T extends Record<string, any>>(
+  row: T,
+): T & { avatar_url: string | null } {
+  const v = row.avatar_version;
+  const avatar_url = v != null && row.id != null ? `/v1/users/${row.id}/avatar?v=${v}` : null;
+  return { ...row, avatar_url };
+}
+
+export const PUBLIC_COLS =
+  `id, member_code, full_name, phone, email, role, status, date_of_birth, health_notes, must_change_password, ${avatarUrlSql("users")}`;
 
 export function toPublic(u: Record<string, unknown>): PublicUser {
   return {
@@ -35,7 +35,18 @@ export function toPublic(u: Record<string, unknown>): PublicUser {
     date_of_birth: u.date_of_birth ? String(u.date_of_birth).slice(0, 10) : null,
     health_notes: (u.health_notes as string | null) ?? null,
     must_change_password: Boolean(u.must_change_password),
+    avatar_url: u.avatar_version != null ? `/v1/users/${u.id}/avatar?v=${u.avatar_version}` : null,
   };
+}
+
+export async function loadUser(sql: Sql, id: string): Promise<PublicUser> {
+  const u = await one<Record<string, unknown>>(
+    sql,
+    `select ${PUBLIC_COLS} from users where id = $1`,
+    [id],
+  );
+  if (!u) throw err.notFound();
+  return toPublic(u);
 }
 
 import { limit, RULES } from "./ratelimit";
@@ -92,10 +103,12 @@ export async function authFromRequest(sql: Sql, request: Request): Promise<Publi
     locked_until: string | null;
     expires_at: string;
     revoked_at: string | null;
+    avatar_version: number | null;
   }>(
     sql,
     `select u.id, u.member_code, u.full_name, u.phone, u.email, u.role, u.status,
             u.date_of_birth, u.health_notes, u.must_change_password,
+            (select version from user_avatars a where a.user_id = u.id) as avatar_version,
             s.expires_at, s.revoked_at, u.locked_until
        from sessions_auth s
        join users u on u.id = s.user_id
