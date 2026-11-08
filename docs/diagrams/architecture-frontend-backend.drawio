@@ -1,0 +1,132 @@
+<mxfile host="app.diagrams.net">
+  <diagram id="arch" name="Arena3 Architecture">
+    <mxGraphModel dx="1422" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1100" background="#ffffff">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <mxCell id="title" value="&lt;b&gt;Arena3 - Layered Architecture (Client / Server / Data)&lt;/b&gt;" style="text;html=1;align=center;verticalAlign=middle;fontSize=20;" vertex="1" parent="1">
+          <mxGeometry x="400" y="10" width="800" height="40" as="geometry"/>
+        </mxCell>
+        <mxCell id="laneFE" value="FRONTEND (Presentation Layer) - React + TanStack Router, runs in browser" style="swimlane;startSize=30;html=1;whiteSpace=wrap;fillColor=#dbeafe;strokeColor=#1d4ed8;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="20" y="60" width="480" height="780" as="geometry"/>
+        </mxCell>
+        <mxCell id="fePublic" value="&lt;b&gt;Public Pages&lt;/b&gt;&lt;br&gt;index (landing), login, register, forgot, pay.return, verify" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#ffffff;strokeColor=#1d4ed8;" vertex="1" parent="laneFE">
+          <mxGeometry x="20" y="50" width="440" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="feMember" value="&lt;b&gt;Member Portal&lt;/b&gt; (routes/app.*)&lt;br&gt;book, classes, pass, plans, points, train, assistant" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#ffffff;strokeColor=#1d4ed8;" vertex="1" parent="laneFE">
+          <mxGeometry x="20" y="130" width="440" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="feCoach" value="&lt;b&gt;Coach Portal&lt;/b&gt; (routes/coach.*)&lt;br&gt;classes, attendance, earnings, student profile" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#ffffff;strokeColor=#1d4ed8;" vertex="1" parent="laneFE">
+          <mxGeometry x="20" y="210" width="440" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="feDesk" value="&lt;b&gt;Front Desk Portal&lt;/b&gt; (routes/desk.*)&lt;br&gt;gate check-in, courts, classes, payments, gear, maintenance, at-risk" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#ffffff;strokeColor=#1d4ed8;" vertex="1" parent="laneFE">
+          <mxGeometry x="20" y="290" width="440" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="feManager" value="&lt;b&gt;Manager Portal&lt;/b&gt; (routes/manager.*)&lt;br&gt;reports, prices, plans, promos, staff, commission, invoices, audit" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#ffffff;strokeColor=#1d4ed8;" vertex="1" parent="laneFE">
+          <mxGeometry x="20" y="370" width="440" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="feComp" value="&lt;b&gt;Shared UI Components&lt;/b&gt; (src/components)&lt;br&gt;ui/*, shell, court-grid, calendar, effects (fx, gl, motion), landing" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#eff6ff;strokeColor=#1d4ed8;" vertex="1" parent="laneFE">
+          <mxGeometry x="20" y="470" width="440" height="70" as="geometry"/>
+        </mxCell>
+        <mxCell id="feClient" value="&lt;b&gt;Client Services&lt;/b&gt; (src/lib)&lt;br&gt;use-read (REST calls), use-live (SSE), i18n (EN/VI), theme, auth/client" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#eff6ff;strokeColor=#1d4ed8;" vertex="1" parent="laneFE">
+          <mxGeometry x="20" y="580" width="440" height="70" as="geometry"/>
+        </mxCell>
+        <mxCell id="laneBE" value="BACKEND (Application + Business Layer) - Node server, src/lib/arena3" style="swimlane;startSize=30;html=1;whiteSpace=wrap;fillColor=#dcfce7;strokeColor=#15803d;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="560" y="60" width="640" height="780" as="geometry"/>
+        </mxCell>
+        <mxCell id="beGw" value="&lt;b&gt;API Gateway&lt;/b&gt;&lt;br&gt;routes/api.$.ts, routes/v1.$.ts -&amp;gt; handleApi()" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#ffffff;strokeColor=#15803d;" vertex="1" parent="laneBE">
+          <mxGeometry x="20" y="50" width="600" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="beRouter" value="&lt;b&gt;Router and Middleware&lt;/b&gt; (router.ts, session.ts, tx.ts, ratelimit.ts)&lt;br&gt;authentication, role check (requireRole), transaction, idempotency, rate limit" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#ffffff;strokeColor=#15803d;" vertex="1" parent="laneBE">
+          <mxGeometry x="20" y="140" width="600" height="70" as="geometry"/>
+        </mxCell>
+        <mxCell id="hBook" value="&lt;b&gt;Booking&lt;/b&gt;&lt;br&gt;bookings.ts, courts.ts" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#f0fdf4;strokeColor=#15803d;" vertex="1" parent="laneBE">
+          <mxGeometry x="20" y="250" width="180" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="hMember" value="&lt;b&gt;Membership&lt;/b&gt;&lt;br&gt;members.ts, plans.ts, promos.ts" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#f0fdf4;strokeColor=#15803d;" vertex="1" parent="laneBE">
+          <mxGeometry x="230" y="250" width="180" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="hClass" value="&lt;b&gt;Classes and Training&lt;/b&gt;&lt;br&gt;classes, attendance, training, certificates" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#f0fdf4;strokeColor=#15803d;" vertex="1" parent="laneBE">
+          <mxGeometry x="440" y="250" width="180" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="hDesk" value="&lt;b&gt;Desk and Check-in&lt;/b&gt;&lt;br&gt;desk.ts, checkin.ts" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#f0fdf4;strokeColor=#15803d;" vertex="1" parent="laneBE">
+          <mxGeometry x="20" y="330" width="180" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="hPay" value="&lt;b&gt;Payment&lt;/b&gt;&lt;br&gt;online.ts" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#f0fdf4;strokeColor=#15803d;" vertex="1" parent="laneBE">
+          <mxGeometry x="230" y="330" width="180" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="hReport" value="&lt;b&gt;Reports and Operations&lt;/b&gt;&lt;br&gt;reports, ops, staff, chat, live" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#f0fdf4;strokeColor=#15803d;" vertex="1" parent="laneBE">
+          <mxGeometry x="440" y="330" width="180" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="hLabel" value="Controllers (src/lib/arena3/handlers)" style="text;html=1;align=left;fontSize=11;fontStyle=2;" vertex="1" parent="laneBE">
+          <mxGeometry x="20" y="222" width="300" height="20" as="geometry"/>
+        </mxCell>
+        <mxCell id="beDomain" value="&lt;b&gt;Business Rules (Domain Services)&lt;/b&gt;&lt;br&gt;membership.ts, pricing.ts, policy.ts, rules.ts, promos.ts, time.ts, rrule.ts" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#ffffff;strokeColor=#15803d;" vertex="1" parent="laneBE">
+          <mxGeometry x="20" y="430" width="600" height="70" as="geometry"/>
+        </mxCell>
+        <mxCell id="beInfra" value="&lt;b&gt;Infrastructure and Integrations&lt;/b&gt;&lt;br&gt;db.ts (SQL access), jobs.ts (background jobs), notify.ts, pdf.ts, payos.ts, bank.ts, gcal.ts, gemini.ts" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#ffffff;strokeColor=#15803d;" vertex="1" parent="laneBE">
+          <mxGeometry x="20" y="540" width="600" height="70" as="geometry"/>
+        </mxCell>
+        <mxCell id="beAuth" value="&lt;b&gt;Authentication Module&lt;/b&gt; (src/lib/auth)&lt;br&gt;email/password, Google sign-in, session" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#ffffff;strokeColor=#15803d;" vertex="1" parent="laneBE">
+          <mxGeometry x="20" y="650" width="600" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="laneData" value="DATA and EXTERNAL SERVICES" style="swimlane;startSize=30;html=1;whiteSpace=wrap;fillColor=#fef3c7;strokeColor=#b45309;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="1260" y="60" width="320" height="780" as="geometry"/>
+        </mxCell>
+        <mxCell id="dDb" value="&lt;b&gt;PostgreSQL Database&lt;/b&gt;&lt;br&gt;Neon (production), PGlite (local)&lt;br&gt;schema: migrations/*.sql" style="shape=cylinder3;boundedLbl=1;size=12;html=1;whiteSpace=wrap;fillColor=#ffffff;strokeColor=#b45309;" vertex="1" parent="laneData">
+          <mxGeometry x="40" y="530" width="240" height="100" as="geometry"/>
+        </mxCell>
+        <mxCell id="xPayos" value="PayOS (online payment)" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#ffffff;strokeColor=#b45309;" vertex="1" parent="laneData">
+          <mxGeometry x="40" y="60" width="240" height="50" as="geometry"/>
+        </mxCell>
+        <mxCell id="xBank" value="VietQR Bank Transfer" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#ffffff;strokeColor=#b45309;" vertex="1" parent="laneData">
+          <mxGeometry x="40" y="140" width="240" height="50" as="geometry"/>
+        </mxCell>
+        <mxCell id="xGcal" value="Google Calendar" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#ffffff;strokeColor=#b45309;" vertex="1" parent="laneData">
+          <mxGeometry x="40" y="220" width="240" height="50" as="geometry"/>
+        </mxCell>
+        <mxCell id="xGemini" value="Google Gemini (AI assistant)" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#ffffff;strokeColor=#b45309;" vertex="1" parent="laneData">
+          <mxGeometry x="40" y="300" width="240" height="50" as="geometry"/>
+        </mxCell>
+        <mxCell id="xOauth" value="Google OAuth" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#ffffff;strokeColor=#b45309;" vertex="1" parent="laneData">
+          <mxGeometry x="40" y="660" width="240" height="50" as="geometry"/>
+        </mxCell>
+        <mxCell id="e1" value="HTTPS REST /api/* (JSON)" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;strokeWidth=2;" edge="1" parent="1" source="feClient" target="beGw">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e2" value="SSE /api/live (real-time updates)" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;dashed=1;" edge="1" parent="1" source="beRouter" target="feManager">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e3" value="" style="html=1;endArrow=block;" edge="1" parent="1" source="beGw" target="beRouter">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e4" value="dispatch" style="html=1;endArrow=block;" edge="1" parent="1" source="beRouter" target="hMember">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e5" value="apply rules" style="html=1;endArrow=block;" edge="1" parent="1" source="hPay" target="beDomain">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e6" value="" style="html=1;endArrow=block;" edge="1" parent="1" source="beDomain" target="beInfra">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e7" value="SQL" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;strokeWidth=2;" edge="1" parent="1" source="beInfra" target="dDb">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e8" value="API calls" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;" edge="1" parent="1" source="beInfra" target="xGemini">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e9" value="" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;" edge="1" parent="1" source="beAuth" target="xOauth">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e10" value="" style="html=1;endArrow=block;dashed=1;" edge="1" parent="1" source="beRouter" target="beAuth">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1190" y="235"/>
+              <mxPoint x="1190" y="740"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
