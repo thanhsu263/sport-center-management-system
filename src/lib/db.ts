@@ -270,7 +270,13 @@ export function ensureDbReady(): Promise<void> {
 const globalBoot = globalThis as typeof globalThis & {
   __pgBootstrapPromise__?: Promise<void>;
 };
-if (typeof window === "undefined" && dbSource === "pglite") {
+// The test runner imports this module through the handlers. An eager PGLite here
+// outlives the runner and rejects as an unhandledRejection, so `npm test` exits 1
+// after the tests themselves have passed. `NODE_TEST_CONTEXT` is set on the
+// worker before the file loads (`child-v8`). Tests open their own database.
+const startedAsTestRunner =
+  typeof process !== "undefined" && Boolean(process.env.NODE_TEST_CONTEXT);
+if (typeof window === "undefined" && dbSource === "pglite" && !startedAsTestRunner) {
   globalBoot.__pgBootstrapPromise__ ??= ensureDbReady().catch((err) => {
     globalBoot.__pgBootstrapPromise__ = undefined;
     console.error("[db] PGLite bootstrap failed:", err);

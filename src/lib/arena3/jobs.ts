@@ -8,9 +8,7 @@ export async function expireHolds() {
     );
     for (const r of rows) {
       try {
-        await sql.query(`select occupancy_release_booking($1::uuid, 'cancelled'::booking_status)`, [
-          r.id,
-        ]);
+        await sql.query(`select occupancy_release_booking($1::uuid, 'cancelled'::booking_status)`, [r.id]);
       } catch (e) {
         console.error("[job expire_holds]", r.id, e);
       }
@@ -30,9 +28,7 @@ export async function markNoshow() {
     );
     for (const r of rows) {
       try {
-        await sql.query(`select occupancy_release_booking($1::uuid, 'no_show'::booking_status)`, [
-          r.id,
-        ]);
+        await sql.query(`select occupancy_release_booking($1::uuid, 'no_show'::booking_status)`, [r.id]);
       } catch (e) {
         console.error("[job mark_noshow]", r.id, e);
       }
@@ -52,9 +48,7 @@ export async function completeBookings() {
     );
     for (const r of rows) {
       try {
-        await sql.query(`select occupancy_release_booking($1::uuid, 'completed'::booking_status)`, [
-          r.id,
-        ]);
+        await sql.query(`select occupancy_release_booking($1::uuid, 'completed'::booking_status)`, [r.id]);
       } catch (e) {
         console.error("[job complete_bookings]", r.id, e);
       }
@@ -188,15 +182,49 @@ export async function waitlistExpire() {
         where o.status = 'pending' and o.expires_at < now()`,
     );
     for (const r of stale) {
+      // Class first, then the enrolment, as enrollmentDelete does.
+      await sql.query(`select 1 from classes where id = $1 for update`, [r.class_id]);
       await sql.query(`update waitlist_offers set status = 'expired' where id = $1`, [r.id]);
       await sql.query(
         `update enrollments set status = 'cancelled', waitlist_pos = null where id = $1 and status = 'waitlisted'`,
         [r.enrollment_id],
       );
-      const { inviteWaitlist } = await import("./handlers/ops");
+      const { compactWaitlist, inviteWaitlist } = await import("./handlers/ops");
+      await compactWaitlist(sql, r.class_id);
       await inviteWaitlist(sql, r.class_id);
     }
     return stale.length;
+  });
+}
+
+/**
+ * Give back the seats of class holds nobody paid for, and offer them to the waitlist.
+ * The `where` matches DUE_PROBE's expire_enrollment_holds clause exactly.
+ * Class first, then enrolment, as everywhere else: each class is locked before
+ * its enrolment, so a payment settling at the same moment queues behind this sweep.
+ */
+export async function expireEnrollmentHolds(): Promise<number> {
+  return withTx(async (sql) => {
+    const candidates = await sql.query<{ id: string; class_id: string }>(
+      `select id, class_id from enrollments where status = 'hold' and hold_until < now()`,
+    );
+    const { inviteWaitlist } = await import("./handlers/ops");
+    let n = 0;
+    for (const c of candidates) {
+      await sql.query(`select 1 from classes where id = $1 for update`, [c.class_id]);
+      const [r] = await sql.query<{ id: string; class_id: string }>(
+        `select id, class_id from enrollments
+          where id = $1 and status = 'hold' and hold_until < now()
+          for update skip locked`,
+        [c.id],
+      );
+      if (!r) continue; // paid, released or locked by someone else since the first look
+      await sql.query(`update enrollments set status = 'cancelled', hold_until = null where id = $1 and status = 'hold'`, [r.id]);
+      await sql.query(`update classes set enrolled_count = greatest(enrolled_count - 1, 0) where id = $1`, [r.class_id]);
+      await inviteWaitlist(sql, r.class_id);
+      n += 1;
+    }
+    return n;
   });
 }
 
@@ -208,9 +236,7 @@ export async function lockAttendance() {
     );
     for (const r of rows) {
       try {
-        await sql.query(`select occupancy_release_session($1::uuid, 'done'::session_status)`, [
-          r.id,
-        ]);
+        await sql.query(`select occupancy_release_session($1::uuid, 'done'::session_status)`, [r.id]);
       } catch (e) {
         console.error("[job lock_attendance]", r.id, e);
       }
@@ -289,10 +315,15 @@ const DUE_PROBE = `
             where sent_at is null and attempts < 5)                                     as notify_flush,
     exists(select 1 from payments p
             left join court_bookings b on p.ref_type = 'booking' and b.id = p.ref_id
+            left join enrollments e on p.ref_type = 'enrollment' and e.id = p.ref_id
             where p.status::text = 'pending' and p.provider = 'payos'
-              and (b.id is null or b.status <> 'hold' or b.hold_until < now()))          as expire_links,
+              and (case when p.ref_type = 'enrollment'
+                        then e.id is null or e.status::text <> 'hold' or e.hold_until < now()
+                        else b.id is null or b.status <> 'hold' or b.hold_until < now() end)) as expire_links,
     exists(select 1 from waitlist_offers
             where status = 'pending' and expires_at < now())                            as waitlist_expire,
+    exists(select 1 from enrollments
+            where status = 'hold' and hold_until < now())                               as expire_enrollment_holds,
     exists(select 1 from sessions
             where status = 'scheduled' and end_at + interval '2 hours' < now())         as lock_attendance,
     exists(select 1 from subscriptions
@@ -312,6 +343,7 @@ type DueFlags = {
   notify_flush: boolean;
   expire_links: boolean;
   waitlist_expire: boolean;
+  expire_enrollment_holds: boolean;
   lock_attendance: boolean;
   subscription_status: boolean;
   expiry_reminders: boolean;
@@ -328,10 +360,16 @@ export async function runDueJobs() {
     if (due.complete_bookings) await completeBookings();
     if (due.notify_flush) await notifyFlush();
     if (due.expire_links) await expireGatewayLinks();
+    if (due.waitlist_expire) await waitlistExpire();
+    if (due.expire_enrollment_holds) await expireEnrollmentHolds();
     if (due.lock_attendance) await lockAttendance();
     if (due.subscription_status) await subscriptionStatus();
     if (due.expiry_reminders) await expiryReminders();
     const now = Date.now();
+    if (elapsedAtLeast(g.__arena3GenAt__, now, GENERATE_SESSIONS_EVERY_MS)) {
+      g.__arena3GenAt__ = now;
+      await generateSessions();
+    }
     if (elapsedAtLeast(g.__arena3DemoAt__, now, DEMO_FILL_EVERY_MS)) {
       g.__arena3DemoAt__ = now;
       await demoFill();

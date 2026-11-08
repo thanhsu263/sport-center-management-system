@@ -2,7 +2,6 @@ import type { Sql } from "@/lib/db";
 import { err } from "./errors";
 import { slotPriceOk } from "./rules";
 import { ictMinutes, isWeekendIct, roundVnd } from "./time";
-import { one } from "./tx";
 
 export type PriceRule = {
   id: string;
@@ -46,41 +45,6 @@ export async function lookupPrice(
     });
   }
   return { price_vnd: hit.price_vnd, is_peak: hit.is_peak };
-}
-
-export async function memberDiscount(
-  sql: Sql,
-  userId: string | null,
-  sport: string,
-): Promise<{ pct: number; court_hours_left: number; sub_id: string | null }> {
-  if (!userId) return { pct: 0, court_hours_left: 0, sub_id: null };
-  const sub = await one<{
-    id: string;
-    court_discount_pct: number;
-    court_hours_left: string | number;
-    sport_scope: string;
-  }>(
-    sql,
-    `select s.id, p.court_discount_pct, s.court_hours_left, s.sport_scope
-       from subscriptions s
-       join membership_plans p on p.id = s.plan_id
-      where s.user_id = $1 and s.status = 'active'
-        -- BR-12: a plan bought today for next month gives nothing until then.
-        and s.start_on <= (now() at time zone 'Asia/Ho_Chi_Minh')::date
-        and s.end_on >= (now() at time zone 'Asia/Ho_Chi_Minh')::date
-        and (s.sport_scope = $2 or s.sport_scope = 'all')
-      -- One plan, never a sum: the sport's own plan beats all-access even
-      -- when all-access has the bigger percentage, then the plan ending last.
-      order by (s.sport_scope = $2) desc, s.end_on desc
-      limit 1`,
-    [userId, sport],
-  );
-  if (!sub) return { pct: 0, court_hours_left: 0, sub_id: null };
-  return {
-    pct: Number(sub.court_discount_pct) || 0,
-    court_hours_left: Number(sub.court_hours_left) || 0,
-    sub_id: sub.id,
-  };
 }
 
 export function applyDiscount(list: number, pct: number, round = 1000): number {

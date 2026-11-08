@@ -3,6 +3,8 @@ import { sha256 } from "./crypto";
 import { err } from "./errors";
 import type { PublicUser } from "./session";
 import type { CancelTier } from "./policy";
+import { parseWeeklyRrule } from "./labels";
+import { addDays } from "./time";
 import { one } from "./tx";
 
 export type Settings = {
@@ -40,6 +42,14 @@ export type Settings = {
   series_discount_pct: number;
   loyalty_earn_vnd: number;
   loyalty_redeem_vnd: number;
+  /** How long a seat is held while a member pays for a class. */
+  class_hold_minutes: number;
+  /** What a covered member pays per court hour, at every hour. */
+  member_court_fee_vnd: number;
+  /** What one extra membership day costs when a class outruns the plan. */
+  member_day_rate_vnd: number;
+  /** Menus and list lengths as the manager set them; read through `uiConfigFrom`. */
+  ui_config: unknown;
 };
 
 export async function getSettings(sql: Sql): Promise<Settings> {
@@ -53,7 +63,8 @@ export async function getSettings(sql: Sql): Promise<Settings> {
             self_checkin_enabled, gate_dedup_minutes, at_risk_idle_days,
             tax_code, legal_name, address,
             deposit_pct, deposit_peak_only, cancel_tiers, series_min_weeks, series_max_weeks,
-            series_discount_pct, loyalty_earn_vnd, loyalty_redeem_vnd
+            series_discount_pct, loyalty_earn_vnd, loyalty_redeem_vnd,
+            class_hold_minutes, member_court_fee_vnd, member_day_rate_vnd, ui_config
        from center_settings where id = 1`,
   );
   if (!row) throw err.validation("center_settings is missing.");
@@ -234,6 +245,8 @@ export async function issueInvoice(
     vatRate: number;
     description: string;
     unit: string;
+    /** Separate lines that add up to the amount, when one payment bought two things. */
+    lines?: { description: string; unit: string; amount_vnd: number }[];
     settings: Pick<Settings, "legal_name" | "tax_code" | "address">;
   },
 ): Promise<string> {
@@ -261,11 +274,14 @@ export async function issueInvoice(
       args.buyerPhone ?? null,
     ],
   );
-  await sql.query(
-    `insert into invoice_lines (invoice_id, description, unit, qty, unit_vnd, amount_vnd)
-     values ($1,$2,$3,1,$4,$4)`,
-    [inv!.id, args.description, args.unit, args.amountVnd],
-  );
+  const lines = args.lines ?? [{ description: args.description, unit: args.unit, amount_vnd: args.amountVnd }];
+  for (const line of lines) {
+    await sql.query(
+      `insert into invoice_lines (invoice_id, description, unit, qty, unit_vnd, amount_vnd)
+       values ($1,$2,$3,1,$4,$4)`,
+      [inv!.id, line.description, line.unit, line.amount_vnd],
+    );
+  }
   return inv!.id;
 }
 
@@ -395,31 +411,92 @@ export function bool(v: unknown): boolean | undefined {
   return undefined;
 }
 
-export function ageYears(dob: string): number {
-  const today = new Date();
-  const d = new Date(dob + "T00:00:00+07:00");
-  let age = today.getFullYear() - d.getFullYear();
-  const m = today.getMonth() - d.getMonth();
-  if (m < 0 || (m === 0 && today.getDate() < d.getDate())) age -= 1;
-  return age;
-}
+export { ageYears } from "./time";
 
-/** Active sub covering `sport`. Unlimited (session_left null) wins over quota. */
-export async function classSubscription(
-  sql: Sql,
-  userId: string,
-  sport: string,
-): Promise<{ id: string; session_left: number | null } | undefined> {
-  return one<{ id: string; session_left: number | null }>(
+/**
+ * Give one prepaid session back to the member's session plan for a sport (spec 4.5).
+ * Picks the session plan (session_left is not null) whatever its balance, status or dates:
+ * active and in-date first, then the sport-specific plan before `all`, then the latest end_on.
+ * The row is locked `for update`. Returns the subscription id, or null when the member has no
+ * session plan at all (the caller must then keep the prepaid session where the desk can see it).
+ */
+export async function returnPrepaidSession(sql: Sql, userId: string, sport: string): Promise<string | null> {
+  const target = await one<{ id: string }>(
     sql,
-    `select id, session_left from subscriptions
-      where user_id = $1 and status = 'active'
-        and end_on >= (now() at time zone 'Asia/Ho_Chi_Minh')::date
+    `select id from subscriptions
+      where user_id = $1
+        and session_left is not null
         and (sport_scope = $2 or sport_scope = 'all')
-      order by (session_left is null) desc, (sport_scope = $2) desc
-      limit 1`,
+      order by (status = 'active'
+                and start_on <= (now() at time zone 'Asia/Ho_Chi_Minh')::date
+                and end_on >= (now() at time zone 'Asia/Ho_Chi_Minh')::date) desc,
+               (sport_scope = $2) desc,
+               end_on desc,
+               id
+      limit 1
+      for update`,
     [userId, sport],
   );
+  if (!target) return null;
+  await sql.query(`update subscriptions set session_left = session_left + 1 where id = $1`, [target.id]);
+  return target.id;
+}
+
+export type ClassPattern = { rrule: string; duration_min: number; start_on: string; end_on: string };
+
+/** True when two weekly classes meet on at least one same date at overlapping hours. */
+export function classPatternsClash(a: ClassPattern, b: ClassPattern) {
+  const from = a.start_on > b.start_on ? a.start_on : b.start_on;
+  const to = a.end_on < b.end_on ? a.end_on : b.end_on;
+  if (from > to) return false;
+  const pa = parseWeeklyRrule(a.rrule);
+  const pb = parseWeeklyRrule(b.rrule);
+  const aStart = pa.hour * 60;
+  const bStart = pb.hour * 60;
+  if (!(aStart < bStart + b.duration_min && bStart < aStart + a.duration_min)) return false;
+  const codes = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"];
+  // Only weekdays that really fall inside the shared date range count.
+  let day = from;
+  for (let i = 0; i < 7 && day <= to; i++, day = addDays(day, 1)) {
+    const code = codes[new Date(`${day}T00:00:00Z`).getUTCDay()]!;
+    if (pa.days.includes(code) && pb.days.includes(code)) return true;
+  }
+  return false;
+}
+
+export async function assertNoClassClash(sql: Sql, userId: string, classId: string) {
+  const overlap = await one(
+    sql,
+    `select 1
+       from sessions s
+       join enrollments e on e.class_id = s.class_id and e.user_id = $1 and e.status in ('confirmed','hold')
+      where e.class_id <> $2
+        and s.status = 'scheduled'
+        and exists (
+          select 1 from sessions s2
+           where s2.class_id = $2 and s2.status = 'scheduled'
+             and tstzrange(s.start_at, s.end_at, '[)') && tstzrange(s2.start_at, s2.end_at, '[)')
+        )
+      limit 1`,
+    [userId, classId],
+  );
+  if (overlap) throw err.br("BR-22", "This clashes with another class you are in.");
+  // Sessions are only laid out two weeks ahead, so the weekly timetables are compared too.
+  const target = await one<ClassPattern>(
+    sql,
+    `select rrule, duration_min, start_on::text, end_on::text from classes where id = $1`,
+    [classId],
+  );
+  const others = await sql.query<ClassPattern>(
+    `select cl.rrule, cl.duration_min, cl.start_on::text, cl.end_on::text
+       from classes cl
+       join enrollments e on e.class_id = cl.id and e.user_id = $1 and e.status in ('confirmed','hold')
+      where cl.id <> $2 and cl.status <> 'cancelled'`,
+    [userId, classId],
+  );
+  if (target && (others as ClassPattern[]).some((o) => classPatternsClash(target, o))) {
+    throw err.br("BR-22", "This clashes with another class you are in.");
+  }
 }
 
 export type Ctx = { sql: Sql; request: Request; user: PublicUser | null };
