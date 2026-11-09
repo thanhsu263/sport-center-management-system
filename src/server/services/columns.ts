@@ -1,4 +1,4 @@
-import type { Booking, Invoice, Payment } from "./contracts";
+import type { Booking, Invoice, Payment } from "../../shared/arena3/contracts";
 
 /**
  * Column lists for the rows the API sends whole, in place of `select *`.

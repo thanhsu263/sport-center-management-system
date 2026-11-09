@@ -1,4 +1,4 @@
-import { validBankAccount, type BankAccount } from "../vietqr";
+import { validBankAccount, type BankAccount } from "../../shared/vietqr";
 
 /**
  * The centre's bank account for VietQR transfers, from the server environment:

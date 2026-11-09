@@ -64,8 +64,8 @@ export const getPublicAvailability = createServerFn({ method: "POST" })
     return { date: /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : "" };
   })
   .handler(async ({ data }) => {
-    const { getSql } = await import("@/lib/db");
-    const { ictDateString, ictDateTime } = await import("./time");
+    const { getSql } = await import("@/server/data/db");
+    const { ictDateString, ictDateTime } = await import("../../shared/arena3/time");
     const sql = await getSql();
     const date = data.date || ictDateString();
     const start = ictDateTime(date, "00:00");
@@ -101,7 +101,7 @@ export const getPublicAvailability = createServerFn({ method: "POST" })
   });
 
 export const getPublicCatalog = createServerFn({ method: "POST" }).handler(async () => {
-  const { getSql } = await import("@/lib/db");
+  const { getSql } = await import("@/server/data/db");
   const sql = await getSql();
   const [plans, classes, prices, venueRows, coaches] = await Promise.all([
     sql.query<CatalogPlan>(
@@ -147,6 +147,6 @@ export const getPublicCatalog = createServerFn({ method: "POST" }).handler(async
                  u.full_name`,
     ),
   ]);
-  // Opening hours and hold length for the landing's copy and grid (see src/lib/venue.ts).
+  // Opening hours and hold length for the landing's copy and grid (see src/client/lib/venue.ts).
   return { plans, classes, prices, venue: venueRows[0] ?? null, coaches };
 });

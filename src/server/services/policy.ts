@@ -1,6 +1,6 @@
-import type { CancelQuote, CancelTier } from "./contracts";
-import { err } from "./errors";
-import { addDays, ictDateTime, ictWeekday, roundVnd } from "./time";
+import type { CancelQuote, CancelTier } from "../../shared/arena3/contracts";
+import { err } from "../controllers/errors";
+import { addDays, ictDateTime, ictWeekday, roundVnd } from "../../shared/arena3/time";
 
 /**
  * Money and calendar rules for deposits, late cancellation and fixed weekly
