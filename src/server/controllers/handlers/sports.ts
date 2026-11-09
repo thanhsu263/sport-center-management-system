@@ -1,4 +1,4 @@
-import type { Sql } from "@/lib/db";
+import type { Sql } from "@/server/data/db";
 import { ApiError, err } from "../errors";
 import { audit, num, readJson, str } from "../helpers";
 import { limit, RULES } from "../ratelimit";
@@ -47,7 +47,6 @@ export async function managerSportsList(sql: Sql, user: PublicUser) {
       active_courts_count: number;
       future_bookings_count: number;
       future_classes_count: number;
-      active_plans_count: number;
       photo_url: string;
     }
   >(
@@ -57,8 +56,7 @@ export async function managerSportsList(sql: Sql, user: PublicUser) {
             concat('/v1/site-assets/sport.', s.code, '/file') as photo_url,
             coalesce(c.courts_count, 0)::int as active_courts_count,
             coalesce(b.bookings_count, 0)::int as future_bookings_count,
-            coalesce(cl.classes_count, 0)::int as future_classes_count,
-            coalesce(p.plans_count, 0)::int as active_plans_count
+            coalesce(cl.classes_count, 0)::int as future_classes_count
        from sports s
        left join (
          select sport, count(*)::int as courts_count
@@ -79,12 +77,6 @@ export async function managerSportsList(sql: Sql, user: PublicUser) {
           where status = 'open' and end_on >= current_date
           group by sport
        ) cl on cl.sport = s.code
-       left join (
-         select sport_scope, count(*)::int as plans_count
-           from membership_plans
-          where is_on_sale = true
-          group by sport_scope
-       ) p on p.sport_scope = s.code
       order by s.sort_order asc, s.code asc`,
   );
 
@@ -269,7 +261,7 @@ export async function managerSportRetire(sql: Sql, code: string, user: PublicUse
     throw err.conflict("Cannot retire the last active sport.");
   }
 
-  // Check blockers: active courts, future bookings, future classes, active plans
+  // Check blockers: active courts, future bookings, future classes
   const blockers: string[] = [];
 
   const activeCourts = await one<{ cnt: number }>(
@@ -300,15 +292,6 @@ export async function managerSportRetire(sql: Sql, code: string, user: PublicUse
   );
   if ((futureClasses?.cnt ?? 0) > 0) {
     blockers.push(`${futureClasses!.cnt} active or upcoming class(es) exist for this sport.`);
-  }
-
-  const activePlans = await one<{ cnt: number }>(
-    sql,
-    `select count(*)::int as cnt from membership_plans where sport_scope = $1 and is_on_sale = true`,
-    [code],
-  );
-  if ((activePlans?.cnt ?? 0) > 0) {
-    blockers.push(`${activePlans!.cnt} active membership plan(s) cover this sport.`);
   }
 
   if (blockers.length > 0) {
@@ -381,6 +364,8 @@ export async function managerSportDelete(sql: Sql, code: string, user: PublicUse
 
   // Safe to delete completely
   await sql.query(`delete from price_rules where sport = $1`, [code]);
+  // Earlier photos point at the slot, so they go first.
+  await sql.query(`delete from site_asset_history where slot = $1`, [`sport.${code}`]);
   await sql.query(`delete from site_assets where slot = $1`, [`sport.${code}`]);
   await sql.query(`delete from sports where code = $1`, [code]);
 
