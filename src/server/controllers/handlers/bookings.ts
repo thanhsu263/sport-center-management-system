@@ -1,11 +1,45 @@
-import type { Sql } from "@/lib/db";
+import type { Sql } from "@/server/data/db";
+import { BOOKING_COLS, PAYMENT_COLS } from "../../services/columns";
+import type {
+  Booking,
+  BookingResponse,
+  CancelQuoteResponse,
+  CancelResponse,
+  CheckInResponse,
+  CollectBalanceResponse,
+  ConfirmResponse,
+  HoldResponse,
+  MeBookingsResponse,
+  MyBooking,
+  MyClassSession,
+  Payment,
+  Reply,
+  RescheduleResponse,
+  SettledBooking,
+  TransferConfirmResponse,
+  TransferRejectResponse,
+  WalkInResponse,
+} from "../../../shared/arena3/contracts";
 import { ApiError, err, isConflictSlot } from "../errors";
-import { audit, enqueue, enqueueReceipt, getSettings, issueInvoice, nextCode, num, readJson, str } from "../helpers";
-import { depositFor, dueNow } from "../policy";
-import { applyDiscount, lookupPrice, memberDiscount } from "../pricing";
-import { quotePromo, redeemForBooking } from "../promos";
+import {
+  audit,
+  bookingBuyer,
+  enqueue,
+  enqueueReceipt,
+  getSettings,
+  issueInvoice,
+  nextCode,
+  num,
+  readJson,
+  str,
+} from "../helpers";
+import { isValidVnPhone, normalizePhone } from "../../services/phone";
+import { memberCourtFee } from "../../services/membership";
+import { dueNow, quoteCancel } from "../../services/policy";
+import { applyDiscount, lookupPrice } from "../../services/pricing";
+import { quotePromo, redeemForBooking, restoreIfFullyRefunded } from "../../services/promos";
 import { requireRole, type PublicUser } from "../session";
-import { addDays, ictClock, ictDateString, ictDateTime, ictMinutes, ictStamp } from "../time";
+import { addDays, ictClock, ictDateString, ictDateTime, ictMinutes, ictStamp, roundVnd } from "../../../shared/arena3/time";
 import { one } from "../tx";
 import { getActiveSportCodes } from "./sports";
 
@@ -77,17 +111,26 @@ async function assertBookWindow(
   }
 }
 
-async function countSlotsToday(sql: Sql, userId: string, start: Date) {
-  const date = ictDateString(start);
-  const row = await one<{ n: number }>(
+/** Whether this person already has a court overlapping that time. Back-to-back slots do not overlap; holds are left out because a new hold replaces the old one. */
+export async function hasCourtOverlap(sql: Sql, userId: string, start: Date, end: Date, excludeId?: string) {
+  const clash = await one(
     sql,
-    `select count(*)::int as n from court_bookings
-      where user_id = $1
-        and status in ('confirmed','in_use')
-        and (start_at at time zone 'Asia/Ho_Chi_Minh')::date = $2::date`,
-    [userId, date],
+    `select 1 from court_bookings
+      where user_id = $1 and status in ('confirmed','in_use')
+        and start_at < $3 and end_at > $2
+        and ($4::uuid is null or id <> $4::uuid)
+      limit 1`,
+    [userId, start.toISOString(), end.toISOString(), excludeId ?? null],
   );
-  return row?.n ?? 0;
+  return !!clash;
+}
+
+/** One person, one court at a time. The lock makes two taps at the same moment queue up. */
+async function assertNoCourtOverlap(sql: Sql, userId: string, start: Date, end: Date, excludeId?: string) {
+  await sql.query(`select pg_advisory_xact_lock(hashtext($1))`, [userId]);
+  if (await hasCourtOverlap(sql, userId, start, end, excludeId)) {
+    throw err.br("BR-05", "You already have a court at that time.");
+  }
 }
 
 async function overlapClass(sql: Sql, userId: string, start: Date, end: Date) {
@@ -183,9 +226,7 @@ export async function availabilityGet(sql: Sql, request: Request, user?: PublicU
   const now = Date.now();
   const horizon = now + settings.book_ahead_days * 86400000;
   const step = settings.slot_minutes * 60_000;
-  // For a signed-in member, how many courts they already hold each day, counted exactly as the
-  // hold counts them (countSlotsToday), so the day strip can say "you have 2" before the tap
-  // instead of "84 free" and a refusal after it (BR-05).
+  // For a signed-in member, how many courts they already have each day.
   const mine = new Map<string, number>();
   if (user?.role === "member") {
     const rows = await sql.query<{ d: string; n: number }>(
@@ -222,7 +263,7 @@ export async function availabilityGet(sql: Sql, request: Request, user?: PublicU
   }
   return {
     status: 200,
-    body: { from: first, sport: sport ?? null, days: out, cap: settings.max_slots_per_day },
+    body: { from: first, sport: sport ?? null, days: out },
   };
 }
 
@@ -231,24 +272,10 @@ export async function availabilityGet(sql: Sql, request: Request, user?: PublicU
  * moved. The home screen only shows today's, which left no way to find a
  * booking next week in order to change it.
  */
-export async function meBookings(sql: Sql, user: PublicUser) {
+export async function meBookings(sql: Sql, user: PublicUser): Promise<Reply<MeBookingsResponse>> {
   requireRole(user, ["member"]);
   const settings = await getSettings(sql);
-  const rows = await sql.query<{
-    id: string;
-    code: string;
-    status: string;
-    start_at: string;
-    end_at: string;
-    price_vnd: number;
-    paid_vnd: number;
-    deposit_vnd: number;
-    series_id: string | null;
-    quota_hours: string | number;
-    court_id: string;
-    court_code: string;
-    sport: string;
-  }>(
+  const rows = await sql.query<Omit<MyBooking, "can_move">>(
     `select b.id, b.code, b.status::text as status, b.start_at, b.end_at, b.price_vnd, b.paid_vnd, b.deposit_vnd, b.series_id, b.quota_hours,
             b.court_id, c.court_code, c.sport::text as sport
        from court_bookings b join courts c on c.id = b.court_id
@@ -257,12 +284,28 @@ export async function meBookings(sql: Sql, user: PublicUser) {
       limit 50`,
     [user.id],
   );
+  // The classes the member is enrolled in run on courts too: their coming sessions sit beside the
+  // courts they booked, so the member sees one schedule rather than half of it.
+  const class_sessions = await sql.query<MyClassSession>(
+    `select s.id, s.class_id, s.start_at, s.end_at, cl.sport::text as sport, cl.level, c.court_code,
+            u.full_name as coach_name
+       from sessions s
+       join classes cl on cl.id = s.class_id
+       join enrollments e on e.class_id = cl.id and e.user_id = $1 and e.status = 'confirmed'
+       join courts c on c.id = s.court_id
+       join users u on u.id = cl.coach_id
+      where s.status = 'scheduled' and s.end_at > now()
+      order by s.start_at
+      limit 50`,
+    [user.id],
+  );
   const now = Date.now();
   return {
     status: 200,
     body: {
       window_hours: settings.cancel_court_hours,
-      cancel_tiers: settings.cancel_tiers,
+      cancel_tiers: [],
+      class_sessions,
       items: rows.map((r) => ({
         ...r,
         can_move:
@@ -442,24 +485,16 @@ export async function courtsPatch(sql: Sql, id: string, request: Request, user: 
         [cur.sport, id],
       );
       if (!remaining || remaining.cnt === 0) {
-        const activeSubs = await one<{ cnt: number }>(
-          sql,
-          `select count(*)::int as cnt
-             from subscriptions s
-             join membership_plans p on p.id = s.plan_id
-            where s.status = 'active' and (p.sport_scope = $1 or (p.sport_scope = 'all' and $1 in (select code from sports where enabled = true and not is_scope_all and retired_at is null)))`,
-          [cur.sport],
-        );
         const activeClasses = await one<{ cnt: number }>(
           sql,
           `select count(*)::int as cnt from classes where sport = $1 and status = 'open'`,
           [cur.sport],
         );
-        if ((activeSubs?.cnt ?? 0) > 0 || (activeClasses?.cnt ?? 0) > 0) {
+        if ((activeClasses?.cnt ?? 0) > 0) {
           throw new ApiError(
             409,
             "CONFLICT_STATE",
-            "Cannot close the last available court for a sport with active plans or classes.",
+            "Cannot close the last available court for a sport with active classes.",
           );
         }
       }
@@ -589,7 +624,7 @@ export async function courtsPatch(sql: Sql, id: string, request: Request, user: 
   return { status: 200, body: { court, upcoming: live?.n ?? 0 } };
 }
 
-export async function bookingsHold(sql: Sql, request: Request, user: PublicUser) {
+export async function bookingsHold(sql: Sql, request: Request, user: PublicUser): Promise<Reply<HoldResponse>> {
   requireRole(user, ["member"]);
   const b = await readJson(request);
   const courtId = str(b.court_id);
@@ -602,40 +637,32 @@ export async function bookingsHold(sql: Sql, request: Request, user: PublicUser)
   await assertBookWindow(sql, start, { walkIn: false, settings });
   const court = await courtById(sql, courtId);
   if (court.status !== "ready") throw err.br("BR-06", "That court is not available.");
-  const n = await countSlotsToday(sql, user.id, start);
-  if (n >= settings.max_slots_per_day) throw err.br("BR-05", `You can hold at most ${settings.max_slots_per_day} slots a day.`);
+  await assertNoCourtOverlap(sql, user.id, start, end);
   const overlap = await overlapClass(sql, user.id, start, end);
   if (overlap && b.confirm_overlap !== true) {
     throw err.br("BR-09", "This slot clashes with a class you are in. Confirm to hold it anyway.", {
       requires_confirm: true,
     });
   }
-  const disc = await memberDiscount(sql, user.id, court.sport);
   const list = await lookupPrice(sql, { sport: court.sport, courtId, start });
-  const planPrice = applyDiscount(list.price_vnd, disc.pct, settings.round_vnd);
-  // A code is priced into the hold so the member sees what they will pay; the use
-  // is only counted when the money posts (BR-41).
-  const promoCode = str(b.promo_code);
+  // A membership covering the play date fixes the price at the member fee, and no code applies to
+  // it. Otherwise the list price, which a code can lower: priced into the hold so the member sees
+  // what they will pay, and only counted when the money posts (BR-41).
+  const covered = await memberCourtFee(sql, user.id, start, settings);
+  const promoCode = covered ? null : str(b.promo_code);
   const promo = promoCode
     ? await quotePromo(sql, {
         code: promoCode,
         userId: user.id,
         scope: "court",
         sport: court.sport,
-        orderVnd: planPrice,
-        planDiscountPct: disc.pct,
+        orderVnd: list.price_vnd,
         listVnd: list.price_vnd,
       })
     : null;
-  const price = promo ? promo.final_vnd : planPrice;
-  // A peak slot asks for a deposit up front; the rest is paid at the desk (deposit_vnd = 0 means pay in full).
-  const deposit = depositFor({
-    priceVnd: price,
-    pct: settings.deposit_pct,
-    peakOnly: settings.deposit_peak_only,
-    isPeak: list.is_peak,
-    round: settings.round_vnd,
-  });
+  const price = covered ? covered.fee_vnd : promo ? promo.final_vnd : list.price_vnd;
+  // Courts are paid in full up front.
+  const deposit = 0;
   const bookingIdRow = await one<{ id: string }>(sql, `select gen_random_uuid() as id`);
   const bookingId = bookingIdRow!.id;
   const holdUntil = new Date(Date.now() + settings.hold_minutes * 60_000);
@@ -665,7 +692,7 @@ export async function bookingsHold(sql: Sql, request: Request, user: PublicUser)
       start.toISOString(),
       end.toISOString(),
       price,
-      disc.pct,
+      0,
       Number(settings.vat_rate),
       holdUntil.toISOString(),
       occId,
@@ -674,41 +701,43 @@ export async function bookingsHold(sql: Sql, request: Request, user: PublicUser)
       deposit,
     ],
   );
-  const booking = await one(sql, `select * from court_bookings where id = $1`, [bookingId]);
+  const booking = await one<Booking>(sql, `select ${BOOKING_COLS} from court_bookings where id = $1`, [bookingId]);
   return {
     status: 201,
     body: {
-      booking,
+      booking: booking!,
       hold_until: holdUntil.toISOString(),
       price,
       deposit_vnd: deposit,
-      due_now_vnd: deposit > 0 ? deposit : price,
+      due_now_vnd: price,
       list_price: list.price_vnd,
+      membership: { covered: !!covered, end_on: covered?.end_on ?? null },
       promo: promo ? { code: promo.code, name: promo.name, discount_vnd: promo.discount_vnd } : null,
-      // Court hours the member can spend on this slot right now (BR-12, BR-13): the same plan
-      // the confirm step would charge, so the card offers "Use plan hours" only when it will work.
-      plan_hours_left: Number(disc.court_hours_left) || 0,
     },
   };
 }
 
-type HeldBooking = {
-  id: string;
-  code?: string;
-  user_id: string;
-  status: string;
-  hold_until: string | null;
-  transfer_requested_at: string | null;
-  occupancy_id: string | null;
-  court_id: string;
-  start_at: string;
-  end_at: string;
-  price_vnd: number;
-  deposit_vnd?: number;
-  discount_pct: number;
-  vat_rate: string | number;
-  quota_hours: string | number;
-};
+/** What settling a hold reads off the booking, locked `for update` by every caller. */
+const HELD_KEYS = [
+  "id",
+  "code",
+  "user_id",
+  "status",
+  "hold_until",
+  "transfer_requested_at",
+  "occupancy_id",
+  "court_id",
+  "start_at",
+  "end_at",
+  "price_vnd",
+  "deposit_vnd",
+  "discount_pct",
+  "vat_rate",
+  "quota_hours",
+] as const satisfies readonly (keyof Booking)[];
+export const HELD_COLS = HELD_KEYS.join(", ");
+/** A hold is always a member's: walk-ins are paid on the spot and never held. */
+type HeldBooking = Omit<Pick<Booking, (typeof HELD_KEYS)[number]>, "user_id"> & { user_id: string };
 
 /**
  * Turn a held booking into a paid, confirmed one: money in, slot locked,
@@ -741,7 +770,7 @@ export async function settleHeldBooking(
      */
     existingPaymentId?: string;
   },
-) {
+): Promise<SettledBooking> {
   // An online payment already has its row: it was written as `pending` when the
   // payOS link was issued, and the gateway's confirmation flipped it to
   // `posted`. Writing a second one here would double the day's takings.
@@ -810,16 +839,16 @@ export async function settleHeldBooking(
       method: opts.method,
     });
   }
-  const fresh = await one(sql, `select * from court_bookings where id = $1`, [booking.id]);
-  const payment = await one(sql, `select * from payments where id = $1`, [pay!.id]);
-  return { booking: fresh, payment, invoice_id: invoiceId };
+  const fresh = await one<Booking>(sql, `select ${BOOKING_COLS} from court_bookings where id = $1`, [booking.id]);
+  const payment = await one<Payment>(sql, `select ${PAYMENT_COLS} from payments where id = $1`, [pay!.id]);
+  return { booking: fresh!, payment: payment!, invoice_id: invoiceId };
 }
 
 /**
  * What a member is allowed to settle their own booking with.
  *
- * `quota` spends hours they already bought, and `transfer` only asks reception
- * to go and look at the bank — neither one posts money. Everything else means
+ * `transfer` only asks reception to go and look at the bank — it posts no money
+ * itself. (`quota` used to spend plan hours; plans are gone.) Everything else means
  * "cash/card changed hands", which is a claim only somebody standing at the
  * till can make.
  *
@@ -829,12 +858,21 @@ export async function settleHeldBooking(
  * an online payment becomes real when payOS confirms it, never because a
  * client said so.
  */
-const MEMBER_SETTLE_METHODS = new Set(["quota", "transfer"]);
+const MEMBER_SETTLE_METHODS = new Set(["transfer"]);
 
-export async function bookingsConfirm(sql: Sql, id: string, request: Request, user: PublicUser) {
+export async function bookingsConfirm(
+  sql: Sql,
+  id: string,
+  request: Request,
+  user: PublicUser,
+): Promise<Reply<ConfirmResponse>> {
   requireRole(user, ["member"]);
   const b = await readJson(request);
   const method = str(b.method) ?? "transfer";
+  // Plans are gone, so there are no court hours to spend. Say so on the field.
+  if (method === "quota") {
+    throw new ApiError(422, "VALIDATION", "Court hours are no longer sold; pay the slot price.", { field: "method" });
+  }
   if (!MEMBER_SETTLE_METHODS.has(method)) {
     throw err.forbidden(
       "Pay online, or pay at the front desk — a booking cannot be marked paid from the app.",
@@ -843,7 +881,7 @@ export async function bookingsConfirm(sql: Sql, id: string, request: Request, us
   const settings = await getSettings(sql);
   const booking = await one<HeldBooking>(
     sql,
-    `select * from court_bookings where id = $1 for update`,
+    `select ${HELD_COLS} from court_bookings where id = $1 for update`,
     [id],
   );
   if (!booking) throw err.notFound();
@@ -880,11 +918,11 @@ export async function bookingsConfirm(sql: Sql, id: string, request: Request, us
       { booking_id: booking.id, code: booking.code, amount_vnd: dueNow(booking) },
       `transfer_requested|${booking.id}`,
     );
-    const fresh = await one(sql, `select * from court_bookings where id = $1`, [id]);
+    const fresh = await one<Booking>(sql, `select ${BOOKING_COLS} from court_bookings where id = $1`, [id]);
     return {
       status: 202,
       body: {
-        booking: fresh,
+        booking: fresh!,
         payment: null,
         invoice_id: null,
         awaiting_transfer: true,
@@ -894,24 +932,544 @@ export async function bookingsConfirm(sql: Sql, id: string, request: Request, us
     };
   }
 
-  let payAmount = dueNow(booking);
-  let quotaHours = 0;
-  if (method === "quota") {
-    const disc = await memberDiscount(sql, user.id, court.sport);
-    if (disc.court_hours_left < 1) throw err.br("BR-13", "You have no court hours left on your plan.");
-    payAmount = 0;
-    quotaHours = 1;
-    await sql.query(
-      `update subscriptions set court_hours_left = court_hours_left - 1 where id = $1 and court_hours_left >= 1`,
-      [disc.sub_id],
-    );
-  }
   const settled = await settleHeldBooking(sql, booking, court, {
     method,
-    payAmount,
-    quotaHours,
+    payAmount: dueNow(booking),
+    quotaHours: 0,
     buyerName: user.full_name,
     actorId: user.id,
   });
   return { status: 200, body: settled };
+}
+
+/**
+ * Reception has seen the money land in the bank account.
+ *
+ * Staff-only on purpose: the member asking for this would be marking their own
+ * transfer as received, which is the whole thing this queue exists to prevent.
+ */
+export async function bookingsTransferConfirm(
+  sql: Sql,
+  id: string,
+  user: PublicUser,
+): Promise<Reply<TransferConfirmResponse>> {
+  requireRole(user, ["receptionist", "manager"]);
+  const booking = await one<HeldBooking>(
+    sql,
+    `select ${HELD_COLS} from court_bookings where id = $1 for update`,
+    [id],
+  );
+  if (!booking) throw err.notFound();
+  if (!booking.transfer_requested_at) {
+    throw err.conflictState("No transfer was requested for this booking.");
+  }
+  if (booking.status !== "hold") throw err.conflictState("That booking is no longer on hold.");
+  // The hold is checked, not waived. A slot whose clock ran out has already
+  // been handed back by the sweeper or is about to be, and confirming it would
+  // sell a court that somebody else may already have booked.
+  if (!booking.hold_until || new Date(booking.hold_until) < new Date()) {
+    throw err.holdExpired();
+  }
+  const court = await courtById(sql, booking.court_id);
+  const buyer = await bookingBuyer(sql, booking.id);
+  const settled = await settleHeldBooking(sql, booking, court, {
+    method: "transfer",
+    payAmount: dueNow(booking),
+    quotaHours: 0,
+    buyerName: buyer.name,
+    buyerPhone: buyer.phone,
+    actorId: user.id,
+  });
+  await audit(sql, user.id, "transfer_confirm", "booking", booking.id);
+  return { status: 200, body: settled };
+}
+
+/** The money never arrived, or arrived wrong. The slot goes back on sale. */
+export async function bookingsTransferReject(
+  sql: Sql,
+  id: string,
+  request: Request,
+  user: PublicUser,
+): Promise<Reply<TransferRejectResponse>> {
+  requireRole(user, ["receptionist", "manager"]);
+  const reason = str((await readJson(request)).reason) ?? null;
+  const booking = await one<HeldBooking>(
+    sql,
+    `select ${HELD_COLS} from court_bookings where id = $1 for update`,
+    [id],
+  );
+  if (!booking) throw err.notFound();
+  if (!booking.transfer_requested_at) {
+    throw err.conflictState("No transfer was requested for this booking.");
+  }
+  if (booking.status !== "hold") throw err.conflictState("That booking is no longer on hold.");
+  await sql.query(`select occupancy_release_booking($1::uuid, 'cancelled'::booking_status)`, [id]);
+  await sql.query(`update court_bookings set hold_until = null where id = $1`, [id]);
+  await enqueue(
+    sql,
+    "inapp",
+    "transfer_rejected",
+    booking.user_id,
+    { booking_id: booking.id, code: booking.code, reason },
+    `transfer_rejected|${booking.id}`,
+  );
+  await audit(sql, user.id, "transfer_reject", "booking", booking.id, null, { reason });
+  return { status: 200, body: { booking_id: id, released: true } };
+}
+
+const CANCEL_KEYS = [
+  "id",
+  "user_id",
+  "status",
+  "start_at",
+  "price_vnd",
+  "paid_vnd",
+  "quota_hours",
+  "court_id",
+] as const satisfies readonly (keyof Booking)[];
+type CancelRow = Pick<Booking, (typeof CANCEL_KEYS)[number]>;
+const CANCEL_COLS = CANCEL_KEYS.join(", ");
+
+/** A paid court that has already started is played, not cancellable: no refund math applies. */
+const CANNOT_CANCEL_STARTED = "This booking has already started, so it cannot be cancelled.";
+const hasStarted = (booking: CancelRow) => booking.status === "confirmed" && new Date(booking.start_at).getTime() <= Date.now();
+
+/**
+ * What cancelling a booking would cost, right now.
+ *
+ * Read-only, so the app can show "cancel now: refund 50%, lose 125,000đ" before
+ * the member presses the button. Staff may ask for it waived (the centre cancelled,
+ * a flood, an emergency): that is the force-majeure rule — never charge a customer
+ * for something that is not their doing.
+ */
+export async function bookingsCancelQuote(
+  sql: Sql,
+  id: string,
+  request: Request,
+  user: PublicUser,
+): Promise<Reply<CancelQuoteResponse>> {
+  requireRole(user, ["member", "receptionist", "manager"]);
+  const booking = await one<CancelRow>(sql, `select ${CANCEL_COLS} from court_bookings where id = $1`, [id]);
+  if (!booking) throw err.notFound();
+  if (user.role === "member" && booking.user_id !== user.id) throw err.forbidden();
+  if (!["hold", "confirmed"].includes(booking.status)) {
+    throw err.conflictState("A booking in this state cannot be cancelled.");
+  }
+  const settings = await getSettings(sql);
+  if (hasStarted(booking)) throw err.conflictState(CANNOT_CANCEL_STARTED);
+  const staff = user.role === "receptionist" || user.role === "manager";
+  const waived = staff && new URL(request.url).searchParams.get("waive") === "1";
+  const quote = quoteCancel({
+    tiers: [],
+    startAt: booking.start_at,
+    paidVnd: booking.status === "hold" ? 0 : booking.paid_vnd,
+    waived,
+  });
+  return {
+    status: 200,
+    body: { ...quote, tiers: [], quota_hours: Number(booking.quota_hours) || 0 },
+  };
+}
+
+export async function bookingsCancel(
+  sql: Sql,
+  id: string,
+  user: PublicUser,
+  request?: Request,
+): Promise<Reply<CancelResponse>> {
+  requireRole(user, ["member", "receptionist", "manager"]);
+  const body = request ? await readJson(request) : {};
+  const booking = await one<CancelRow>(sql, `select ${CANCEL_COLS} from court_bookings where id = $1 for update`, [id]);
+  if (!booking) throw err.notFound();
+  if (user.role === "member" && booking.user_id !== user.id) throw err.forbidden();
+  if (!["hold", "confirmed"].includes(booking.status)) {
+    throw err.conflictState("A booking in this state cannot be cancelled.");
+  }
+  const settings = await getSettings(sql);
+  if (booking.status === "hold") {
+    await sql.query(`select occupancy_release_booking($1::uuid, 'cancelled'::booking_status)`, [id]);
+    return { status: 200, body: { refund: null, booking_id: id } };
+  }
+  if (hasStarted(booking)) throw err.conflictState(CANNOT_CANCEL_STARTED);
+  const staff = user.role === "receptionist" || user.role === "manager";
+  const waived = staff && body.waive === true;
+  const reason = str(body.reason) ?? null;
+  const quote = quoteCancel({
+    tiers: [],
+    startAt: booking.start_at,
+    paidVnd: booking.paid_vnd,
+    waived,
+  });
+  await sql.query(`select occupancy_release_booking($1::uuid, 'cancelled'::booking_status)`, [id]);
+  await sql.query(`update court_bookings set cancel_refund_pct = $2, cancel_fee_vnd = $3 where id = $1`, [
+    id,
+    quote.refund_pct,
+    quote.fee_vnd,
+  ]);
+  let refund: Payment | null = null;
+  const qh = Number(booking.quota_hours) || 0;
+  if (qh > 0) {
+    // Old bookings paid with plan hours. Plans no longer exist, so there is
+    // nothing to give back: those hours are history, and no row is touched.
+    refund = null;
+  } else if (quote.refund_vnd > 0) {
+    const payCode = await nextCode(sql, "PAY");
+    const amount = -quote.refund_vnd;
+    const needMgr = Math.abs(amount) >= settings.refund_manager_vnd;
+    const st = needMgr ? "refund_pending" : "posted";
+    refund =
+      (await one<Payment>(
+        sql,
+        `insert into payments (code, user_id, method, amount_vnd, vat_rate, status, ref_type, ref_id, created_by)
+         values ($1,$2,'cash',$3,0,$4,'booking',$5,$6) returning ${PAYMENT_COLS}`,
+        [payCode, booking.user_id, amount, st, id, user.id],
+      )) ?? null;
+    // A full refund gives the member their use of the code back (BR-41).
+    if (quote.fee_vnd === 0) await restoreIfFullyRefunded(sql, "booking", id);
+  }
+  await enqueue(
+    sql,
+    "inapp",
+    "booking_cancelled",
+    booking.user_id,
+    { id, fee_vnd: quote.fee_vnd, refund_vnd: quote.refund_vnd },
+    `booking_cancelled|${id}`,
+  );
+  await audit(sql, user.id, "cancel_booking", "booking", id, null, {
+    refund_pct: quote.refund_pct,
+    fee_vnd: quote.fee_vnd,
+    waived,
+    reason,
+  });
+  return { status: 200, body: { refund, refundable: quote.refund_vnd > 0 || refund !== null, quote } };
+}
+
+/**
+ * Take the rest of the price at the desk, usually when the customer turns up.
+ * A deposit booking is confirmed with only part of the money in; this is the
+ * other part, as a payment row of its own with its own invoice.
+ */
+export async function bookingsCollectBalance(
+  sql: Sql,
+  id: string,
+  request: Request,
+  user: PublicUser,
+): Promise<Reply<CollectBalanceResponse>> {
+  requireRole(user, ["receptionist", "manager"]);
+  const b = await readJson(request);
+  const method = str(b.method) ?? "cash";
+  if (!["cash", "card", "transfer"].includes(method)) throw err.validation("Pick cash, card or transfer.");
+  const booking = await one<CancelRow & Pick<Booking, "vat_rate">>(
+    sql,
+    `select ${CANCEL_COLS}, vat_rate from court_bookings where id = $1 for update`,
+    [id],
+  );
+  if (!booking) throw err.notFound();
+  if (!["confirmed", "in_use"].includes(booking.status)) {
+    throw err.conflictState("Only a confirmed booking has a balance to collect.");
+  }
+  const due = booking.price_vnd - booking.paid_vnd;
+  if (due <= 0) throw err.conflictState("Nothing left to pay on this booking.");
+  let shiftId: string | null = null;
+  if (user.role === "receptionist") {
+    const shift = await one<{ id: string }>(
+      sql,
+      `select id from cashier_shifts where receptionist_id = $1 and closed_at is null`,
+      [user.id],
+    );
+    if (!shift) throw err.br("BR-44", "Open a till shift before taking payment.");
+    shiftId = shift.id;
+  }
+  const pay = await one<{ id: string }>(
+    sql,
+    `insert into payments (code, user_id, shift_id, method, amount_vnd, vat_rate, status, ref_type, ref_id, created_by)
+     values ($1,$2,$3,$4,$5,$6,'posted','booking',$7,$8) returning id`,
+    [await nextCode(sql, "PAY"), booking.user_id, shiftId, method, due, Number(booking.vat_rate), id, user.id],
+  );
+  await sql.query(`update court_bookings set paid_vnd = price_vnd where id = $1`, [id]);
+  const court = await courtById(sql, booking.court_id);
+  const buyer = await bookingBuyer(sql, id);
+  const settings = await getSettings(sql);
+  const invoiceId = await issueInvoice(sql, {
+    paymentId: pay!.id,
+    buyerName: buyer.name,
+    buyerPhone: buyer.phone,
+    amountVnd: due,
+    vatRate: Number(booking.vat_rate ?? 0),
+    description: `Thanh toán còn lại thuê sân ${court.court_code} — ${ictStamp(booking.start_at)}`,
+    unit: "giờ",
+    settings,
+  });
+  await enqueueReceipt(sql, booking.user_id, {
+    payment_id: pay!.id,
+    invoice_id: invoiceId,
+    amount_vnd: due,
+    method,
+  });
+  await audit(sql, user.id, "collect_balance", "booking", id, null, { amount_vnd: due, method });
+  const fresh = await one<Booking>(sql, `select ${BOOKING_COLS} from court_bookings where id = $1`, [id]);
+  return { status: 200, body: { booking: fresh!, payment_id: pay!.id, invoice_id: invoiceId, amount_vnd: due } };
+}
+
+/**
+ * Move a confirmed booking to another slot (M-04).
+ *
+ * The same window as cancelling decides whether it is allowed — a change is
+ * "cancel and rebook" without the member losing the court in between — and the
+ * move is one transaction: the occupancy row is updated in place, so the old
+ * slot is freed and the new one taken together, or neither happens. The overlap
+ * trigger is still the last word. Money does not move: a slot that would cost a
+ * different amount is refused rather than adjusted, because the SRS has no
+ * formula for the difference; cancel and rebook is the path for that.
+ */
+export async function bookingsReschedule(
+  sql: Sql,
+  id: string,
+  request: Request,
+  user: PublicUser,
+): Promise<Reply<RescheduleResponse>> {
+  requireRole(user, ["member"]);
+  const b = await readJson(request);
+  const startAt = str(b.start_at);
+  if (!startAt) throw err.field("start_at", "Pick the new time.");
+  const start = new Date(startAt);
+  if (Number.isNaN(start.getTime())) throw err.field("start_at", "That time is not valid.");
+  const settings = await getSettings(sql);
+  const booking = await one<
+    Pick<
+      Booking,
+      | "id"
+      | "user_id"
+      | "status"
+      | "court_id"
+      | "start_at"
+      | "price_vnd"
+      | "discount_pct"
+      | "promo_discount_vnd"
+      | "quota_hours"
+      | "occupancy_id"
+      | "code"
+    >
+  >(
+    sql,
+    `select id, user_id, status, court_id, start_at, price_vnd, discount_pct, promo_discount_vnd,
+            quota_hours, occupancy_id, code
+       from court_bookings where id = $1 for update`,
+    [id],
+  );
+  if (!booking) throw err.notFound();
+  if (booking.user_id !== user.id) throw err.forbidden();
+  if (booking.status !== "confirmed" || !booking.occupancy_id) {
+    throw err.conflictState("Only a confirmed booking that has not started can be moved.");
+  }
+  const hoursLeft = (new Date(booking.start_at).getTime() - Date.now()) / 3600000;
+  if (hoursLeft < settings.cancel_court_hours) {
+    throw err.conflictState(
+      `A booking can only be moved up to ${settings.cancel_court_hours} hours before it starts.`,
+      { window_hours: settings.cancel_court_hours },
+    );
+  }
+  const oldCourt = await courtById(sql, booking.court_id);
+  const courtId = str(b.court_id) ?? booking.court_id;
+  const court = courtId === booking.court_id ? oldCourt : await courtById(sql, courtId);
+  if (court.sport !== oldCourt.sport) {
+    throw err.field("court_id", "A booking can only move to a court of the same sport.");
+  }
+  if (court.status !== "ready") throw err.br("BR-06", "That court is not available.");
+  if (courtId === booking.court_id && start.getTime() === new Date(booking.start_at).getTime()) {
+    throw err.field("start_at", "That is the slot you already have.");
+  }
+  const { end } = slotBounds(start, settings.slot_minutes);
+  await assertBookWindow(sql, start, { walkIn: false, settings });
+
+  await assertNoCourtOverlap(sql, user.id, start, end, booking.id);
+  const overlap = await overlapClass(sql, user.id, start, end);
+  if (overlap && b.confirm_overlap !== true) {
+    throw err.br("BR-09", "This slot clashes with a class you are in. Confirm to move it anyway.", {
+      requires_confirm: true,
+    });
+  }
+  // Plan hours pay for any slot; money only moves between slots of equal price.
+  if (!(Number(booking.quota_hours) > 0)) {
+    const list = await lookupPrice(sql, { sport: court.sport, courtId, start });
+    const covered = await memberCourtFee(sql, user.id, start, settings);
+    const price = covered
+      ? covered.fee_vnd
+      : applyDiscount(list.price_vnd, booking.discount_pct, settings.round_vnd) - (booking.promo_discount_vnd ?? 0);
+    if (price !== booking.price_vnd) {
+      throw err.conflictState(
+        "That slot is priced differently from the one you paid for. Cancel this booking and book the new slot instead.",
+        { paid_vnd: booking.price_vnd, new_price_vnd: price },
+      );
+    }
+  }
+  await sql.query(`select 1 from courts where id = $1 for update`, [courtId]);
+  try {
+    await sql.query(
+      `update occupancies set court_id = $2, start_at = $3, end_at = $4 where id = $1`,
+      [booking.occupancy_id, courtId, start.toISOString(), end.toISOString()],
+    );
+  } catch (e) {
+    if (isConflictSlot(e)) throw err.conflictSlot("Someone just took that slot.");
+    throw e;
+  }
+  await sql.query(
+    `update court_bookings set court_id = $2, start_at = $3, end_at = $4 where id = $1`,
+    [booking.id, courtId, start.toISOString(), end.toISOString()],
+  );
+  await enqueue(
+    sql,
+    "inapp",
+    "booking_rescheduled",
+    user.id,
+    { booking_id: booking.id, code: booking.code, court_code: court.court_code, start_at: start.toISOString() },
+    `booking_rescheduled|${booking.id}|${start.toISOString()}`,
+  );
+  await audit(sql, user.id, "reschedule_booking", "booking", booking.id, { start_at: booking.start_at, court_id: booking.court_id }, {
+    start_at: start.toISOString(),
+    court_id: courtId,
+  });
+  const fresh = await one<Booking>(sql, `select ${BOOKING_COLS} from court_bookings where id = $1`, [booking.id]);
+  return { status: 200, body: { booking: fresh! } };
+}
+
+export async function bookingsCheckIn(sql: Sql, id: string, user: PublicUser): Promise<Reply<CheckInResponse>> {
+  requireRole(user, ["receptionist", "manager"]);
+  const settings = await getSettings(sql);
+  const booking = await one<Pick<Booking, "id" | "status" | "start_at">>(
+    sql,
+    `select id, status, start_at from court_bookings where id = $1 for update`,
+    [id],
+  );
+  if (!booking) throw err.notFound();
+  if (booking.status !== "confirmed") throw err.conflictState("Only confirmed bookings can be checked in.");
+  const start = new Date(booking.start_at).getTime();
+  const now = Date.now();
+  const min = start - settings.checkin_before_minutes * 60_000;
+  const max = start + settings.noshow_grace_minutes * 60_000;
+  if (now < min || now > max) {
+    throw err.br("BR-11", "Outside the check-in window of −15/+10 minutes.");
+  }
+  await sql.query(`update court_bookings set status = 'in_use' where id = $1`, [id]);
+  return { status: 200, body: { status: "in_use" } };
+}
+
+export async function walkIn(sql: Sql, request: Request, user: PublicUser): Promise<Reply<WalkInResponse>> {
+  requireRole(user, ["receptionist", "manager"]);
+  const b = await readJson(request);
+  const courtId = str(b.court_id);
+  const startAt = str(b.start_at);
+  const guest_name = str(b.guest_name);
+  const guest_phone_raw = str(b.guest_phone);
+  const method = str(b.method) ?? "cash";
+  if (!courtId || !startAt || !guest_name || !guest_phone_raw) {
+    throw err.validation("Court, time, name or phone is missing.");
+  }
+  const ALLOWED_WALKIN_METHODS = ["cash", "card", "transfer"] as const;
+  if (!ALLOWED_WALKIN_METHODS.includes(method as any)) {
+    throw err.field("method", `Payment method must be one of ${ALLOWED_WALKIN_METHODS.join(", ")}.`);
+  }
+  const guest_phone = normalizePhone(guest_phone_raw);
+  if (!isValidVnPhone(guest_phone)) throw err.validation("That phone number is not valid.", { field: "phone" });
+  const settings = await getSettings(sql);
+  const start = new Date(startAt);
+  if (Number.isNaN(start.getTime())) throw err.field("start_at", "That time is not valid.");
+  const { end } = slotBounds(start, settings.slot_minutes);
+  await assertBookWindow(sql, start, { walkIn: true, settings });
+  const court = await courtById(sql, courtId);
+  if (court.status !== "ready") throw err.br("BR-06", "That court is not available.");
+  if (user.role === "receptionist") {
+    const shift = await one<{ id: string }>(
+      sql,
+      `select id from cashier_shifts where receptionist_id = $1 and closed_at is null`,
+      [user.id],
+    );
+    if (!shift) throw err.br("BR-44", "Open a till shift before taking payment.");
+    (b as { _shift?: string })._shift = shift.id;
+  }
+  const member = await one<{ id: string; full_name: string }>(
+    sql,
+    `select id, full_name from users where phone = $1`,
+    [guest_phone],
+  );
+  const list = await lookupPrice(sql, { sport: court.sport, courtId, start });
+  // A known member whose membership covers the date pays the member fee; everyone else the slot price.
+  if (member) await assertNoCourtOverlap(sql, member.id, start, end);
+  const covered = member ? await memberCourtFee(sql, member.id, start, settings) : null;
+  const price = covered ? covered.fee_vnd : roundVnd(list.price_vnd, settings.round_vnd);
+  const discount = 0;
+  const bookingId = (await one<{ id: string }>(sql, `select gen_random_uuid() as id`))!.id;
+  let occId: string;
+  try {
+    const occ = await one<{ id: string }>(
+      sql,
+      `select occupancy_attach($1::uuid, $2::timestamptz, $3::timestamptz, 'booking'::occ_kind, $4::uuid) as id`,
+      [courtId, start.toISOString(), end.toISOString(), bookingId],
+    );
+    occId = occ!.id;
+  } catch (e) {
+    if (isConflictSlot(e)) throw err.conflictSlot("Someone just took that slot.");
+    throw e;
+  }
+  const code = await nextCode(sql, "CRT");
+  await sql.query(
+    `insert into court_bookings
+       (id, code, court_id, user_id, guest_name, guest_phone, start_at, end_at, status, channel,
+        price_vnd, discount_pct, vat_rate, occupancy_id, paid_vnd)
+     values ($1,$2,$3,$4,$5,$6,$7,$8,'confirmed','walkin',$9,$10,$11,$12,$13)`,
+    [
+      bookingId,
+      code,
+      courtId,
+      member?.id ?? null,
+      guest_name,
+      guest_phone,
+      start.toISOString(),
+      end.toISOString(),
+      price,
+      discount,
+      Number(settings.vat_rate),
+      occId,
+      price,
+    ],
+  );
+  const payCode = await nextCode(sql, "PAY");
+  const shiftId = user.role === "receptionist" ? ((b as { _shift?: string })._shift ?? null) : null;
+  const pay = await one<{ id: string }>(
+    sql,
+    `insert into payments (code, user_id, shift_id, method, amount_vnd, vat_rate, status, ref_type, ref_id, created_by)
+     values ($1,$2,$3,$4,$5,$6,'posted','booking',$7,$8) returning id`,
+    [
+      payCode,
+      member?.id ?? null,
+      shiftId ?? null,
+      method,
+      price,
+      Number(settings.vat_rate),
+      bookingId,
+      user.id,
+    ],
+  );
+  const invoiceId = await issueInvoice(sql, {
+    paymentId: pay!.id,
+    buyerName: guest_name,
+    buyerPhone: guest_phone,
+    amountVnd: price,
+    vatRate: Number(settings.vat_rate ?? 0),
+    description: `Khách vãng lai — sân ${court.court_code} ${ictStamp(start)}`,
+    unit: "lượt",
+    settings,
+  });
+  await audit(sql, user.id, "walk_in", "booking", bookingId);
+  const booking = await one<Booking>(sql, `select ${BOOKING_COLS} from court_bookings where id = $1`, [bookingId]);
+  const payment = await one<Payment>(sql, `select ${PAYMENT_COLS} from payments where id = $1`, [pay!.id]);
+  return { status: 201, body: { booking: booking!, payment: payment!, invoice_id: invoiceId } };
+}
+
+export async function bookingGet(sql: Sql, id: string, user: PublicUser): Promise<Reply<BookingResponse>> {
+  requireRole(user, ["member", "receptionist", "manager"]);
+  const b = await one<Booking>(sql, `select ${BOOKING_COLS} from court_bookings where id = $1`, [id]);
+  if (!b) throw err.notFound();
+  if (user.role === "member" && b.user_id !== user.id) throw err.forbidden();
+  return { status: 200, body: b };
 }
