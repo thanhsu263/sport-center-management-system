@@ -1,34 +1,34 @@
-import type { Sql } from "@/lib/db";
+import type { Sql } from "@/server/data/db";
 import { err } from "../errors";
-import { addDays, ictDateString } from "../time";
-import { audit, bool, readJson, str } from "../helpers";
-import { quotePromo } from "../promos";
+import { addDays, ictDateString } from "../../../shared/arena3/time";
+import { audit, bool, getSettings, readJson, str } from "../helpers";
+import { addMonths } from "../../services/membership";
+import { quotePromo } from "../../services/promos";
 import { limit, RULES } from "../ratelimit";
 import { requireRole, type PublicUser } from "../session";
 import { one } from "../tx";
 import { parseInteger } from "../validate";
-import { getActiveSportCodes } from "./sports";
 
 export async function plansList(sql: Sql, user: PublicUser | null) {
   const all = user?.role === "manager";
   const items = await sql.query(
-    `select id, name, sport_scope, duration_days, session_quota, court_hours,
-            court_discount_pct, price_vnd, is_on_sale, carry_over_hours
+    `select id, name, duration_months, duration_days, price_vnd, is_on_sale
        from membership_plans
       where $1 or is_on_sale = true
       order by price_vnd`,
     [all],
   );
-  return { status: 200, body: { items } };
+  const settings = await getSettings(sql);
+  return {
+    status: 200,
+    body: {
+      items,
+      member_court_fee_vnd: settings.member_court_fee_vnd,
+    },
+  };
 }
 
 const INT4 = 2_147_483_647;
-
-/** Blank means "not given" (null); anything else has to be a whole number in range. */
-function optInt(field: string, label: string, v: unknown, min: number, max: number): number | null {
-  if (v === undefined || v === null || (typeof v === "string" && v.trim() === "")) return null;
-  return parseInteger(field, label, v, min, max);
-}
 
 function planName(v: unknown): string | undefined {
   const name = str(v);
@@ -41,32 +41,15 @@ export async function plansCreate(sql: Sql, request: Request, user: PublicUser) 
   requireRole(user, ["manager"]);
   const b = await readJson(request);
   const name = planName(b.name);
-  const sport_scope = str(b.sport_scope);
   if (!name) throw err.field("name", "A plan needs a name.");
-  const allowedScopes = await getActiveSportCodes(sql, true);
-  if (!sport_scope || !allowedScopes.includes(sport_scope)) throw err.field("sport_scope", "Choose a sport.");
   const price_vnd = parseInteger("price_vnd", "Price", b.price_vnd, 0, INT4);
-  const duration_days = optInt("duration_days", "Duration", b.duration_days, 1, 3650);
-  const session_quota = optInt("session_quota", "Class sessions", b.session_quota, 0, 100000);
-  const court_hours = optInt("court_hours", "Court hours", b.court_hours, 0, 100000) ?? 0;
-  const court_discount_pct = optInt("court_discount_pct", "Court discount", b.court_discount_pct, 0, 100) ?? 0;
+  const duration_months = parseInteger("duration_months", "Duration", b.duration_months, 1, 60);
   const row = await one(
     sql,
-    `insert into membership_plans
-       (name, sport_scope, duration_days, session_quota, court_hours, court_discount_pct, price_vnd, is_on_sale, carry_over_hours)
-     values ($1,$2,$3,$4,$5,$6,$7, coalesce($8,true), coalesce($9,false))
+    `insert into membership_plans (name, sport_scope, duration_months, duration_days, price_vnd, is_on_sale)
+     values ($1, 'all', $2, $3, $4, coalesce($5, true))
      returning *`,
-    [
-      name,
-      sport_scope,
-      duration_days,
-      session_quota,
-      court_hours,
-      court_discount_pct,
-      price_vnd,
-      bool(b.is_on_sale),
-      bool(b.carry_over_hours),
-    ],
+    [name, duration_months, duration_months * 30, price_vnd, bool(b.is_on_sale)],
   );
   await audit(sql, user.id, "create_plan", "plan", (row as { id: string }).id);
   return { status: 201, body: row };
@@ -82,8 +65,7 @@ export async function plansGet(sql: Sql, id: string, user: PublicUser) {
   requireRole(user, ["manager"]);
   const plan = await one(
     sql,
-    `select id, name, sport_scope, duration_days, session_quota, court_hours,
-            court_discount_pct, price_vnd, is_on_sale, carry_over_hours
+    `select id, name, duration_months, duration_days, price_vnd, is_on_sale
        from membership_plans where id = $1`,
     [id],
   );
@@ -107,22 +89,16 @@ export async function plansPatch(sql: Sql, id: string, request: Request, user: P
   if (!cur) throw err.notFound();
   const name = planName(b.name) ?? null;
   const price = b.price_vnd === undefined ? null : parseInteger("price_vnd", "Price", b.price_vnd, 0, INT4);
-  const duration = b.duration_days === undefined ? null : optInt("duration_days", "Duration", b.duration_days, 1, 3650);
-  const quota = b.session_quota === undefined ? null : optInt("session_quota", "Class sessions", b.session_quota, 0, 100000);
-  const hours = b.court_hours === undefined ? null : optInt("court_hours", "Court hours", b.court_hours, 0, 100000);
-  const disc = b.court_discount_pct === undefined ? null : optInt("court_discount_pct", "Court discount", b.court_discount_pct, 0, 100);
+  const months = b.duration_months === undefined ? null : parseInteger("duration_months", "Duration", b.duration_months, 1, 60);
   await sql.query(
     `update membership_plans set
        name = coalesce($2, name),
-       duration_days = coalesce($3, duration_days),
-       session_quota = coalesce($4, session_quota),
-       court_hours = coalesce($5, court_hours),
-       court_discount_pct = coalesce($6, court_discount_pct),
-       price_vnd = coalesce($7, price_vnd),
-       is_on_sale = coalesce($8, is_on_sale),
-       carry_over_hours = coalesce($9, carry_over_hours)
+       duration_months = coalesce($3::int, duration_months),
+       duration_days = coalesce($3::int * 30, duration_days),
+       price_vnd = coalesce($4, price_vnd),
+       is_on_sale = coalesce($5, is_on_sale)
      where id = $1`,
-    [id, name, duration, quota, hours, disc, price, bool(b.is_on_sale) ?? null, bool(b.carry_over_hours) ?? null],
+    [id, name, months, price, bool(b.is_on_sale) ?? null],
   );
   const row = await one(sql, `select * from membership_plans where id = $1`, [id]);
   await audit(
@@ -170,9 +146,8 @@ export async function subscriptionsCreate(sql: Sql, request: Request, user: Publ
   const plan = await one<{
     id: string;
     sport_scope: string;
+    duration_months: number | null;
     duration_days: number | null;
-    session_quota: number | null;
-    court_hours: number;
     price_vnd: number;
     is_on_sale: boolean;
   }>(sql, `select * from membership_plans where id = $1`, [planId]);
@@ -180,27 +155,21 @@ export async function subscriptionsCreate(sql: Sql, request: Request, user: Publ
   if (!plan.is_on_sale && user.role === "member") throw err.br("BR-16", "That plan is no longer on sale.");
 
   const today = ictDateString();
-  const duration = plan.duration_days ?? 365;
-  const live = await one<{
-    id: string;
-    status: string;
-    end_on: string;
-    plan_id: string;
-  }>(
+  const live = await one<{ status: string; end_on: string }>(
     sql,
-    `select id, status, end_on::text, plan_id from subscriptions
-      where user_id = $1 and sport_scope = $2 and status in ('active','frozen')
+    `select status::text, end_on::text from subscriptions
+      where user_id = $1 and status in ('active','frozen')
       limit 1`,
-    [userId, plan.sport_scope],
+    [userId],
   );
   if (live?.status === "frozen") throw err.br("BR-14", "Your plan is frozen — unfreeze it before buying more.");
   const pending = await one<{ id: string }>(
     sql,
-    `select id from subscriptions where user_id = $1 and sport_scope = $2 and status = 'pending'`,
-    [userId, plan.sport_scope],
+    `select id from subscriptions where user_id = $1 and status = 'pending'`,
+    [userId],
   );
   const start = live && live.end_on >= today ? live.end_on : today;
-  const end = addDays(start, duration);
+  const end = plan.duration_months ? addMonths(start, plan.duration_months) : addDays(start, plan.duration_days ?? 30);
   // The code is priced into the order now; the use is counted when it is paid (BR-41).
   const promoCode = str(b.promo_code);
   const promo = promoCode
@@ -217,10 +186,10 @@ export async function subscriptionsCreate(sql: Sql, request: Request, user: Publ
   if (pending) {
     await sql.query(
       `update subscriptions set plan_id = $2, start_on = $3, end_on = $4,
-              court_hours_left = $5, session_left = $6, promo_id = $7, promo_discount_vnd = $8,
-              price_vnd = $9
+              court_hours_left = 0, session_left = null, promo_id = $5, promo_discount_vnd = $6,
+              price_vnd = $7
         where id = $1`,
-      [pending.id, plan.id, start, end, plan.court_hours, plan.session_quota, promo?.promo_id ?? null, promo?.discount_vnd ?? 0, plan.price_vnd],
+      [pending.id, plan.id, start, end, promo?.promo_id ?? null, promo?.discount_vnd ?? 0, plan.price_vnd],
     );
     const row = await one(sql, `select * from subscriptions where id = $1`, [pending.id]);
     return { status: 201, body: { subscription: row, preview_end: end, amount_due_vnd: amountDue, promo } };
@@ -229,9 +198,9 @@ export async function subscriptionsCreate(sql: Sql, request: Request, user: Publ
     sql,
     `insert into subscriptions
        (user_id, plan_id, sport_scope, start_on, end_on, status, court_hours_left, session_left, promo_id, promo_discount_vnd, price_vnd)
-     values ($1,$2,$3,$4,$5,'pending',$6,$7,$8,$9,$10)
+     values ($1,$2,'all',$3,$4,'pending',0,null,$5,$6,$7)
      returning *`,
-    [userId, plan.id, plan.sport_scope, start, end, plan.court_hours, plan.session_quota, promo?.promo_id ?? null, promo?.discount_vnd ?? 0, plan.price_vnd],
+    [userId, plan.id, start, end, promo?.promo_id ?? null, promo?.discount_vnd ?? 0, plan.price_vnd],
   );
   return { status: 201, body: { subscription: row, preview_end: end, amount_due_vnd: amountDue, promo } };
 }
