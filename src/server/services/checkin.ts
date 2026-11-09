@@ -15,7 +15,7 @@
  * There is deliberately no location in a token: GPS is not used (see SRS §3.5).
  */
 import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
-import { err } from "./errors.ts";
+import { err } from "../controllers/errors.ts";
 
 export type CheckinKind = "member" | "booking" | "desk";
 

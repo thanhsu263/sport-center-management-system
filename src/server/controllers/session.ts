@@ -1,10 +1,10 @@
-import type { Sql } from "@/lib/db";
-import { hashPassword, randomToken, sha256, verifyPassword } from "./crypto";
-import type { PublicUser, Role } from "./contracts";
+import type { Sql } from "@/server/data/db";
+import { hashPassword, randomToken, sha256, verifyPassword } from "../services/crypto";
+import type { PublicUser, Role } from "../../shared/arena3/contracts";
 import { err } from "./errors";
 import { one, q } from "./tx";
 
-export type { PublicUser, Role } from "./contracts";
+export type { PublicUser, Role } from "../../shared/arena3/contracts";
 
 export type AuthUser = PublicUser & { password_hash: string };
 
