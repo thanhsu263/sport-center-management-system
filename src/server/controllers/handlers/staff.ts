@@ -1,10 +1,10 @@
 import { randomInt } from "node:crypto";
-import type { Sql } from "@/lib/db";
-import { hashPassword } from "../crypto";
+import type { Sql } from "@/server/data/db";
+import { hashPassword } from "../../services/crypto";
 import { err } from "../errors";
 import { audit, pageOf, readJson, str } from "../helpers";
-import { isValidVnPhone, normalizePhone, unaccentVi } from "../phone";
-import { requireRole, type PublicUser } from "../session";
+import { isValidVnPhone, normalizePhone, unaccentVi } from "../../services/phone";
+import { avatarUrlSql, requireRole, withAvatarUrl, type PublicUser } from "../session";
 import { one, q } from "../tx";
 import { pageParams } from "../validate";
 import { getActiveSportCodes } from "./sports";
@@ -58,6 +58,7 @@ type StaffRow = {
   role: string;
   status: string;
   must_change_password: boolean;
+  avatar_url: string | null;
   created_at: string;
   sports: string[] | null;
   open_sessions: number;
@@ -67,6 +68,7 @@ type StaffRow = {
 
 const STAFF_SELECT = `
   select u.id, u.full_name, u.phone, u.email, u.role, u.status, u.must_change_password,
+         ${avatarUrlSql("u")},
          u.created_at::text,
          (select array_agg(cs.sport::text order by cs.sport) from coach_sports cs where cs.user_id = u.id) as sports,
          (select count(*)::int from sessions_auth sa where sa.user_id = u.id and sa.expires_at > now()) as open_sessions,
@@ -83,7 +85,7 @@ const STAFF_SELECT = `
 async function loadStaff(sql: Sql, id: string): Promise<StaffRow> {
   const row = await one<StaffRow>(sql, `${STAFF_SELECT} where u.id = $1`, [id]);
   if (!row) throw err.notFound("That account does not exist.");
-  return row;
+  return withAvatarUrl(row);
 }
 
 /** The account a manager is allowed to manage here: receptionists and coaches, never themselves. */
@@ -131,7 +133,7 @@ export async function staffList(sql: Sql, request: Request, user: PublicUser) {
       order by u.role, u.full_name limit $${params.length + 1} offset $${params.length + 2}`,
     [...params, limit, offset],
   );
-  const body = await pageOf(rows, { limit, offset }, async () =>
+  const body = await pageOf(rows.map(withAvatarUrl), { limit, offset }, async () =>
     Number((await q<{ n: number }>(sql, `select count(*)::int as n from users u where ${filter}`, params))[0]?.n ?? 0),
   );
   return { status: 200, body };
