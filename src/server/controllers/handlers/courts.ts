@@ -1,4 +1,4 @@
-import type { Sql } from "@/lib/db";
+import type { Sql } from "@/server/data/db";
 import { ApiError, err } from "../errors";
 import { audit, num, readJson, str } from "../helpers";
 import { one } from "../tx";
@@ -157,7 +157,7 @@ export async function managerCourtRetire(
     throw err.validation("Court is already retired.");
   }
 
-  // Protection: cannot retire the last court of a sport with active subscriptions or active classes
+  // Protection: cannot retire the last court of a sport with active classes
   const remaining = await one<{ cnt: number }>(
     sql,
     `select count(*)::int as cnt from courts where sport = $1 and retired_at is null and id <> $2`,
@@ -165,25 +165,17 @@ export async function managerCourtRetire(
   );
 
   if (!remaining || remaining.cnt === 0) {
-    const activeSubs = await one<{ cnt: number }>(
-      sql,
-      `select count(*)::int as cnt
-         from subscriptions s
-         join membership_plans p on p.id = s.plan_id
-        where s.status = 'active' and (p.sport_scope = $1 or (p.sport_scope = 'all' and $1 in (select code from sports where enabled = true and not is_scope_all and retired_at is null)))`,
-      [cur.sport],
-    );
     const activeClasses = await one<{ cnt: number }>(
       sql,
       `select count(*)::int as cnt from classes where sport = $1 and status = 'open'`,
       [cur.sport],
     );
 
-    if ((activeSubs?.cnt ?? 0) > 0 || (activeClasses?.cnt ?? 0) > 0) {
+    if ((activeClasses?.cnt ?? 0) > 0) {
       throw new ApiError(
         409,
         "CONFLICT_STATE",
-        "Cannot retire the last court for a sport with active plans or classes.",
+        "Cannot retire the last court for a sport with active classes.",
       );
     }
   }
