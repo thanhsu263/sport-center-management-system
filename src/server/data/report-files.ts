@@ -1,8 +1,8 @@
 import fontkit from "@pdf-lib/fontkit";
 import { zipSync, strToU8 } from "fflate";
 import { PDFDocument, rgb, type PDFFont } from "pdf-lib";
-import robotoBoldUrl from "./fonts/Roboto-Bold.ttf?inline";
-import robotoRegularUrl from "./fonts/Roboto-Regular.ttf?inline";
+import robotoBoldUrl from "../integrations/fonts/Roboto-Bold.ttf?inline";
+import robotoRegularUrl from "../integrations/fonts/Roboto-Regular.ttf?inline";
 
 /**
  * Report files (FR-PAY-07): the same document as .xlsx and as .pdf.

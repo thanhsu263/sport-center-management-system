@@ -1,5 +1,5 @@
-import { withTx } from "./tx";
-import { elapsedAtLeast, ictDateString } from "./time";
+import { withTx } from "../controllers/tx";
+import { elapsedAtLeast, ictDateString } from "../../shared/arena3/time";
 
 export async function expireHolds() {
   return withTx(async (sql) => {
@@ -115,8 +115,8 @@ export async function expiryReminders() {
  * either goes out or hits the cap.
  */
 export async function notifyFlush() {
-  const { deliver } = await import("./notify");
-  const { getSql } = await import("@/lib/db");
+  const { deliver } = await import("../integrations/notify");
+  const { getSql } = await import("@/server/data/db");
   const sql = await getSql();
   const rows = await sql.query<{
     id: string;
@@ -165,10 +165,10 @@ export async function notifyFlush() {
  * arriving, which is a great deal simpler than refunding it afterwards.
  */
 export async function expireGatewayLinks() {
-  const { payosConfigured } = await import("./payos");
+  const { payosConfigured } = await import("../integrations/payos");
   if (!payosConfigured()) return 0;
   return withTx(async (sql) => {
-    const { expireOnlineLinks } = await import("./handlers/online");
+    const { expireOnlineLinks } = await import("../controllers/handlers/online");
     return expireOnlineLinks(sql);
   });
 }
@@ -189,7 +189,7 @@ export async function waitlistExpire() {
         `update enrollments set status = 'cancelled', waitlist_pos = null where id = $1 and status = 'waitlisted'`,
         [r.enrollment_id],
       );
-      const { compactWaitlist, inviteWaitlist } = await import("./handlers/ops");
+      const { compactWaitlist, inviteWaitlist } = await import("../controllers/handlers/ops");
       await compactWaitlist(sql, r.class_id);
       await inviteWaitlist(sql, r.class_id);
     }
@@ -208,7 +208,7 @@ export async function expireEnrollmentHolds(): Promise<number> {
     const candidates = await sql.query<{ id: string; class_id: string }>(
       `select id, class_id from enrollments where status = 'hold' and hold_until < now()`,
     );
-    const { inviteWaitlist } = await import("./handlers/ops");
+    const { inviteWaitlist } = await import("../controllers/handlers/ops");
     let n = 0;
     for (const c of candidates) {
       await sql.query(`select 1 from classes where id = $1 for update`, [c.class_id]);
@@ -253,7 +253,7 @@ export async function generateSessions() {
   for (const r of ids) {
     try {
       await withTx(async (sql) => {
-        const { materializeClassSessions } = await import("./handlers/classes");
+        const { materializeClassSessions } = await import("../controllers/handlers/classes");
         await materializeClassSessions(sql, r.id, null);
       });
       n += 1;
@@ -351,7 +351,7 @@ type DueFlags = {
 
 export async function runDueJobs() {
   try {
-    const { getSql } = await import("@/lib/db");
+    const { getSql } = await import("@/server/data/db");
     const sql = await getSql();
     const [due] = await sql.query<DueFlags>(DUE_PROBE);
     if (!due) return;

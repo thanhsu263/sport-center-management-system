@@ -16,7 +16,7 @@
     "preview:stop": "node scripts/preview.mjs stop",
     "typecheck": "tsc --noEmit",
     "check:auth": "node scripts/check-auth-invariant.mjs",
-    "test": "node --test 'scripts/**/*.test.mjs' && node --experimental-strip-types --test src/lib/app-data/app-data.test.ts src/lib/app-data/readiness-schedule.test.ts src/lib/auth/gate-identity.test.ts src/lib/auth/sign-in-gate.test.ts src/lib/arena3/arena3.test.ts && npx tsx --test src/lib/arena3/tx.test.ts src/lib/arena3/ratelimit.test.ts src/lib/multiplayer/p2p.test.ts",
+    "test": "node --test 'scripts/**/*.test.mjs' && node --experimental-strip-types --test src/server/app-data/app-data.test.ts src/client/app-data/readiness-schedule.test.ts src/server/auth/gate-identity.test.ts src/client/auth/sign-in-gate.test.ts src/server/services/arena3.test.ts && npx tsx --test src/server/controllers/tx.test.ts src/server/controllers/ratelimit.test.ts src/client/lib/multiplayer/p2p.test.ts",
     "check:api": "node scripts/arena3-api-check.mjs",
     "lint": "eslint .",
     "format": "prettier --write .",
