@@ -1,18 +1,18 @@
-import type { Sql } from "@/lib/db";
-import { hashOtp, hashPassword, randomOtp, verifyPassword } from "../crypto";
+import type { Sql } from "@/server/data/db";
+import { hashOtp, hashPassword, randomOtp, randomToken, verifyPassword } from "../../services/crypto";
 import { err } from "../errors";
-import { ageYears, audit, classSubscription, getSettings, pageOf, readJson, str } from "../helpers";
-import { isValidVnPhone, normalizePhone, passwordOk, unaccentVi } from "../phone";
+import { ageYears, audit, getSettings, pageOf, readJson, str } from "../helpers";
+import { isValidVnPhone, normalizePhone, passwordOk, unaccentVi } from "../../services/phone";
 import { limit, RULES } from "../ratelimit";
 import {
   findUserByLogin,
   issueSession,
+  loadUser,
   toPublic,
   type PublicUser,
 } from "../session";
 import { KeepWrites, one } from "../tx";
 import { pageParams } from "../validate";
-import { getActiveSportCodes } from "./sports";
 
 /**
  * Whether the OTP may be handed straight back to whoever asked for it.
@@ -46,7 +46,7 @@ function mayEchoOtp(): boolean {
  */
 async function deliverOtp(email: string | null | undefined, otp: string): Promise<{ sentTo: string | null }> {
   if (!email) return { sentTo: null };
-  const { deliver } = await import("../notify");
+  const { deliver } = await import("../../integrations/notify");
   const result = await deliver({ channel: "email", template: "otp", to: email, payload: { otp } });
   if (!result.sent) {
     console.warn(`[otp] could not email the code: ${result.detail ?? "unknown"}`);
@@ -57,29 +57,40 @@ async function deliverOtp(email: string | null | undefined, otp: string): Promis
   return { sentTo: masked };
 }
 
-async function loadUser(sql: Sql, id: string) {
-  const u = await one<Record<string, unknown>>(
-    sql,
-    `select id, member_code, full_name, phone, email, role, status, date_of_birth, health_notes, must_change_password
-       from users where id = $1`,
-    [id],
-  );
-  if (!u) throw err.notFound();
-  return toPublic(u);
-}
+/** A new member's details, checked and ready to store. */
+export type SignupFields = {
+  full_name: string;
+  phone: string;
+  email: string | null;
+  password_hash: string;
+  dob: string | null;
+  guardian_name: string | null;
+  guardian_phone: string | null;
+};
 
-export async function register(sql: Sql, request: Request) {
-  const body = await readJson(request);
+/**
+ * The sign-up rules shared by the form (`register`) and Google (`googleRegister`).
+ *
+ * `password: false` is for Google: the person never chose one, so the account
+ * gets a random one nobody knows, and "Forgot password" sets a real one later.
+ * `email` is passed in rather than read from the body because Google's is the
+ * verified one and must not be swapped for whatever the form sent.
+ */
+export async function checkSignup(
+  sql: Sql,
+  body: Record<string, unknown>,
+  opts: { email: string | null; password: boolean },
+): Promise<SignupFields> {
   const full_name = str(body.full_name);
   const phone = normalizePhone(str(body.phone) ?? "");
-  const password = str(body.password);
-  const dob = str(body.dob) ?? str(body.date_of_birth);
-  const email = str(body.email)?.trim().toLowerCase() || null;
+  const password = opts.password ? str(body.password) : randomToken();
+  const dob = str(body.dob) ?? str(body.date_of_birth) ?? null;
+  const email = opts.email;
   const pii = body.pii_consent === true;
   // `field` names the input at fault, so the form can mark it and not only say what went wrong.
   if (!full_name) throw err.validation("Full name is required.", { field: "full_name" });
   if (!isValidVnPhone(phone)) throw err.validation("That phone number is not valid.", { field: "phone" });
-  if (!password || !passwordOk(password)) {
+  if (!password || (opts.password && !passwordOk(password))) {
     throw err.br("BR-02", "Password needs at least 8 characters, with letters and numbers.", { field: "password" });
   }
   if (!pii) throw err.br("BR-04", "You must accept the terms and the data-privacy notice.");
@@ -101,27 +112,61 @@ export async function register(sql: Sql, request: Request) {
     email,
   ]);
   if (exists) throw err.br("BR-01", "That phone or email already has an account.");
+  return {
+    full_name,
+    phone,
+    email,
+    password_hash: hashPassword(password),
+    dob,
+    guardian_name: str(body.guardian_name) ?? null,
+    guardian_phone: str(body.guardian_phone) ? normalizePhone(String(body.guardian_phone)) : null,
+  };
+}
+
+/** Insert a checked member and sign them in. Both sign-up paths end here. */
+export async function createMember(sql: Sql, f: SignupFields, action: string) {
+  const existing = await one(sql, `select id from users where phone = $1`, [f.phone]);
+  if (existing) throw err.br("BR-01", "That phone number already has an account.");
+  const codeRow = await one<{ next_member_code: string }>(sql, `select next_member_code() as next_member_code`);
+  const inserted = await one<{ id: string }>(
+    sql,
+    `insert into users
+       (full_name, name_normalized, phone, email, role, status, password_hash,
+        date_of_birth, guardian_name, guardian_phone, pii_consent_at, member_code)
+     values ($1,$2,$3,$4,'member','active',$5,$6,$7,$8, now(), $9)
+     returning id`,
+    [
+      f.full_name,
+      unaccentVi(f.full_name),
+      f.phone,
+      f.email,
+      f.password_hash,
+      f.dob,
+      f.guardian_name,
+      f.guardian_phone,
+      codeRow?.next_member_code,
+    ],
+  );
+  const user = await loadUser(sql, inserted!.id);
+  await audit(sql, user.id, action, "user", user.id, null, { phone: f.phone });
+  return { status: 200, body: await issueSession(sql, user) };
+}
+
+export async function register(sql: Sql, request: Request) {
+  const body = await readJson(request);
+  const fields = await checkSignup(sql, body, {
+    email: str(body.email)?.trim().toLowerCase() || null,
+    password: true,
+  });
   const otp = randomOtp();
   const row = await one<{ id: string }>(
     sql,
     `insert into otp_challenges (phone, purpose, otp_hash, payload, expires_at)
      values ($1, 'register', $2, $3::jsonb, now() + interval '5 minutes')
      returning id`,
-    [
-      phone,
-      hashOtp(otp),
-      JSON.stringify({
-        full_name,
-        phone,
-        email,
-        password_hash: hashPassword(password),
-        dob,
-        guardian_name: str(body.guardian_name),
-        guardian_phone: str(body.guardian_phone) ? normalizePhone(String(body.guardian_phone)) : null,
-        pii_consent: true,
-      }),
-    ],
+    [fields.phone, hashOtp(otp), JSON.stringify({ ...fields, pii_consent: true })],
   );
+  const email = fields.email;
   // Sent, not queued. An OTP lives five minutes; waiting for the next pass of
   // the outbox dispatcher would spend a meaningful part of that on nothing.
   const delivery = await deliverOtp(email, otp);
@@ -181,33 +226,20 @@ export async function verifyOtp(sql: Sql, request: Request) {
     return { status: 200, body: { ok: true } };
   }
   const p = ch.payload ?? {};
-  const existing = await one(sql, `select id from users where phone = $1`, [phone]);
-  if (existing) throw err.br("BR-01", "That phone number already has an account.");
-  const codeRow = await one<{ next_member_code: string }>(sql, `select next_member_code() as next_member_code`);
-  const inserted = await one<{ id: string }>(
-    sql,
-    `insert into users
-       (full_name, name_normalized, phone, email, role, status, password_hash,
-        date_of_birth, guardian_name, guardian_phone, pii_consent_at, member_code)
-     values ($1,$2,$3,$4,'member','active',$5,$6,$7,$8, now(), $9)
-     returning id`,
-    [
-      p.full_name,
-      unaccentVi(String(p.full_name)),
-      phone,
-      p.email ?? null,
-      p.password_hash,
-      p.dob ?? null,
-      p.guardian_name ?? null,
-      p.guardian_phone ?? null,
-      codeRow?.next_member_code,
-    ],
-  );
   await sql.query(`delete from otp_challenges where id = $1`, [ch.id]);
-  const user = await loadUser(sql, inserted!.id);
-  await audit(sql, user.id, "register", "user", user.id, null, { phone });
-  const session = await issueSession(sql, user);
-  return { status: 200, body: session };
+  return createMember(
+    sql,
+    {
+      full_name: String(p.full_name),
+      phone,
+      email: (p.email as string | null) ?? null,
+      password_hash: String(p.password_hash),
+      dob: (p.dob as string | null) ?? null,
+      guardian_name: (p.guardian_name as string | null) ?? null,
+      guardian_phone: (p.guardian_phone as string | null) ?? null,
+    },
+    "register",
+  );
 }
 
 export async function login(sql: Sql, request: Request) {
@@ -244,13 +276,19 @@ export async function login(sql: Sql, request: Request) {
   return { status: 200, body: session };
 }
 
+/** sha256 of the bearer token on this request, or null. Never returned to the client. */
+async function currentTokenHash(request: Request): Promise<string | null> {
+  const m = /^Bearer\s+(.+)$/i.exec(request.headers.get("authorization") ?? "");
+  if (!m) return null;
+  const { sha256 } = await import("../../services/crypto");
+  return sha256(m[1]!);
+}
+
 export async function logout(sql: Sql, request: Request, user: PublicUser) {
-  const hdr = request.headers.get("authorization") ?? "";
-  const m = /^Bearer\s+(.+)$/i.exec(hdr);
-  if (m) {
-    const { sha256 } = await import("../crypto");
+  const hash = await currentTokenHash(request);
+  if (hash) {
     await sql.query(`delete from sessions_auth where token_hash = $1 and user_id = $2`, [
-      sha256(m[1]!),
+      hash,
       user.id,
     ]);
   }
@@ -335,7 +373,9 @@ export async function meGet(sql: Sql, user: PublicUser) {
     sql.query(
       // `leave_until` is the last moment leaving is allowed (BR-24: cancel_class_hours before the
       // next session), worked out here with the same rule enrollmentDelete applies.
-      `select e.id, e.status, e.waitlist_pos, e.class_id, cl.sport, cl.level, cl.rrule, c.court_code,
+      `select e.id, e.status,
+              case when e.status = 'waitlisted' then (select count(*) from enrollments w where w.class_id = e.class_id and w.status = 'waitlisted' and (w.waitlist_pos, w.id) <= (e.waitlist_pos, e.id)) end as waitlist_pos,
+              e.class_id, cl.sport, cl.level, cl.rrule, c.court_code,
               nx.start_at as next_session_at,
               nx.start_at - make_interval(hours => st.cancel_class_hours) as leave_until
          from enrollments e
@@ -360,20 +400,6 @@ export async function meGet(sql: Sql, user: PublicUser) {
     ),
     sql.query<{ key: string; enabled: boolean }>(`select key, enabled from feature_flags`),
   ]);
-  // What enrolling in each sport would take (BR-19, BR-20), from the plan enrolment itself picks
-  // (classSubscription), so a class card can say so before the tap instead of after.
-  const activeSportCodes = await getActiveSportCodes(sql);
-  const classAccess =
-    user.role === "member"
-      ? Object.fromEntries(
-          await Promise.all(
-            activeSportCodes.map(async (sport) => {
-              const sub = await classSubscription(sql, user.id, sport);
-              return [sport, sub ? { covered: true, session_left: sub.session_left } : { covered: false, session_left: null }];
-            }),
-          ),
-        )
-      : undefined;
   return {
     status: 200,
     body: {
@@ -382,7 +408,6 @@ export async function meGet(sql: Sql, user: PublicUser) {
       inbox,
       enrollments,
       offers,
-      class_access: classAccess,
       flags: Object.fromEntries(flags.map((f) => [f.key, f.enabled])),
       today: { bookings: today, classes: classesToday },
     },
@@ -442,13 +467,123 @@ export async function mePatch(sql: Sql, request: Request, user: PublicUser) {
     throw err.validation("Changing phone or email needs an OTP (slice 2).");
   }
   limit(`profile:${user.id}`, RULES.profileUpdate, "profile updates");
-  const full_name = str(body.full_name) ?? user.full_name;
-  const health_notes = body.health_notes === undefined ? user.health_notes : str(body.health_notes);
+  let full_name = user.full_name;
+  if (body.full_name !== undefined) {
+    const name = typeof body.full_name === "string" ? body.full_name.trim() : "";
+    if (!name) throw err.field("full_name", "Full name is required.");
+    if (name.length > 120) throw err.field("full_name", "Full name must be at most 120 characters.");
+    full_name = name;
+  }
+  // Health notes are read by coaches before a member's session; staff have none (D1).
+  let health_notes = user.health_notes;
+  if (user.role === "member" && body.health_notes !== undefined) {
+    const notes = typeof body.health_notes === "string" ? body.health_notes.trim() : "";
+    if (notes.length > 1000) throw err.field("health_notes", "Health notes must be at most 1000 characters.");
+    health_notes = notes || null;
+  }
   await sql.query(
     `update users set full_name = $1, name_normalized = $2, health_notes = $3 where id = $4`,
     [full_name, unaccentVi(full_name), health_notes ?? null, user.id],
   );
   return { status: 200, body: { user: await loadUser(sql, user.id) } };
+}
+
+export async function meProfile(sql: Sql, request: Request, user: PublicUser) {
+  const here = await currentTokenHash(request);
+
+  const userQuery = sql.query<{
+    guardian_name: string | null;
+    guardian_phone: string | null;
+    pii_consent_at: Date | string | null;
+  }>(
+    `select guardian_name, guardian_phone, pii_consent_at from users where id = $1`,
+    [user.id],
+  );
+
+  const sessionsQuery = sql.query<{ n: number }>(
+    `select count(*)::int as n from sessions_auth
+      where user_id = $1 and revoked_at is null and expires_at > now()
+        and ($2::text is null or token_hash <> $2)`,
+    [user.id, here],
+  );
+
+  if (user.role === "coach") {
+    const coachSportsQuery = sql.query<{ sports: string[] | null }>(
+      `select array_agg(sport::text order by sport) as sports from coach_sports where user_id = $1`,
+      [user.id],
+    );
+    const coachRatesQuery = sql.query<{ per_session_vnd: number; per_student_vnd: number }>(
+      `select per_session_vnd, per_student_vnd from coach_rates where coach_id = $1`,
+      [user.id],
+    );
+
+    const [sessionsRows, sportsRows, ratesRows] = await Promise.all([
+      sessionsQuery,
+      coachSportsQuery,
+      coachRatesQuery,
+    ]);
+
+    const sportsRow = sportsRows[0];
+    const ratesRow = ratesRows[0];
+    const other_sessions = Number(sessionsRows[0]?.n ?? 0);
+
+    return {
+      status: 200,
+      body: {
+        guardian: null,
+        pii_consent_at: null,
+        coach: {
+          sports: sportsRow?.sports ?? [],
+          per_session_vnd: ratesRow?.per_session_vnd != null ? Number(ratesRow.per_session_vnd) : 150000,
+          per_student_vnd: ratesRow?.per_student_vnd != null ? Number(ratesRow.per_student_vnd) : 10000,
+        },
+        other_sessions,
+      },
+    };
+  }
+
+  const [userRows, sessionsRows] = await Promise.all([userQuery, sessionsQuery]);
+  const uRow = userRows[0];
+  const other_sessions = Number(sessionsRows[0]?.n ?? 0);
+
+  let guardian: { name: string | null; phone: string | null } | null = null;
+  let pii_consent_at: string | null = null;
+
+  if (user.role === "member" && uRow) {
+    if (uRow.guardian_name || uRow.guardian_phone) {
+      guardian = {
+        name: uRow.guardian_name ?? null,
+        phone: uRow.guardian_phone ?? null,
+      };
+    }
+    if (uRow.pii_consent_at) {
+      pii_consent_at = new Date(uRow.pii_consent_at).toISOString();
+    }
+  }
+
+  return {
+    status: 200,
+    body: {
+      guardian,
+      pii_consent_at,
+      coach: null,
+      other_sessions,
+    },
+  };
+}
+
+export async function meSignOutOthers(sql: Sql, request: Request, user: PublicUser) {
+  const here = await currentTokenHash(request);
+  if (!here) throw err.unauth();
+  limit(`signout:${user.id}`, RULES.profileUpdate, "profile updates");
+  const revoked = await sql.query<{ id: string }>(
+    `update sessions_auth set revoked_at = now()
+      where user_id = $1 and revoked_at is null and token_hash <> $2
+      returning id`,
+    [user.id, here],
+  );
+  await audit(sql, user.id, "sign_out_other_sessions", "user", user.id);
+  return { status: 200, body: { signed_out: revoked.length } };
 }
 
 /**
@@ -485,7 +620,14 @@ export async function mePassword(sql: Sql, request: Request, user: PublicUser) {
       where id = $2`,
     [hashPassword(next), user.id],
   );
-  await sql.query(`update sessions_auth set revoked_at = now() where user_id = $1 and revoked_at is null`, [user.id]);
+  // Every other device has to sign in again with the new password; this one stays signed in (D2).
+  const here = await currentTokenHash(request);
+  const revoked = await sql.query<{ id: string }>(
+    `update sessions_auth set revoked_at = now()
+      where user_id = $1 and revoked_at is null and ($2::text is null or token_hash <> $2)
+      returning id`,
+    [user.id, here],
+  );
   await audit(sql, user.id, "change_password", "user", user.id);
-  return { status: 200, body: { ok: true } };
+  return { status: 200, body: { ok: true, signed_out: revoked.length } };
 }
