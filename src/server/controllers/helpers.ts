@@ -1,10 +1,10 @@
-import type { Sql } from "@/lib/db";
-import { sha256 } from "./crypto";
+import type { Sql } from "@/server/data/db";
+import { sha256 } from "../services/crypto";
 import { err } from "./errors";
 import type { PublicUser } from "./session";
-import type { CancelTier } from "./policy";
-import { parseWeeklyRrule } from "./labels";
-import { addDays } from "./time";
+import type { CancelTier } from "../services/policy";
+import { parseWeeklyRrule } from "../../shared/arena3/labels";
+import { addDays } from "../../shared/arena3/time";
 import { one } from "./tx";
 
 export type Settings = {
@@ -411,7 +411,7 @@ export function bool(v: unknown): boolean | undefined {
   return undefined;
 }
 
-export { ageYears } from "./time";
+export { ageYears } from "../../shared/arena3/time";
 
 /**
  * Give one prepaid session back to the member's session plan for a sport (spec 4.5).

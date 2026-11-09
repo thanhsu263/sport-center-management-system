@@ -1,4 +1,4 @@
-import { addDays, ictDateString, ictDateTime, ictWeekday } from "./time";
+import { addDays, ictDateString, ictDateTime, ictWeekday } from "../../shared/arena3/time";
 
 const DAY_MAP: Record<string, number> = {
   SU: 0,

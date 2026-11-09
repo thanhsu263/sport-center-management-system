@@ -1,6 +1,6 @@
-import { linkDown, linkUp, loadFailed, loadOk } from "@/lib/connection";
-import { tServer } from "@/lib/i18n";
-import type { PublicUser, Role } from "./contracts";
+import { linkDown, linkUp, loadFailed, loadOk } from "@/client/lib/connection";
+import { tServer } from "@/client/lib/i18n";
+import type { PublicUser, Role } from "../../shared/arena3/contracts";
 
 const TOKEN_KEY = "arena3.token";
 const USER_KEY = "arena3.user";

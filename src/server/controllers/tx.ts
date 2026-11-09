@@ -1,4 +1,4 @@
-import { dbSource, getPglite, type Sql } from "@/lib/db";
+import { dbSource, getPglite, type Sql } from "@/server/data/db";
 import type { Pool, PoolClient } from "pg";
 
 type Run = <T>(text: string, params: unknown[]) => Promise<T[]>;

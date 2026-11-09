@@ -2,6 +2,8 @@ import { readFileSync } from "node:fs";
 
 export type ChatTurn = { role: "user" | "model"; text: string };
 export type AssistantSource = "gemini" | "xai" | "rules";
+// Per-call tuning. json asks for a bare JSON reply; Gemini 2.5 thinking is switched off then so it cannot eat the output budget.
+export type ReplyOptions = { maxOutputTokens?: number; json?: boolean };
 
 const GEMINI_MODEL = "gemini-2.5-flash";
 const XAI_MODEL = "grok-4.5";
@@ -35,7 +37,7 @@ function extractGeminiText(data: unknown): string | null {
   return text || null;
 }
 
-async function callGemini(system: string, turns: ChatTurn[]): Promise<string | null> {
+async function callGemini(system: string, turns: ChatTurn[], opts: ReplyOptions = {}): Promise<string | null> {
   const key = geminiApiKey();
   if (!key) return null;
   const contents = turns
@@ -52,7 +54,11 @@ async function callGemini(system: string, turns: ChatTurn[]): Promise<string | n
       body: JSON.stringify({
         systemInstruction: { parts: [{ text: system }] },
         contents,
-        generationConfig: { temperature: 0.35, maxOutputTokens: MAX_OUT },
+        generationConfig: {
+          temperature: 0.35,
+          maxOutputTokens: opts.maxOutputTokens ?? MAX_OUT,
+          ...(opts.json ? { responseMimeType: "application/json", thinkingConfig: { thinkingBudget: 0 } } : {}),
+        },
         safetySettings: [
           { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_ONLY_HIGH" },
           { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_ONLY_HIGH" },
@@ -67,7 +73,7 @@ async function callGemini(system: string, turns: ChatTurn[]): Promise<string | n
   return extractGeminiText(await res.json());
 }
 
-async function callXai(system: string, turns: ChatTurn[]): Promise<string | null> {
+async function callXai(system: string, turns: ChatTurn[], opts: ReplyOptions = {}): Promise<string | null> {
   const key = xaiApiKey();
   if (!key) return null;
   const messages = [
@@ -85,7 +91,7 @@ async function callXai(system: string, turns: ChatTurn[]): Promise<string | null
       model: XAI_MODEL,
       messages,
       temperature: 0.35,
-      max_tokens: MAX_OUT,
+      max_tokens: opts.maxOutputTokens ?? MAX_OUT,
     }),
   });
   if (!res.ok) {
@@ -100,15 +106,16 @@ async function callXai(system: string, turns: ChatTurn[]): Promise<string | null
 export async function generateAssistantReply(
   system: string,
   turns: ChatTurn[],
+  opts: ReplyOptions = {},
 ): Promise<{ text: string; source: Exclude<AssistantSource, "rules"> } | null> {
   try {
-    const gemini = await callGemini(system, turns);
+    const gemini = await callGemini(system, turns, opts);
     if (gemini) return { text: gemini, source: "gemini" };
   } catch (e) {
     console.warn("[assistant] gemini error", e instanceof Error ? e.message : "fail");
   }
   try {
-    const xai = await callXai(system, turns);
+    const xai = await callXai(system, turns, opts);
     if (xai) return { text: xai, source: "xai" };
   } catch (e) {
     console.warn("[assistant] xai error", e instanceof Error ? e.message : "fail");

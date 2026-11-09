@@ -7,7 +7,7 @@ import fontkit from "@pdf-lib/fontkit";
 import robotoBoldUrl from "./fonts/Roboto-Bold.ttf?inline";
 import robotoRegularUrl from "./fonts/Roboto-Regular.ttf?inline";
 import { PDFDocument, rgb, type PDFFont, type PDFPage } from "pdf-lib";
-import { vndInWords } from "./money-words";
+import { vndInWords } from "../services/money-words";
 
 /**
  * Invoice rendering.
