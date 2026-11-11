@@ -333,7 +333,7 @@ export async function meGet(sql: Sql, user: PublicUser) {
   // costs one round trip instead of seven.
   const [subs, inbox, today, classesToday, enrollments, offers, flags] = await Promise.all([
     sql.query(
-      `select s.id, s.plan_id, s.sport_scope, s.start_on::text, s.end_on::text, s.status,
+      `select s.id, s.plan_id, s.start_on::text, s.end_on::text, s.status,
               s.court_hours_left, s.session_left, p.name as plan_name, p.court_discount_pct,
               p.court_hours as plan_court_hours, p.session_quota as plan_session_quota
          from subscriptions s

@@ -1,5 +1,5 @@
 import { getRequest } from "@tanstack/react-start/server";
-import { gateIdentityEnabled } from "./gate-identity.server";
+import { gateIdentityEnabled } from "./gate-identity.server.ts";
 import { auth, authConfigured } from "./server";
 
 /**

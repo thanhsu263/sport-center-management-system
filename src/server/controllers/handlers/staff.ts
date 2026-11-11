@@ -170,16 +170,7 @@ export async function staffCreate(sql: Sql, request: Request, user: PublicUser) 
     await sql.query(`insert into coach_sports (user_id, sport) values ($1, $2)`, [row!.id, s]);
   }
   if (role === "coach") {
-    await sql.query(
-      `insert into site_assets (slot, kind, alt_en, alt_vi, enabled, version)
-       values ($1, 'image', $2, $3, true, 1)
-       on conflict (slot) do nothing`,
-      [
-        `coach.${row!.id}`,
-        `Photo of coach ${full_name}`,
-        `Ảnh HLV ${full_name}`,
-      ],
-    );
+    await ensureCoachAsset(sql, row!.id, full_name);
   }
   await audit(sql, user.id, "create_staff", "user", row!.id, null, { role, phone, sports });
   return { status: 201, body: { staff: await loadStaff(sql, row!.id), temp_password: tmp } };
@@ -196,64 +187,9 @@ export async function staffPatch(sql: Sql, id: string, request: Request, user: P
   }
   const before = { role: target.role, status: target.status, sports: target.sports ?? [] };
 
-  if (nextStatus) {
-    if (!["active", "locked"].includes(nextStatus)) throw err.field("status", "Use active or locked.");
-    if (nextStatus !== target.status) {
-      await sql.query(
-        `update users set status = $1::user_status, failed_logins = 0, locked_until = null where id = $2`,
-        [nextStatus, id],
-      );
-      // A locked account must stop working now, not when its token expires.
-      if (nextStatus === "locked") await revoke(sql, id);
-      await audit(sql, user.id, nextStatus === "locked" ? "lock_staff" : "unlock_staff", "user", id, before, {
-        status: nextStatus,
-      });
-    }
-  }
-
+  if (nextStatus) await updateStaffStatus(sql, id, user, target, before, nextStatus);
   if (nextRole || body.sports !== undefined) {
-    const role = nextRole ?? (target.role as ManagedRole);
-    const sports = role === "coach" ? await sportList(sql, body.sports ?? target.sports ?? []) : [];
-    if (role === "coach" && !sports.length) {
-      throw err.field("sports", "Pick at least one sport this coach can teach.");
-    }
-    if (role === "receptionist" && target.role === "coach") {
-      const classes = await one<{ n: number }>(
-        sql,
-        `select count(*)::int as n from classes
-          where (coach_id = $1 or assistant_id = $1) and status in ('draft','open')`,
-        [id],
-      );
-      if ((classes?.n ?? 0) > 0) {
-        throw err.conflictState("This coach still has classes running. Reassign them before changing the role.");
-      }
-    }
-    if (role !== target.role) {
-      await sql.query(`update users set role = $1::user_role where id = $2`, [role, id]);
-      // The permissions behind an open session were decided at sign-in.
-      await revoke(sql, id);
-    }
-    if (role === "coach") {
-      await sql.query(`delete from coach_sports where user_id = $1`, [id]);
-      for (const s of sports) {
-        await sql.query(`insert into coach_sports (user_id, sport) values ($1, $2)`, [id, s]);
-      }
-      await sql.query(
-        `insert into site_assets (slot, kind, alt_en, alt_vi, enabled, version)
-         values ($1, 'image', $2, $3, true, 1)
-         on conflict (slot) do nothing`,
-        [
-          `coach.${id}`,
-          `Photo of coach ${target.full_name}`,
-          `Ảnh HLV ${target.full_name}`,
-        ],
-      );
-    } else {
-      await sql.query(`delete from coach_sports where user_id = $1`, [id]);
-    }
-    if (role !== target.role || body.sports !== undefined) {
-      await audit(sql, user.id, "change_staff_role", "user", id, before, { role, sports });
-    }
+    await updateStaffRole(sql, id, user, target, before, nextRole, body);
   }
   return { status: 200, body: { staff: await loadStaff(sql, id) } };
 }
@@ -278,4 +214,68 @@ export async function staffRevokeSessions(sql: Sql, id: string, user: PublicUser
   const revoked = await revoke(sql, id);
   await audit(sql, user.id, "revoke_staff_sessions", "user", id, null, { sessions_revoked: revoked });
   return { status: 200, body: { revoked, staff: await loadStaff(sql, id) } };
+}
+
+async function updateStaffStatus(sql: Sql, id: string, user: PublicUser, target: StaffRow, before: { role: string; status: string; sports: string[] }, nextStatus: string) {
+  if (!["active", "locked"].includes(nextStatus)) throw err.field("status", "Use active or locked.");
+  if (nextStatus !== target.status) {
+    await sql.query(
+      `update users set status = $1::user_status, failed_logins = 0, locked_until = null where id = $2`,
+      [nextStatus, id],
+    );
+    // A locked account must stop working now, not when its token expires.
+    if (nextStatus === "locked") await revoke(sql, id);
+    await audit(sql, user.id, nextStatus === "locked" ? "lock_staff" : "unlock_staff", "user", id, before, {
+      status: nextStatus,
+    });
+  }
+}
+
+async function updateStaffRole(sql: Sql, id: string, user: PublicUser, target: StaffRow, before: { role: string; status: string; sports: string[] }, nextRole: ManagedRole | null, body: Record<string, unknown>) {
+  const role = nextRole ?? (target.role as ManagedRole);
+  const sports = role === "coach" ? await sportList(sql, body.sports ?? target.sports ?? []) : [];
+  if (role === "coach" && !sports.length) {
+    throw err.field("sports", "Pick at least one sport this coach can teach.");
+  }
+  if (role === "receptionist" && target.role === "coach") {
+    const classes = await one<{ n: number }>(
+      sql,
+      `select count(*)::int as n from classes
+        where (coach_id = $1 or assistant_id = $1) and status in ('draft','open')`,
+      [id],
+    );
+    if ((classes?.n ?? 0) > 0) {
+      throw err.conflictState("This coach still has classes running. Reassign them before changing the role.");
+    }
+  }
+  if (role !== target.role) {
+    await sql.query(`update users set role = $1::user_role where id = $2`, [role, id]);
+    // The permissions behind an open session were decided at sign-in.
+    await revoke(sql, id);
+  }
+  if (role === "coach") {
+    await sql.query(`delete from coach_sports where user_id = $1`, [id]);
+    for (const s of sports) {
+      await sql.query(`insert into coach_sports (user_id, sport) values ($1, $2)`, [id, s]);
+    }
+    await ensureCoachAsset(sql, id, target.full_name);
+  } else {
+    await sql.query(`delete from coach_sports where user_id = $1`, [id]);
+  }
+  if (role !== target.role || body.sports !== undefined) {
+    await audit(sql, user.id, "change_staff_role", "user", id, before, { role, sports });
+  }
+}
+
+async function ensureCoachAsset(sql: Sql, id: string, full_name: string) {
+  await sql.query(
+    `insert into site_assets (slot, kind, alt_en, alt_vi, enabled, version)
+     values ($1, 'image', $2, $3, true, 1)
+     on conflict (slot) do nothing`,
+    [
+      `coach.${id}`,
+      `Photo of coach ${full_name}`,
+      `Ảnh HLV ${full_name}`,
+    ],
+  );
 }
