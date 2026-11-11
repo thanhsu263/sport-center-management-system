@@ -1,4 +1,5 @@
-import type { Sql } from "@/lib/db";
+import type { Sql } from "@/server/data/db";
+import { flagOn } from "../../services/flags";
 import type { PublicUser } from "../session";
 import { one } from "../tx";
 
@@ -95,8 +96,11 @@ async function getTopicVersion(sql: Sql, topic: string, user: PublicUser | null)
 
 /**
  * Filter topics to only those the requester is permitted to see.
+ *
+ * `chatOn` is passed in rather than looked up here: one stream asks for several
+ * topics at once, and a flag read per topic would be a query per topic.
  */
-function filterAllowedTopics(topics: string[], user: PublicUser | null): string[] {
+function filterAllowedTopics(topics: string[], user: PublicUser | null, chatOn: boolean): string[] {
   return topics.filter((t) => {
     if (t === "courts" || t === "classes" || t.startsWith("class:") || t.startsWith("payment:")) {
       return true;
@@ -109,7 +113,7 @@ function filterAllowedTopics(topics: string[], user: PublicUser | null): string[
       return !!user;
     }
     if (t.startsWith("chat:")) {
-      return !!user;
+      return !!user && chatOn;
     }
     return false;
   });
@@ -125,7 +129,12 @@ export async function liveStreamHandler(request: Request, sql: Sql, user: Public
     .map((t) => t.trim())
     .filter(Boolean);
 
-  const allowedTopics = filterAllowedTopics(requestedTopics, user);
+  // A stream carries several topics, and the others (courts, classes, payments,
+  // notifications) have nothing to do with F6 — so a switched-off module drops
+  // the chat topics and leaves the rest streaming, rather than 403-ing the
+  // whole connection out from under screens that are still working.
+  const chatOn = requestedTopics.some((t) => t.startsWith("chat:")) ? await flagOn(sql, "F6") : false;
+  const allowedTopics = filterAllowedTopics(requestedTopics, user, chatOn);
 
   // Maximum lifetime for a single serverless stream (25 seconds) before clean close
   const MAX_STREAM_MS = 25_000;
@@ -164,7 +173,9 @@ export async function liveStreamHandler(request: Request, sql: Sql, user: Public
           streamEnded = true;
           try {
             controller.close();
-          } catch {}
+          } catch {
+            /* stream already closed */
+          }
           return;
         }
 
@@ -174,7 +185,9 @@ export async function liveStreamHandler(request: Request, sql: Sql, user: Public
           streamEnded = true;
           try {
             controller.close();
-          } catch {}
+          } catch {
+            /* stream already closed */
+          }
           return;
         }
 
@@ -204,7 +217,9 @@ export async function liveStreamHandler(request: Request, sql: Sql, user: Public
         streamEnded = true;
         try {
           controller.close();
-        } catch {}
+        } catch {
+          /* stream already closed */
+        }
       });
 
       // Start polling loop

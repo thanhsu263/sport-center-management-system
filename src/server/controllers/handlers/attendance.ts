@@ -9,14 +9,14 @@
  * is not counted at all, and an excused absence is left out of the denominator
  * rather than counted against the student.
  */
-import type { Sql } from "@/lib/db";
+import type { Sql } from "@/server/data/db";
 import { err } from "../errors";
-import { requireFlag } from "../flags";
+import { requireFlag } from "../../services/flags";
 import { audit, getSettings, readJson, str } from "../helpers";
-import { classCode } from "../labels";
-import { absentStreak, ABSENT_STREAK_LIMIT } from "../rules";
+import { classCode } from "../../../shared/arena3/labels";
+import { absentStreak, ABSENT_STREAK_LIMIT } from "../../services/rules";
 import { avatarUrlSql, requireRole, type PublicUser } from "../session";
-import { addDays, ictDateString, ictDateTime } from "../time";
+import { addDays, ictDateString, ictDateTime } from "../../../shared/arena3/time";
 import { one } from "../tx";
 import { reportDay } from "./desk";
 
@@ -24,8 +24,6 @@ import { getActiveSportCodes } from "./sports";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MAX_DAYS = 93;
-const EXPIRING_DAYS = 7;
-const LOW_RATE_PCT = 50;
 
 export const CONTACT_REASONS = ["streak", "idle", "expiring", "other"] as const;
 export const CONTACT_CHANNELS = ["phone", "zalo", "sms", "in_person"] as const;
@@ -184,7 +182,7 @@ export async function reportsAttendance(sql: Sql, request: Request, user: Public
  * At-risk list                                                        *
  * ------------------------------------------------------------------ */
 
-type RiskReason = { kind: "streak" | "idle" | "expiring"; message: string };
+type RiskReason = { kind: "streak" | "idle"; message: string };
 
 export type AtRiskItem = {
   user_id: string;
@@ -192,7 +190,6 @@ export type AtRiskItem = {
   member_code: string | null;
   phone: string | null;
   avatar_url: string | null;
-  plan_end_on: string | null;
   reasons: RiskReason[];
   attendance_pct: number | null;
   last_seen_at: string | null;
@@ -201,11 +198,10 @@ export type AtRiskItem = {
 };
 
 /**
- * Members worth a call before they leave (FR-TRN-09). Three signals, each given as
+ * Members worth a call before they leave (FR-TRN-09). Two signals, each given as
  * a reason the caller can read out:
  *  (a) absent three sessions running with no excuse (BR-36),
- *  (b) a live plan but no visit and no class for `at_risk_idle_days`,
- *  (c) a plan ending within a week while attending under half their sessions.
+ *  (b) a confirmed place in an open class but no visit and no class for `at_risk_idle_days`.
  * A row is "contacted" once someone logged a call for that reason in the last two
  * weeks; it stays in the list so the history is reviewable.
  */
@@ -215,32 +211,31 @@ export async function atRiskBody(sql: Sql, scopeCoachId: string | null): Promise
   const today = ictDateString();
   const idleSince = ictDateTime(addDays(today, -idleDays), "00:00").toISOString();
 
-  // Members with a live plan, and the sessions they have been marked on.
+  // Members with a confirmed place in an open class, and the sessions they have been marked on.
   const members = await sql.query<{
     user_id: string;
     full_name: string;
     member_code: string | null;
     phone: string | null;
     avatar_version: number | null;
-    end_on: string;
-    start_on: string;
+    class_since: string;
     last_seen: string | null;
   }>(
     `select u.id as user_id, u.full_name, u.member_code, u.phone,
             (select version from user_avatars a where a.user_id = u.id) as avatar_version,
-            max(s.end_on)::text as end_on, min(s.start_on)::text as start_on,
+            min(cl.start_on)::text as class_since,
             (select max(a.at) from attendance a
                where a.user_id = u.id and (a.kind = 'gate' or a.result in ('present','late'))) as last_seen
-       from users u join subscriptions s on s.user_id = u.id and s.status = 'active' and s.end_on >= $1::date
+       from users u
+       join enrollments e on e.user_id = u.id and e.status = 'confirmed'
+       join classes cl on cl.id = e.class_id and cl.status = 'open'
       where u.role = 'member' and u.status = 'active'
-        and ($2::uuid is null or exists (
-              select 1 from enrollments e join classes cl on cl.id = e.class_id
-               where e.user_id = u.id and e.status = 'confirmed' and (cl.coach_id = $2 or cl.assistant_id = $2)))
+        and ($1::uuid is null or cl.coach_id = $1 or cl.assistant_id = $1)
       group by u.id, u.full_name, u.member_code, u.phone`,
-    [today, scopeCoachId],
+    [scopeCoachId],
   );
 
-  // Absent streaks (a) include people whose plan has lapsed — they are still on the roll.
+  // Absent streaks (a) include people who have since left the open classes — they are still on the roll.
   const streakRows = await sql.query<{ user_id: string; class_id: string; result: string }>(
     `select a.user_id, s.class_id, a.result::text as result
        from attendance a join sessions s on s.id = a.session_id
@@ -264,7 +259,7 @@ export async function atRiskBody(sql: Sql, scopeCoachId: string | null): Promise
     if (n >= ABSENT_STREAK_LIMIT) streakByUser.set(e.user_id, Math.max(streakByUser.get(e.user_id) ?? 0, n));
   }
 
-  // Attendance share since each member's plan began, for (c).
+  // Attendance share over the last 60 days, shown beside each row.
   const rateRows = await sql.query<{ user_id: string } & Counts>(
     `select a.user_id,
             count(*) filter (where a.result = 'present')::int as present,
@@ -279,13 +274,13 @@ export async function atRiskBody(sql: Sql, scopeCoachId: string | null): Promise
   const rateByUser = new Map(rateRows.map((r) => [r.user_id, r]));
 
   const byId = new Map(members.map((m) => [m.user_id, m]));
-  // A student on a streak who has no live plan still needs the row.
+  // A student on a streak who has no open class any more still needs the row.
   const missing = [...streakByUser.keys()].filter((id) => !byId.has(id));
   if (missing.length) {
     const extra = await sql.query<(typeof members)[number]>(
       `select u.id as user_id, u.full_name, u.member_code, u.phone,
               (select version from user_avatars a where a.user_id = u.id) as avatar_version,
-              null::text as end_on, null::text as start_on,
+              null::text as class_since,
               (select max(a.at) from attendance a
                  where a.user_id = u.id and (a.kind = 'gate' or a.result in ('present','late'))) as last_seen
          from users u where u.id = any($1::uuid[]) and u.role = 'member' and u.status = 'active'`,
@@ -305,15 +300,11 @@ export async function atRiskBody(sql: Sql, scopeCoachId: string | null): Promise
     const reasons: RiskReason[] = [];
     const streak = streakByUser.get(m.user_id);
     if (streak) reasons.push({ kind: "streak", message: `Absent ${streak} sessions in a row without an excuse.` });
-    const live = m.end_on !== null;
-    if (live && m.start_on! <= addDays(today, -idleDays) && (!m.last_seen || new Date(m.last_seen).getTime() < new Date(idleSince).getTime())) {
+    if (m.class_since && m.class_since <= addDays(today, -idleDays) && (!m.last_seen || new Date(m.last_seen).getTime() < new Date(idleSince).getTime())) {
       reasons.push({ kind: "idle", message: `No visit or class in ${idleDays}+ days.` });
     }
     const c = rateByUser.get(m.user_id);
     const rate = c ? rateOf(c) : null;
-    if (live && m.end_on! <= addDays(today, EXPIRING_DAYS) && rate !== null && rate < LOW_RATE_PCT) {
-      reasons.push({ kind: "expiring", message: `Plan ends ${m.end_on} and attendance is ${rate}%.` });
-    }
     if (reasons.length === 0) continue;
     const mine = contacts.filter((x) => x.user_id === m.user_id && reasons.some((r) => r.kind === x.reason || x.reason === "other"));
     const last = mine[0] ?? null;
@@ -323,7 +314,6 @@ export async function atRiskBody(sql: Sql, scopeCoachId: string | null): Promise
       member_code: m.member_code,
       phone: m.phone,
       avatar_url: m.avatar_version != null ? `/v1/users/${m.user_id}/avatar?v=${m.avatar_version}` : null,
-      plan_end_on: m.end_on,
       reasons,
       attendance_pct: rate,
       last_seen_at: m.last_seen,
@@ -331,12 +321,11 @@ export async function atRiskBody(sql: Sql, scopeCoachId: string | null): Promise
       last_contact: last ? { at: last.created_at, outcome: last.outcome, note: last.note, by: last.by } : null,
     });
   }
-  // Not yet contacted first, then the longest absence streak / soonest expiry.
+  // Not yet contacted first, then the most reasons, then name.
   items.sort(
     (a, b) =>
       Number(a.contacted) - Number(b.contacted) ||
       b.reasons.length - a.reasons.length ||
-      (a.plan_end_on ?? "9999").localeCompare(b.plan_end_on ?? "9999") ||
       a.full_name.localeCompare(b.full_name),
   );
   return { items, idle_days: idleDays };

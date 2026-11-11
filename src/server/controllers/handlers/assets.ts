@@ -1,10 +1,10 @@
-import type { Sql } from "@/lib/db";
+import type { Sql } from "@/server/data/db";
 import { err, json } from "../errors";
 import { audit } from "../helpers";
 import { limit, RULES } from "../ratelimit";
 import { requireRole, type PublicUser } from "../session";
-import { findSlotDef } from "../media";
-import { MEDIA_FILES } from "../media-files";
+import { findSlotDef } from "../../../shared/arena3/media";
+import { MEDIA_FILES } from "../../data/media-files";
 
 // Dynamically construct media prefix so it never appears as a literal in grep
 const MEDIA_PREFIX = "/" + "media" + "/";
@@ -193,6 +193,15 @@ export async function managerAssetsList(sql: Sql, user: PublicUser | null) {
       where u.role = 'coach'
      on conflict (slot) do nothing`,
   );
+  // Same for sports: one added before sports.ts registered its photo slot would have no picture
+  // and nowhere to upload one.
+  await sql.query(
+    `insert into site_assets (slot, kind, alt_en, alt_vi, enabled, version)
+     select 'sport.' || s.code, 'image', s.name_en || ' court photo', 'Ảnh sân ' || s.name_vi, true, 1
+       from sports s
+      where s.retired_at is null
+     on conflict (slot) do nothing`,
+  );
 
   const rows = await sql.query<{
     slot: string;
@@ -211,16 +220,20 @@ export async function managerAssetsList(sql: Sql, user: PublicUser | null) {
     updated_by_name: string | null;
     history_count: number;
     coach_name: string | null;
+    sport_en: string | null;
+    sport_vi: string | null;
   }>(
     `select a.slot, a.kind, a.src_path, a.default_path, a.mime,
             a.bytes is not null as has_bytes,
             a.width, a.height, a.alt_en, a.alt_vi, a.enabled, a.version,
             a.updated_at, u.full_name as updated_by_name,
             coalesce(h.cnt, 0) as history_count,
-            c.full_name as coach_name
+            c.full_name as coach_name,
+            s.name_en as sport_en, s.name_vi as sport_vi
        from site_assets a
   left join users u on u.id = a.updated_by
   left join users c on a.slot = 'coach.' || c.id::text
+  left join sports s on a.slot = 'sport.' || s.code
   left join (
          select slot, count(*) as cnt from site_asset_history group by slot
        ) h on h.slot = a.slot
@@ -245,10 +258,14 @@ export async function managerAssetsList(sql: Sql, user: PublicUser | null) {
       updated_at: r.updated_at,
       updated_by: r.updated_by_name ?? null,
       history_count: Number(r.history_count || 0),
-      label_en: r.coach_name ? `Coach avatar · ${r.coach_name}` : (def?.labelEn ?? r.slot),
-      label_vi: r.coach_name ? `Ảnh đại diện HLV · ${r.coach_name}` : (def?.labelVi ?? r.slot),
-      location_en: def?.locationEn ?? "",
-      location_vi: def?.locationVi ?? "",
+      label_en: r.coach_name
+        ? `Coach avatar · ${r.coach_name}`
+        : r.sport_en ? `${r.sport_en} sport photo` : (def?.labelEn ?? r.slot),
+      label_vi: r.coach_name
+        ? `Ảnh đại diện HLV · ${r.coach_name}`
+        : r.sport_vi ? `Ảnh môn ${r.sport_vi}` : (def?.labelVi ?? r.slot),
+      location_en: r.sport_en ? `Courts & booking: ${r.sport_en}` : (def?.locationEn ?? ""),
+      location_vi: r.sport_vi ? `Sân & đặt sân: ${r.sport_vi}` : (def?.locationVi ?? ""),
       aspect: def?.aspect ?? "16:9",
       group: def?.group ?? "landing",
     };
