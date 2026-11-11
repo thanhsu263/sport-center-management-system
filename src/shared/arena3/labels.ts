@@ -116,8 +116,18 @@ export function monthsLabel(n: number) {
   return n === 1 ? t("1 month") : t("{n} months", { n });
 }
 
+/** Names from the `sports` table, keyed by code. Filled by the client catalog (useSports) or the server. */
+const SPORT_NAMES = new Map<string, string>();
+
+export function registerSportNames(items: { code: string; name?: string | null }[]) {
+  for (const it of items) if (it.code && it.name) SPORT_NAMES.set(it.code.toLowerCase(), it.name);
+}
+
 export function sportLabel(s: string) {
-  return SPORT_LABEL[s] ?? s;
+  if (!s) return s;
+  const fromDb = SPORT_NAMES.get(s.toLowerCase());
+  if (fromDb) return fromDb;
+  return SPORT_LABEL[s] ?? s.charAt(0).toUpperCase() + s.slice(1);
 }
 
 const CODE_SPORT: Record<string, string> = { badminton: "BAD", basketball: "BAS", volleyball: "VOL" };
