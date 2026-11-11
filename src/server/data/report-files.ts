@@ -36,6 +36,7 @@ export type ReportDoc = {
 };
 
 const XML_HEAD = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n`;
+const COLUMN_WIDTH_SAMPLE_SIZE = 200;
 
 function esc(s: string): string {
   // Control characters are not allowed in XML 1.0, tabs and line breaks aside.
@@ -43,15 +44,15 @@ function esc(s: string): string {
   return s.replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
-function colName(i: number): string {
-  let n = i + 1;
-  let out = "";
-  while (n > 0) {
-    const r = (n - 1) % 26;
-    out = String.fromCharCode(65 + r) + out;
-    n = Math.floor((n - 1) / 26);
+function colName(index: number): string {
+  let columnNumber = index + 1;
+  let name = "";
+  while (columnNumber > 0) {
+    const letterIndex = (columnNumber - 1) % 26;
+    name = String.fromCharCode(65 + letterIndex) + name;
+    columnNumber = Math.floor((columnNumber - 1) / 26);
   }
-  return out;
+  return name;
 }
 
 /** Sheet names: 31 characters, no `[]:*?/\`, unique. */
@@ -91,9 +92,10 @@ function sheetXml(doc: ReportDoc, s: ReportSection): string {
   push(s.columns.map((c, i) => textCell(`${colName(i)}${r}`, c, 3)));
   for (const row of s.rows) push(row.map((v, i) => anyCell(`${colName(i)}${r}`, v)));
   if (s.total) push(s.total.map((v, i) => anyCell(`${colName(i)}${r}`, v, 1)));
+  const sampledRows = s.rows.slice(0, COLUMN_WIDTH_SAMPLE_SIZE);
   const widths = s.columns
     .map((c, i) => {
-      const longest = Math.max(c.length, ...s.rows.slice(0, 200).map((row) => String(row[i] ?? "").length));
+      const longest = Math.max(c.length, ...sampledRows.map((row) => String(row[i] ?? "").length));
       return `<col min="${i + 1}" max="${i + 1}" width="${Math.min(48, Math.max(10, longest + 2))}" customWidth="1"/>`;
     })
     .join("");

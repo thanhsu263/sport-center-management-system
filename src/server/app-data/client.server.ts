@@ -13,7 +13,7 @@ import {
   type CallToolOptions,
   type CallToolResult,
   type ToolArgs,
-} from "./types.ts";
+} from "../../shared/app-data/types.ts";
 
 assertAppDataServerOnly("app-data/client.server");
 
@@ -419,11 +419,11 @@ export {
   GoogleCalendarTools,
   GoogleDriveTools,
   CONNECTOR_TOKEN_HEADER,
-} from "./types.ts";
+} from "../../shared/app-data/types.ts";
 export type {
   CallToolResult,
   CallToolOptions,
   ToolArgs,
   ConnectorTypeName,
-} from "./types.ts";
-export { isLoginRequired, redirectToLoginIfRequired } from "./login.ts";
+} from "../../shared/app-data/types.ts";
+export { isLoginRequired, redirectToLoginIfRequired } from "../../shared/app-data/login.ts";

@@ -78,6 +78,12 @@ async function dispatch(request: Request): Promise<Response | Result> {
 
   // Two-way Chat
   if (p0 === "conversations") {
+    if (method === "GET" && p1 === "contacts" && !p2) {
+      return withTx(async (sql) => {
+        const user = await authFromRequest(sql, request);
+        return { status: 200, body: await chatH.searchContacts(sql, user, url) };
+      });
+    }
     if (method === "GET" && !p1) {
       return withTx(async (sql) => {
         const user = await authFromRequest(sql, request);
@@ -136,9 +142,6 @@ async function dispatch(request: Request): Promise<Response | Result> {
   }
   if (method === "GET" && p0 === "auth" && p1 === "google" && !p2) {
     return googleH.googleConfig();
-  }
-  if (method === "POST" && p0 === "auth" && p1 === "google" && p2 === "register") {
-    return withTx((sql) => googleH.googleRegister(sql, request));
   }
   if (method === "POST" && p0 === "auth" && p1 === "google" && !p2) {
     return withTx((sql) => googleH.googleLogin(sql, request));
@@ -260,6 +263,15 @@ async function dispatch(request: Request): Promise<Response | Result> {
   }
   if (method === "PATCH" && p0 === "me" && !p1) {
     return authed((sql, user) => authH.mePatch(sql, request, user));
+  }
+  if (method === "GET" && p0 === "me" && p1 === "google" && !p2) {
+    return authedRead((sql, user) => googleH.googleLinkGet(sql, user));
+  }
+  if (method === "POST" && p0 === "me" && p1 === "google" && !p2) {
+    return authed((sql, user) => googleH.googleLink(sql, request, user));
+  }
+  if (method === "DELETE" && p0 === "me" && p1 === "google" && !p2) {
+    return authed((sql, user) => googleH.googleUnlink(sql, user));
   }
   if (method === "PUT" && p0 === "me" && p1 === "avatar" && !p2) {
     return authed((sql, user) => avatarH.meAvatarPut(sql, request, user));

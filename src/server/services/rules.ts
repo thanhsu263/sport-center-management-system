@@ -271,6 +271,7 @@ export function absentStreak(results: readonly string[]): number {
 
 export const TRAINING_GOALS = ["weight", "technique", "compete", "fun"] as const;
 export const LEVELS = ["beginner", "intermediate", "advanced"] as const;
+export const INTENSITIES = ["light", "medium", "hard"] as const;
 export const PLAN_PHASES = ["warm-up", "technique", "fitness", "match", "cool-down"] as const;
 
 /** The numbers a coach can log for a student in one session (FR-TRN-05). */
