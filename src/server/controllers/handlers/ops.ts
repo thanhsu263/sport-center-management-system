@@ -2,13 +2,13 @@ import type { Sql } from "@/server/data/db";
 import { assertMembershipOutlastsClass, hasRunningClass } from "../../services/membership";
 import { err } from "../errors";
 import { flagsMap, requireFlag, type FlagKey } from "../../services/flags";
-import { assertNoClassClash, audit, enqueue, enqueueReceipt, getSettings, issueInvoice, nextCode, pageOf, readJson, str } from "../helpers";
+import { assertNoClassClash, assertUnderClassLimit, audit, enqueue, enqueueReceipt, getSettings, issueInvoice, nextCode, pageOf, readJson, str } from "../helpers";
 import { limit, RULES } from "../ratelimit";
 import { avatarUrlSql, requireRole, withAvatarUrl, type PublicUser } from "../session";
 import { isValidVnPhone, normalizePhone } from "../../services/phone";
 import { generateAssistantReply, type ChatTurn } from "../../integrations/gemini";
 import { COACHES } from "../../../shared/arena3/coaches";
-import { ATTENDANCE_LOCK_HOURS, attendanceLocked, isAttResult, isTicketMessage, ticketBody } from "../../services/rules";
+import { ATTENDANCE_LOCK_HOURS, PLAN_PHASES, INTENSITIES, attendanceLocked, isAttResult, isTicketMessage, ticketBody } from "../../services/rules";
 import { checkAbsentStreaks, sessionScope } from "./training";
 import { openShift, pickMethod } from "./extras";
 import { addDays, ictDateString } from "../../../shared/arena3/time";
@@ -105,7 +105,7 @@ export async function subscriptionFreeze(sql: Sql, id: string, request: Request,
     [id, days, end],
   );
   await audit(sql, user.id, "freeze_sub", "subscription", id, sub, { days, end });
-  return { status: 200, body: await one(sql, `select id, user_id, plan_id, sport_scope, start_on::text, end_on::text, status, frozen_days, court_hours_left, session_left from subscriptions where id = $1`, [id]) };
+  return { status: 200, body: await one(sql, `select id, user_id, plan_id, start_on::text, end_on::text, status, frozen_days, court_hours_left, session_left from subscriptions where id = $1`, [id]) };
 }
 
 export async function subscriptionUnfreeze(sql: Sql, id: string, user: PublicUser) {
@@ -148,7 +148,7 @@ export async function subscriptionUnfreeze(sql: Sql, id: string, user: PublicUse
     [id, newEndOn, frozenDays],
   );
   await audit(sql, user.id, "unfreeze_sub", "subscription", id, sub, { end_on: newEndOn, frozen_days: frozenDays });
-  return { status: 200, body: await one(sql, `select id, user_id, plan_id, sport_scope, start_on::text, end_on::text, status, frozen_days, court_hours_left, session_left from subscriptions where id = $1`, [id]) };
+  return { status: 200, body: await one(sql, `select id, user_id, plan_id, start_on::text, end_on::text, status, frozen_days, court_hours_left, session_left from subscriptions where id = $1`, [id]) };
 }
 
 export async function waitlistAccept(sql: Sql, offerId: string, user: PublicUser) {
@@ -185,6 +185,7 @@ export async function waitlistAccept(sql: Sql, offerId: string, user: PublicUser
   const settings = await getSettings(sql);
   // The seat is held, not confirmed: payment confirms it, and the price is locked now.
   // A free class has nothing to pay, so the seat is confirmed at once (as classesEnroll does).
+  await assertUnderClassLimit(sql, user.id, enr.class_id, settings.max_active_classes);
   await assertMembershipOutlastsClass(sql, user.id, cl.end_on);
   const total = cl.price_vnd;
   const free = total === 0;
@@ -566,31 +567,44 @@ export async function trainingSuggest(sql: Sql, request: Request, user: PublicUs
   const list = defaultDrills[level] ?? defaultDrills.beginner;
   // The coach's own instructions, if any. Capped and stripped of control characters before it reaches the model.
   const prompt = (str(b.prompt) ?? "").replace(/[\u0000-\u001f\u007f]+/g, " ").trim().slice(0, 500);
-  let blocks: Array<{ order: number; title: string; minutes: number }> = list.map((title, i) => ({ order: i + 1, title, minutes: 10 + i }));
+  const text = (value: unknown, max: number) => (str(value) ?? "").replace(/[\u0000-\u001f\u007f]+/g, " ").trim().slice(0, max);
+  const vietnamese = /[\u00c0-\u1ef9]/i.test(`${prompt} ${goal}`);
+  const cleanBlocks = (items: Record<string, unknown>[]) => items.map((x, i) => {
+    const title = text(x.title, 60);
+    const duration = Number(x.minutes);
+    const minutes = Number.isFinite(duration) ? Math.min(45, Math.max(3, Math.round(duration) || 10)) : 10;
+    const inferredPhase = i === 0 ? "warm-up" : i === items.length - 1 ? "cool-down" : "technique";
+    const phase = PLAN_PHASES.find((phase) => phase === text(x.phase, 40))
+      ?? PLAN_PHASES.find((phase) => phase === inferredPhase) ?? PLAN_PHASES[0];
+    const intensity = INTENSITIES.find((intensity) => intensity === text(x.intensity, 40)) ?? "medium";
+    return {
+      order: i + 1, title, minutes, phase, intensity,
+      description: text(x.description, 600) || (vietnamese ? `Thực hiện ${title} trong ${minutes} phút, giữ đúng kỹ thuật và nghỉ ngắn giữa các lượt.` : `Perform ${title} for ${minutes} minutes, keeping good form with short rests between rounds.`),
+      equipment: text(x.equipment, 200) || (vietnamese ? "Dụng cụ phù hợp môn tập và đồng hồ bấm giờ." : "Sport-appropriate equipment and a timer."),
+      target: text(x.target, 200) || (vietnamese ? `Hoàn thành ${minutes} phút tập đúng kỹ thuật.` : `Complete ${minutes} minutes with correct technique.`),
+    };
+  });
+  let blocks = cleanBlocks(list.map((title, i) => ({ title, minutes: 10 + i })));
   let usedAi = false;
   const system = [
     "You plan one training session for a sports coach.",
     `Sport: ${sport}. Level: ${level}. Focus: ${goal}.`,
     "Reply with ONLY a JSON array of 3 to 8 blocks, no prose, no code fence.",
-    'Each block: {"title": short drill name (max 60 chars), "minutes": whole number 3-45}.',
+    `Each block must contain title (short drill name, max 60 chars), minutes (whole number 3-45), phase (exactly one of ${PLAN_PHASES.join("| ")}), intensity (exactly one of ${INTENSITIES.join("| ")}), description (short instructions for running the drill, max 600 chars), equipment (max 200 chars), target (measurable goal, max 200 chars).`,
+    "Use warm-up for the first block and cool-down for the last block when available in phase values.",
     "Total time 45-120 minutes. Keep drills safe for the level. Answer in the language the coach writes in.",
   ].join("\n");
   const ask = prompt ? `Coach instructions: ${prompt}` : `Plan a ${level} ${sport} session on ${goal}.`;
-  const reply = await generateAssistantReply(system, [{ role: "user", text: ask }], { maxOutputTokens: 1024, json: true });
+  const reply = await generateAssistantReply(system, [{ role: "user", text: ask }], { maxOutputTokens: 4096, json: true });
   if (reply) {
     try {
       const raw = reply.text.replace(/^```(?:json)?\s*|\s*```$/g, "");
       const parsed = JSON.parse(raw.slice(raw.indexOf("["), raw.lastIndexOf("]") + 1)) as unknown;
       if (Array.isArray(parsed)) {
-        const clean = parsed
-          .map((x) => (x && typeof x === "object" ? (x as { title?: unknown; minutes?: unknown }) : {}))
-          .filter((x) => typeof x.title === "string" && x.title.trim())
-          .slice(0, 8)
-          .map((x, i) => ({
-            order: i + 1,
-            title: String(x.title).trim().slice(0, 60),
-            minutes: Math.min(45, Math.max(3, Math.round(Number(x.minutes) || 10))),
-          }));
+        const clean = cleanBlocks(parsed
+          .filter((x): x is Record<string, unknown> => !!x && typeof x === "object" && !Array.isArray(x))
+          .filter((x) => text(x.title, 60))
+          .slice(0, 8));
         if (clean.length >= 2) {
           blocks = clean;
           usedAi = true;
@@ -722,10 +736,10 @@ export async function assistantChat(sql: Sql, request: Request, user: PublicUser
     [user.id],
   );
   const subs = await sql.query<{
-    plan: string; sport_scope: string; start_on: string; end_on: string; status: string;
+    plan: string; start_on: string; end_on: string; status: string;
     court_hours_left: string; session_left: number | null; days_left: number;
   }>(
-    `select p.name as plan, s.sport_scope::text, s.start_on::text, s.end_on::text, s.status::text,
+    `select p.name as plan, s.start_on::text, s.end_on::text, s.status::text,
             s.court_hours_left::text, s.session_left,
             (s.end_on - (now() at time zone 'Asia/Ho_Chi_Minh')::date)::int as days_left
        from subscriptions s join membership_plans p on p.id = s.plan_id
