@@ -136,8 +136,8 @@ export async function applyExtension(sql: Sql, enrollmentId: string): Promise<vo
     from = e.start_on > today ? e.start_on : today;
     const created = await one<{ id: string }>(
       sql,
-      `insert into subscriptions (user_id, plan_id, sport_scope, start_on, end_on, status, price_vnd)
-       values ($1, $2, 'all', $3, $4, 'active', 0) returning id`,
+      `insert into subscriptions (user_id, plan_id, start_on, end_on, status, price_vnd)
+       values ($1, $2, $3, $4, 'active', 0) returning id`,
       [e.user_id, SHORTEST_PLAN_ID, from, e.extension_to],
     );
     subId = created!.id;

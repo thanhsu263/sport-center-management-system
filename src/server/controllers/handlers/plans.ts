@@ -46,8 +46,8 @@ export async function plansCreate(sql: Sql, request: Request, user: PublicUser) 
   const duration_months = parseInteger("duration_months", "Duration", b.duration_months, 1, 60);
   const row = await one(
     sql,
-    `insert into membership_plans (name, sport_scope, duration_months, duration_days, price_vnd, is_on_sale)
-     values ($1, 'all', $2, $3, $4, coalesce($5, true))
+    `insert into membership_plans (name, duration_months, duration_days, price_vnd, is_on_sale)
+     values ($1, $2, $3, $4, coalesce($5, true))
      returning *`,
     [name, duration_months, duration_months * 30, price_vnd, bool(b.is_on_sale)],
   );
@@ -145,7 +145,6 @@ export async function subscriptionsCreate(sql: Sql, request: Request, user: Publ
   }
   const plan = await one<{
     id: string;
-    sport_scope: string;
     duration_months: number | null;
     duration_days: number | null;
     price_vnd: number;
@@ -177,7 +176,7 @@ export async function subscriptionsCreate(sql: Sql, request: Request, user: Publ
         code: promoCode,
         userId,
         scope: "plan",
-        sport: plan.sport_scope,
+        sport: "all",
         planId: plan.id,
         orderVnd: plan.price_vnd,
       })
@@ -197,8 +196,8 @@ export async function subscriptionsCreate(sql: Sql, request: Request, user: Publ
   const row = await one(
     sql,
     `insert into subscriptions
-       (user_id, plan_id, sport_scope, start_on, end_on, status, court_hours_left, session_left, promo_id, promo_discount_vnd, price_vnd)
-     values ($1,$2,'all',$3,$4,'pending',0,null,$5,$6,$7)
+       (user_id, plan_id, start_on, end_on, status, court_hours_left, session_left, promo_id, promo_discount_vnd, price_vnd)
+     values ($1,$2,$3,$4,'pending',0,null,$5,$6,$7)
      returning *`,
     [userId, plan.id, start, end, promo?.promo_id ?? null, promo?.discount_vnd ?? 0, plan.price_vnd],
   );

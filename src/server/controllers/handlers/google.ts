@@ -2,8 +2,8 @@ import { createRemoteJWKSet, jwtVerify } from "jose";
 import type { Sql } from "@/server/data/db";
 import { err } from "../errors";
 import { audit, readJson, str } from "../helpers";
-import { findUserByLogin, issueSession, toPublic } from "../session";
-import { checkSignup, createMember } from "./auth";
+import { PUBLIC_COLS, issueSession, toPublic, type PublicUser } from "../session";
+import { one, q } from "../tx";
 
 /**
  * "Continue with Google".
@@ -12,12 +12,11 @@ import { checkSignup, createMember } from "./auth";
  * here; we check its signature against Google's published keys, its audience
  * against our own client id, and that Google has verified the email.
  *
- * An email that matches an account signs in. One that does not gets back
- * `{ signup }` with the name and email Google gave us: an Arena3 account also
- * needs a phone number, a birthday and the privacy consent, none of which Google
- * gives us, so the sign-up form asks for just those and posts them with the same
- * token to `/auth/google/register`. There is no OTP on that path, because Google
- * has already proved the email.
+ * Google never creates an account and never signs anyone in on its own. A
+ * signed-in person links their Google account from Account settings
+ * (`googleLink`), which stores Google's subject id on their user row; after
+ * that, and only then, `googleLogin` accepts a token whose subject matches.
+ * An email that merely matches an account's email is not enough.
  *
  * Only the client id is needed (no secret): the ID token flow never trades a
  * code for tokens, so there is nothing for a secret to protect.
@@ -34,7 +33,7 @@ export function googleConfig() {
 }
 
 /** The verified email and name in a Google ID token, or a 401. */
-async function verifyGoogle(credential: string | null | undefined): Promise<{ email: string; full_name: string }> {
+async function verifyGoogle(credential: string | null | undefined): Promise<{ sub: string; email: string }> {
   const clientId = googleClientId();
   if (!clientId) throw err.notFound("Google sign-in is not set up.");
   if (!credential) throw err.validation("The Google sign-in did not return a token.");
@@ -43,13 +42,10 @@ async function verifyGoogle(credential: string | null | undefined): Promise<{ em
       issuer: ["https://accounts.google.com", "accounts.google.com"],
       audience: clientId,
     });
-    if (payload.email_verified !== true || typeof payload.email !== "string") {
+    if (payload.email_verified !== true || typeof payload.email !== "string" || !payload.sub) {
       throw new Error("unverified email");
     }
-    return {
-      email: payload.email.trim().toLowerCase(),
-      full_name: typeof payload.name === "string" ? payload.name.trim() : "",
-    };
+    return { sub: payload.sub, email: payload.email.trim().toLowerCase() };
   } catch {
     throw err.unauth("Google could not confirm who you are. Please try again.");
   }
@@ -58,17 +54,40 @@ async function verifyGoogle(credential: string | null | undefined): Promise<{ em
 export async function googleLogin(sql: Sql, request: Request) {
   const body = await readJson(request);
   const google = await verifyGoogle(str(body.credential));
-  const user = await findUserByLogin(sql, google.email);
-  if (!user) return { status: 200, body: { signup: google } };
+  const user = await one<Record<string, unknown>>(sql, `select ${PUBLIC_COLS} from users where google_sub = $1`, [
+    google.sub,
+  ]);
+  if (!user) {
+    throw err.unauth(
+      "This Google account is not linked to an Arena3 account. Sign in with your password, then link Google in Account settings.",
+    );
+  }
   if (user.status !== "active") throw err.unauth("This account is not active.");
-  await audit(sql, user.id, "login_google", "user", user.id);
+  await audit(sql, String(user.id), "login_google", "user", String(user.id));
   return { status: 200, body: await issueSession(sql, toPublic(user)) };
 }
 
-export async function googleRegister(sql: Sql, request: Request) {
+/** Which Google account, if any, the signed-in person has linked. */
+export async function googleLinkGet(sql: Sql, user: PublicUser) {
+  const row = await one<{ google_email: string | null }>(sql, "select google_email from users where id = $1", [user.id]);
+  return { status: 200, body: { client_id: googleClientId(), google_email: row?.google_email ?? null } };
+}
+
+export async function googleLink(sql: Sql, request: Request, user: PublicUser) {
   const body = await readJson(request);
   const google = await verifyGoogle(str(body.credential));
-  // The email is Google's, never the form's: that is what makes skipping the OTP safe.
-  const fields = await checkSignup(sql, body, { email: google.email, password: false });
-  return createMember(sql, fields, "register_google");
+  const taken = await one<{ id: string }>(sql, "select id from users where google_sub = $1 and id <> $2", [
+    google.sub,
+    user.id,
+  ]);
+  if (taken) throw err.conflict("That Google account is already linked to another Arena3 account.");
+  await q(sql, "update users set google_sub = $1, google_email = $2 where id = $3", [google.sub, google.email, user.id]);
+  await audit(sql, user.id, "google_link", "user", user.id);
+  return { status: 200, body: { google_email: google.email } };
+}
+
+export async function googleUnlink(sql: Sql, user: PublicUser) {
+  await q(sql, "update users set google_sub = null, google_email = null where id = $1", [user.id]);
+  await audit(sql, user.id, "google_unlink", "user", user.id);
+  return { status: 200, body: { google_email: null } };
 }
