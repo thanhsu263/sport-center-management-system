@@ -1,51 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 
-export type CatalogPlan = {
-  id: string;
-  name: string;
-  sport_scope: string;
-  duration_days: number | null;
-  session_quota: number | null;
-  court_hours: number;
-  court_discount_pct: number;
-  price_vnd: number;
-};
-
-export type CatalogClass = {
-  id: string;
-  sport: string;
-  level: string;
-  capacity: number;
-  enrolled_count: number;
-  court_code: string;
-  coach_name: string;
-  rrule: string;
-  duration_min: number;
-};
-
-export type CatalogPrice = {
-  sport: string;
-  day_kind: string;
-  start_local: string;
-  end_local: string;
-  price_vnd: number;
-  is_peak: boolean;
-  court_id?: string | null;
-};
-
-export type CatalogCourt = {
-  id: string;
-  court_code: string;
-  sport: string;
-  status: string;
-};
-
-export type CatalogSlot = {
-  court_id: string;
-  start: string;
-  end: string;
-  kind: string;
-};
+import type { CatalogPlan, CatalogClass, CatalogPrice, CatalogCourt, CatalogSlot } from "@/shared/arena3/contracts";
 
 /**
  * Today's court schedule, for somebody who has not signed in.
@@ -105,7 +60,7 @@ export const getPublicCatalog = createServerFn({ method: "POST" }).handler(async
   const sql = await getSql();
   const [plans, classes, prices, venueRows, coaches] = await Promise.all([
     sql.query<CatalogPlan>(
-      `select id, name, sport_scope, duration_days, session_quota, court_hours,
+      `select id, name, duration_days, session_quota, court_hours,
               court_discount_pct, price_vnd
          from membership_plans
         where is_on_sale = true

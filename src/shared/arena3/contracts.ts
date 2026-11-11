@@ -239,3 +239,49 @@ export type BookingResponse = Booking;
 
 /** `POST /payments`: money taken at the desk, with its receipt. */
 export type PaymentCreateResponse = { payment: Payment; invoice: Invoice };
+
+export type CatalogPlan = {
+  id: string;
+  name: string;
+  duration_days: number | null;
+  session_quota: number | null;
+  court_hours: number;
+  court_discount_pct: number;
+  price_vnd: number;
+};
+
+export type CatalogClass = {
+  id: string;
+  sport: string;
+  level: string;
+  capacity: number;
+  enrolled_count: number;
+  court_code: string;
+  coach_name: string;
+  rrule: string;
+  duration_min: number;
+};
+
+export type CatalogPrice = {
+  sport: string;
+  day_kind: string;
+  start_local: string;
+  end_local: string;
+  price_vnd: number;
+  is_peak: boolean;
+  court_id?: string | null;
+};
+
+export type CatalogCourt = {
+  id: string;
+  court_code: string;
+  sport: string;
+  status: string;
+};
+
+export type CatalogSlot = {
+  court_id: string;
+  start: string;
+  end: string;
+  kind: string;
+};
