@@ -113,7 +113,7 @@ export async function memberGet(sql: Sql, id: string, user: PublicUser) {
     // due_vnd is what "Take payment" has to collect — exactly what POST /payments will accept: the plan
     // price less any code already on an unpaid order, or the full price for a renewal. The desk sends
     // this number rather than working it out, so a code on the order can never make it come out wrong.
-    `select s.id, s.status, s.start_on::text, s.end_on::text, s.sport_scope, s.court_hours_left, s.session_left,
+    `select s.id, s.status, s.start_on::text, s.end_on::text, s.court_hours_left, s.session_left,
             s.frozen_days, p.name as plan_name, p.session_quota as plan_session_quota, coalesce(s.price_vnd, p.price_vnd)::int as price_vnd,
             (coalesce(s.price_vnd, p.price_vnd) - case when s.status::text = 'pending' then coalesce(s.promo_discount_vnd, 0) else 0 end)::int as due_vnd
        from subscriptions s join membership_plans p on p.id = s.plan_id
