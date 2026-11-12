@@ -1,5 +1,12 @@
-import type { Sql } from "@/lib/db";
+import { PLAYED_SQL } from "./played";
+import { classCode } from "../../../shared/arena3/labels";
+import type { Sql } from "@/server/data/db";
+import { addMonths, enrollmentAmountDue, enrollmentInvoiceLines } from "../../services/membership";
+import { INVOICE_COLS, PAYMENT_COLS } from "../../services/columns";
+import type { Invoice, Payment, PaymentCreateResponse, Reply } from "../../../shared/arena3/contracts";
 import { err } from "../errors";
+import { settleEnrollment } from "./classes";
+import { lockEnrollmentLinks, withdrawLinks } from "../../integrations/payos";
 import {
   audit,
   bookingBuyer,
@@ -14,13 +21,14 @@ import {
   readJson,
   str,
 } from "../helpers";
-import { quotePromo, redeemForBooking, redeemPromo, restoreIfFullyRefunded, type PromoQuote } from "../promos";
-import { methodLabelVi } from "../labels";
-import { parseCancelTiers } from "../policy";
-import { renderInvoicePdf } from "../pdf";
-import { validatePriceRules } from "../rules";
+import { quotePromo, redeemForBooking, redeemPromo, restoreIfFullyRefunded } from "../../services/promos";
+import { methodLabelVi } from "../../../shared/arena3/labels";
+import { parseCancelTiers } from "../../services/policy";
+import { parseUiConfigPatch } from "@/shared/ui-config";
+import { renderInvoicePdf } from "../../integrations/pdf";
+import { validatePriceRules } from "../../services/rules";
 import { requireRole, type PublicUser } from "../session";
-import { addDays, ictDateString } from "../time";
+import { addDays, ictDateString } from "../../../shared/arena3/time";
 import { one } from "../tx";
 import { checkOpeningHours, pageParams, parseInteger, parseSettingsPatch } from "../validate";
 
@@ -99,97 +107,48 @@ export async function shiftClose(sql: Sql, id: string, request: Request, user: P
   };
 }
 
+/** Still running: add to the current end. Expired or new: count from today. One account, one membership. */
 export async function activateSubscription(sql: Sql, subId: string) {
-  const sub = await one<{
-    id: string;
-    status: string;
-    end_on: string;
-    start_on: string;
-    sport_scope: string;
-    plan_id: string;
-    user_id: string;
-    court_hours_left: string | number;
-    session_left: number | null;
-  }>(sql, `select * from subscriptions where id = $1 for update`, [subId]);
+  const sub = await one<{ id: string; status: string; end_on: string; plan_id: string; user_id: string }>(
+    sql,
+    `select id, status::text, end_on::text, plan_id, user_id from subscriptions where id = $1 for update`,
+    [subId],
+  );
   if (!sub) throw err.notFound();
-  const plan = await one<{
-    duration_days: number | null;
-    court_hours: number;
-    session_quota: number | null;
-    carry_over_hours: boolean;
-    price_vnd: number;
-  }>(sql, `select * from membership_plans where id = $1`, [sub.plan_id]);
+  const plan = await one<{ duration_months: number | null; duration_days: number | null }>(
+    sql,
+    `select duration_months, duration_days from membership_plans where id = $1`,
+    [sub.plan_id],
+  );
   if (!plan) throw err.notFound();
   const today = ictDateString();
-  const duration = plan.duration_days ?? 365;
+  const extend = (from: string) =>
+    plan.duration_months ? addMonths(from, plan.duration_months) : addDays(from, plan.duration_days ?? 30);
 
   if (sub.status === "active" && sub.end_on >= today) {
-    const end = addDays(sub.end_on, duration);
-    await sql.query(
-      `update subscriptions
-          set end_on = $2,
-              court_hours_left = court_hours_left + $3,
-              session_left = case when session_left is null and $4::int is null then null
-                                  else coalesce(session_left,0) + coalesce($4,0) end
-        where id = $1`,
-      [sub.id, end, plan.court_hours, plan.session_quota],
-    );
+    await sql.query(`update subscriptions set end_on = $2 where id = $1`, [sub.id, extend(sub.end_on)]);
     return;
   }
 
-  // Check whether there is an existing live subscription for (user_id, sport_scope)
-  const live = await one<{
-    id: string;
-    status: string;
-    end_on: string;
-    plan_id: string;
-    court_hours_left: string | number;
-    session_left: number | null;
-  }>(
+  const live = await one<{ id: string; end_on: string }>(
     sql,
-    `select id, status, end_on::text, plan_id, court_hours_left, session_left from subscriptions
-      where user_id = $1 and sport_scope = $2 and status in ('active','frozen') and id <> $3
-      limit 1`,
-    [sub.user_id, sub.sport_scope, sub.id],
+    `select id, end_on::text from subscriptions
+      where user_id = $1 and status in ('active','frozen') and id <> $2
+      limit 1 for update`,
+    [sub.user_id, sub.id],
   );
-
-  if (live) {
-    if (live.end_on < today) {
-      // The previous plan has expired; mark it expired so the new one can become active
-      await sql.query(`update subscriptions set status = 'expired' where id = $1`, [live.id]);
-    } else if (live.plan_id === sub.plan_id) {
-      // Same plan renewal: extend live subscription directly
-      const end = addDays(live.end_on, duration);
-      await sql.query(
-        `update subscriptions
-            set end_on = $2,
-                court_hours_left = court_hours_left + $3,
-                session_left = case when session_left is null and $4::int is null then null
-                                    else coalesce(session_left,0) + coalesce($4,0) end
-          where id = $1`,
-        [live.id, end, plan.court_hours, plan.session_quota],
-      );
-      // Repoint any payments on sub to live and clean up sub
-      await sql.query(`update payments set ref_id = $1 where ref_type = 'subscription' and ref_id = $2`, [live.id, sub.id]);
-      await sql.query(`delete from subscriptions where id = $1`, [sub.id]);
-      return;
-    } else {
-      // Different plan: mark old plan expired, carry over hours if configured
-      await sql.query(`update subscriptions set status = 'expired' where id = $1`, [live.id]);
-      if (plan.carry_over_hours) {
-        sub.court_hours_left = Number(live.court_hours_left) + Number(sub.court_hours_left);
-      }
-    }
+  if (live && live.end_on >= today) {
+    await sql.query(`update subscriptions set end_on = $2 where id = $1`, [live.id, extend(live.end_on)]);
+    await sql.query(`update payments set ref_id = $1 where ref_type = 'subscription' and ref_id = $2`, [live.id, sub.id]);
+    await sql.query(`delete from subscriptions where id = $1`, [sub.id]);
+    return;
   }
-
-  const end = addDays(today, duration);
-  const hours = plan.carry_over_hours ? Number(sub.court_hours_left) + plan.court_hours : plan.court_hours;
+  if (live) await sql.query(`update subscriptions set status = 'expired' where id = $1`, [live.id]);
   await sql.query(
     `update subscriptions
-        set status = 'active', start_on = $2, end_on = $3,
-            court_hours_left = $4, session_left = $5
+        set status = 'active', start_on = $2, end_on = $3, court_hours_left = 0, session_left = null
       where id = $1`,
-    [sub.id, today, end, hours, plan.session_quota],
+    [sub.id, today, extend(today)],
   );
 }
 
@@ -201,7 +160,7 @@ export async function activateSubscription(sql: Sql, subId: string) {
  * "1 x Thu ngan". The payment already knows its `ref_type`/`ref_id`; this looks
  * through to the thing itself so the line names the court and the hour.
  */
-async function describePayment(
+export async function describePayment(
   sql: Sql,
   refType: string,
   refId: string,
@@ -229,12 +188,24 @@ async function describePayment(
       unit: "giờ",
     };
   }
+  if (refType === "enrollment") {
+    const row = await one<{ sport: string; level: string }>(
+      sql,
+      `select c.sport::text as sport, c.level from enrollments e join classes c on c.id = e.class_id where e.id = $1`,
+      [refId],
+    );
+    return { description: row ? `Khoá ${row.sport} · ${row.level}` : "Khoá học", unit: "khoá" };
+  }
   if (refType === "walkin") return { description: "Vé lẻ vào cửa", unit: "lượt" };
   if (refType === "equipment") return { description: "Thuê thiết bị", unit: "lượt" };
   return { description: "Dịch vụ tại trung tâm", unit: "lượt" };
 }
 
-export async function paymentsCreate(sql: Sql, request: Request, user: PublicUser) {
+export async function paymentsCreate(
+  sql: Sql,
+  request: Request,
+  user: PublicUser,
+): Promise<Reply<PaymentCreateResponse>> {
   requireRole(user, ["receptionist", "manager"]);
   const b = await readJson(request);
   const ref_type = str(b.ref_type);
@@ -248,8 +219,8 @@ export async function paymentsCreate(sql: Sql, request: Request, user: PublicUse
   if (!ALLOWED_PAYMENT_METHODS.includes(method as any)) {
     throw err.field("method", `Payment method must be one of ${ALLOWED_PAYMENT_METHODS.join(", ")}.`);
   }
-  if (ref_type !== "booking" && ref_type !== "subscription") {
-    throw err.field("ref_type", "ref_type must be booking or subscription.");
+  if (ref_type !== "booking" && ref_type !== "subscription" && ref_type !== "enrollment") {
+    throw err.field("ref_type", "ref_type must be booking, subscription or enrollment.");
   }
   // Money in is a positive whole number of đồng. Zero and negative amounts used
   // to post: a -5,000 "payment" quietly lowered what the member had paid, and a
@@ -258,6 +229,125 @@ export async function paymentsCreate(sql: Sql, request: Request, user: PublicUse
     throw err.field("amount_vnd", "Enter an amount above zero, in whole đồng.");
   }
   const settings = await getSettings(sql);
+  const shiftId = await paymentShift(sql, b, user);
+  const details = await deskPaymentDetails(sql, ref_type, ref_id, amount, user, b);
+  const { userId } = details;
+  const payCode = await nextCode(sql, "PAY");
+  const pay = await one<{ id: string }>(
+    sql,
+    `insert into payments (code, user_id, shift_id, method, amount_vnd, vat_rate, status, ref_type, ref_id, created_by)
+     values ($1,$2,$3,$4,$5,$6,'posted',$7,$8,$9) returning id`,
+    [payCode, userId, shiftId, method, amount, Number(settings.vat_rate), ref_type, ref_id, user.id],
+  );
+  await settleDeskPayment(sql, ref_type, ref_id, pay!.id, details);
+  const invoiceId = await invoiceDeskPayment(sql, ref_type, ref_id, pay!.id, amount, method, details, settings);
+  const payment = await one<Payment>(sql, `select ${PAYMENT_COLS} from payments where id = $1`, [pay!.id]);
+  const invoice = await one<Invoice>(sql, `select ${INVOICE_COLS} from invoices where id = $1`, [invoiceId]);
+  await audit(sql, user.id, "create_payment", "payment", pay!.id);
+  return { status: 201, body: { payment: payment!, invoice: invoice! } };
+}
+
+type DeskPaymentDetails = { buyer: string; buyerPhone: string | null; userId: string | null; subPromo: { id: string; discount: number } | null; enrollmentLinks: Array<{ id: string; provider_order_code: string | number | null }> };
+
+async function bookingPaymentDetails(sql: Sql, ref_id: string) {
+  // The receipt is made out to whoever the booking is for — the member, or
+  // the walk-in's typed name and phone — never to the receptionist taking it.
+  if (!isUuid(ref_id)) throw err.notFound("Booking does not exist.");
+  const bookingExists = await one<{ id: string }>(sql, `select id from court_bookings where id = $1`, [ref_id]);
+  if (!bookingExists) throw err.notFound("Booking does not exist.");
+  const who = await bookingBuyer(sql, ref_id);
+  return { buyer: who.name, buyerPhone: who.phone, userId: who.userId };
+}
+
+async function enrollmentPaymentDetails(sql: Sql, ref_id: string, amount: number, buyer: string) {
+  if (!isUuid(ref_id)) throw err.notFound("Enrollment does not exist.");
+  // Lock order payment → class → enrolment, as settleOnline: the seat's pending payOS links
+  // first, then the class, then the enrolment. A retry queues here, re-reads the status and
+  // is refused once the seat is confirmed.
+  const preEnr = await one<{ class_id: string }>(sql, `select class_id from enrollments where id = $1`, [ref_id]);
+  if (!preEnr) throw err.notFound("Enrollment does not exist.");
+  const enrollmentLinks = await lockEnrollmentLinks(sql, [ref_id]);
+  const cls = await one<{ status: string }>(
+    sql,
+    `select status::text as status from classes where id = $1 for update`,
+    [preEnr.class_id],
+  );
+  if (cls?.status === "cancelled") throw err.br("BR-18", "That class is cancelled.");
+  const enr = await one<{ user_id: string; status: string; price_vnd: number | null }>(
+    sql,
+    `select user_id, status::text as status, price_vnd from enrollments where id = $1 for update`,
+    [ref_id],
+  );
+  if (!enr) throw err.notFound("Enrollment does not exist.");
+  if (enr.status !== "hold") throw err.br("BR-28", "That seat is not on hold, so there is nothing to pay.");
+  const expected = await enrollmentAmountDue(sql, ref_id);
+  if (amount !== expected) {
+    throw err.field(
+      "amount_vnd",
+      `A class seat is paid in full: ${expected.toLocaleString("en-US")}đ.`,
+      { expected_vnd: expected },
+    );
+  }
+  const userId = enr.user_id;
+  const u = await one<{ full_name: string }>(sql, `select full_name from users where id = $1`, [userId]);
+  return { enrollmentLinks, userId, buyer: u?.full_name ?? buyer };
+}
+
+async function subscriptionPaymentDetails(sql: Sql, ref_id: string, amount: number, buyer: string, b: Record<string, unknown>) {
+  if (!isUuid(ref_id)) throw err.field("ref_id", "That value is not in the right format.");
+  // Locked for the rest of the transaction: two taps on "Take payment" queue
+  // here, and the second sees what the first left behind instead of both
+  // reading the same balance.
+  const sub = await one<DeskSubscription>(
+    sql,
+    `select s.user_id, s.plan_id, s.status::text as status, s.promo_id, s.promo_discount_vnd, s.price_vnd as sub_price_vnd,
+            p.price_vnd, p.court_discount_pct
+       from subscriptions s join membership_plans p on p.id = s.plan_id
+      where s.id = $1 for update of s`,
+    [ref_id],
+  );
+  if (!sub) throw err.notFound("No such plan.");
+  if (sub.status === "frozen") throw err.br("BR-14", "This plan is frozen — unfreeze it before taking payment.");
+  if (sub.status !== "pending" && sub.status !== "active") {
+    throw err.conflictState("That plan is not waiting for payment.");
+  }
+  // No credit and no deposit (BR-19): a plan is paid in one go for exactly what it
+  // costs after any code, or it stays pending and grants nothing.
+  if (sub.status === "pending") {
+    const paid = await one<{ n: number }>(
+      sql,
+      `select count(*)::int as n from payments
+        where ref_type = 'subscription' and ref_id = $1 and amount_vnd > 0 and status = 'posted'`,
+      [ref_id],
+    );
+    if ((paid?.n ?? 0) > 0) throw err.conflictState("This plan order is already paid for.");
+  }
+  const { basePrice, discount, promoId } = await subscriptionPaymentPromo(sql, sub, b);
+  const expected = basePrice - discount;
+  if (amount !== expected) {
+    throw err.field(
+      "amount_vnd",
+      sub.status === "active"
+        ? `A renewal is one full period: ${expected.toLocaleString("en-US")}đ.`
+        : `A plan is paid in full: ${expected.toLocaleString("en-US")}đ. Partial payments are not taken.`,
+      { expected_vnd: expected },
+    );
+  }
+  const subPromo = promoId && discount > 0 ? { id: promoId, discount } : null;
+  const userId = sub.user_id;
+  const u = await one<{ full_name: string }>(sql, `select full_name from users where id = $1`, [userId]);
+  return { subPromo, userId, buyer: u?.full_name ?? buyer };
+}
+
+async function deskPaymentDetails(sql: Sql, ref_type: string, ref_id: string, amount: number, user: PublicUser, b: Record<string, unknown>): Promise<DeskPaymentDetails> {
+  const details: DeskPaymentDetails = { buyer: user.full_name, buyerPhone: null, userId: null, subPromo: null, enrollmentLinks: [] };
+  if (ref_type === "booking") return { ...details, ...await bookingPaymentDetails(sql, ref_id) };
+  if (ref_type === "enrollment") return { ...details, ...await enrollmentPaymentDetails(sql, ref_id, amount, details.buyer) };
+  if (ref_type === "subscription") return { ...details, ...await subscriptionPaymentDetails(sql, ref_id, amount, details.buyer, b) };
+  return details;
+}
+
+async function paymentShift(sql: Sql, b: Record<string, unknown>, user: PublicUser) {
   let shiftId: string | null = null;
   const shiftIdRaw = str(b.shift_id);
   if (shiftIdRaw) {
@@ -287,98 +377,11 @@ export async function paymentsCreate(sql: Sql, request: Request, user: PublicUse
       shiftId = sh.id;
     }
   }
-  let buyer = user.full_name;
-  let buyerPhone: string | null = null;
-  let userId: string | null = null;
-  let quote: PromoQuote | null = null;
-  let subPromo: { id: string; discount: number } | null = null;
-  if (ref_type === "booking") {
-    // The receipt is made out to whoever the booking is for — the member, or
-    // the walk-in's typed name and phone — never to the receptionist taking it.
-    if (!isUuid(ref_id)) throw err.notFound("Booking does not exist.");
-    const bookingExists = await one<{ id: string }>(sql, `select id from court_bookings where id = $1`, [ref_id]);
-    if (!bookingExists) throw err.notFound("Booking does not exist.");
-    const who = await bookingBuyer(sql, ref_id);
-    buyer = who.name;
-    buyerPhone = who.phone;
-    userId = who.userId;
-  } else if (ref_type === "subscription") {
-    if (!isUuid(ref_id)) throw err.field("ref_id", "That value is not in the right format.");
-    // Locked for the rest of the transaction: two taps on "Take payment" queue
-    // here, and the second sees what the first left behind instead of both
-    // reading the same balance.
-    const sub = await one<{
-      user_id: string;
-      plan_id: string;
-      status: string;
-      price_vnd: number;
-      sub_price_vnd: number | null;
-      court_discount_pct: number;
-      sport_scope: string;
-      promo_id: string | null;
-      promo_discount_vnd: number;
-    }>(
-      sql,
-      `select s.user_id, s.plan_id, s.status::text as status, s.promo_id, s.promo_discount_vnd, s.price_vnd as sub_price_vnd,
-              p.price_vnd, p.court_discount_pct, p.sport_scope::text as sport_scope
-         from subscriptions s join membership_plans p on p.id = s.plan_id
-        where s.id = $1 for update of s`,
-      [ref_id],
-    );
-    if (!sub) throw err.notFound("No such plan.");
-    if (sub.status === "frozen") throw err.br("BR-14", "This plan is frozen — unfreeze it before taking payment.");
-    if (sub.status !== "pending" && sub.status !== "active") {
-      throw err.conflictState("That plan is not waiting for payment.");
-    }
-    // No credit and no deposit (BR-19): a plan is paid in one go for exactly what it
-    // costs after any code, or it stays pending and grants nothing.
-    if (sub.status === "pending") {
-      const paid = await one<{ n: number }>(
-        sql,
-        `select count(*)::int as n from payments
-          where ref_type = 'subscription' and ref_id = $1 and amount_vnd > 0 and status = 'posted'`,
-        [ref_id],
-      );
-      if ((paid?.n ?? 0) > 0) throw err.conflictState("This plan order is already paid for.");
-    }
-    const basePrice = sub.sub_price_vnd ?? sub.price_vnd;
-    let discount = sub.status === "pending" ? sub.promo_discount_vnd : 0;
-    let promoId: string | null = sub.status === "pending" ? sub.promo_id : null;
-    const code = str(b.promo_code);
-    if (code && !(sub.status === "pending" && promoId)) {
-      quote = await quotePromo(sql, {
-        code,
-        userId: sub.user_id,
-        scope: "plan",
-        sport: sub.sport_scope,
-        planId: sub.plan_id,
-        orderVnd: basePrice,
-      });
-      discount = quote.discount_vnd;
-      promoId = quote.promo_id;
-    }
-    const expected = basePrice - discount;
-    if (amount !== expected) {
-      throw err.field(
-        "amount_vnd",
-        sub.status === "active"
-          ? `A renewal is one full period: ${expected.toLocaleString("en-US")}đ.`
-          : `A plan is paid in full: ${expected.toLocaleString("en-US")}đ. Partial payments are not taken.`,
-        { expected_vnd: expected },
-      );
-    }
-    subPromo = promoId && discount > 0 ? { id: promoId, discount } : null;
-    userId = sub.user_id;
-    const u = await one<{ full_name: string }>(sql, `select full_name from users where id = $1`, [userId]);
-    buyer = u?.full_name ?? buyer;
-  }
-  const payCode = await nextCode(sql, "PAY");
-  const pay = await one<{ id: string }>(
-    sql,
-    `insert into payments (code, user_id, shift_id, method, amount_vnd, vat_rate, status, ref_type, ref_id, created_by)
-     values ($1,$2,$3,$4,$5,$6,'posted',$7,$8,$9) returning id`,
-    [payCode, userId, shiftId, method, amount, Number(settings.vat_rate), ref_type, ref_id, user.id],
-  );
+  return shiftId;
+}
+
+async function settleDeskPayment(sql: Sql, ref_type: string, ref_id: string, paymentId: string, details: DeskPaymentDetails) {
+  const { userId, subPromo, enrollmentLinks } = details;
   if (ref_type === "subscription") {
     if (subPromo) {
       await sql.query(`update subscriptions set promo_id = $2, promo_discount_vnd = $3 where id = $1`, [
@@ -386,34 +389,42 @@ export async function paymentsCreate(sql: Sql, request: Request, user: PublicUse
         subPromo.id,
         subPromo.discount,
       ]);
-      await redeemPromo(sql, { promoId: subPromo.id, userId, paymentId: pay!.id, discountVnd: subPromo.discount });
+      await redeemPromo(sql, { promoId: subPromo.id, userId, paymentId, discountVnd: subPromo.discount });
     }
     // Paid in full (checked above), so a pending plan activates and an active one renews.
     await activateSubscription(sql, ref_id);
   } else if (ref_type === "booking") {
-    await redeemForBooking(sql, ref_id, userId, pay!.id);
+    await redeemForBooking(sql, ref_id, userId, paymentId);
+  } else if (ref_type === "enrollment") {
+    // The desk took the money, so the member's payOS link must not take it again.
+    await withdrawLinks(sql, enrollmentLinks, "Paid at the desk", "PAID_AT_DESK");
+    // The seat is on hold (checked above), so this confirms it. Any outcome that
+    // buys no seat would be flagged to the desk by settleEnrollment itself.
+    await settleEnrollment(sql, ref_id, { paymentId: paymentId });
   }
+}
+
+async function invoiceDeskPayment(sql: Sql, ref_type: string, ref_id: string, paymentId: string, amount: number, method: string, details: DeskPaymentDetails, settings: Awaited<ReturnType<typeof getSettings>>) {
+  const { buyer, buyerPhone, userId } = details;
   const item = await describePayment(sql, ref_type, ref_id);
   const invoiceId = await issueInvoice(sql, {
-    paymentId: pay!.id,
+    paymentId: paymentId,
     buyerName: buyer,
     buyerPhone,
     amountVnd: amount,
     vatRate: Number(settings.vat_rate ?? 0),
     description: item.description,
     unit: item.unit,
+    lines: ref_type === "enrollment" ? await enrollmentInvoiceLines(sql, ref_id, amount, item) : undefined,
     settings,
   });
   await enqueueReceipt(sql, userId, {
-    payment_id: pay!.id,
+    payment_id: paymentId,
     invoice_id: invoiceId,
     amount_vnd: amount,
     method,
   });
-  const payment = await one(sql, `select * from payments where id = $1`, [pay!.id]);
-  const invoice = await one(sql, `select * from invoices where id = $1`, [invoiceId]);
-  await audit(sql, user.id, "create_payment", "payment", pay!.id);
-  return { status: 201, body: { payment, invoice } };
+  return invoiceId;
 }
 
 export async function paymentsRefund(sql: Sql, id: string, request: Request, user: PublicUser) {
@@ -431,7 +442,7 @@ export async function paymentsRefund(sql: Sql, id: string, request: Request, use
     ref_id: string;
     // `for update` so two clicks on the same payment queue behind each other
     // rather than both reading a ledger neither of them has written to yet.
-  }>(sql, `select * from payments where id = $1 for update`, [id]);
+  }>(sql, `select id, amount_vnd, user_id, vat_rate, ref_type, ref_id from payments where id = $1 for update`, [id]);
 
   if (!orig) throw err.notFound();
   if (orig.amount_vnd <= 0) throw err.validation("That row is already a refund.");
@@ -466,18 +477,6 @@ export async function paymentsRefund(sql: Sql, id: string, request: Request, use
     throw err.validation(`The refund is larger than the ${refundable.toLocaleString("en-US")}đ still refundable.`);
   }
 
-  const needMgr = Math.abs(signed) >= settings.refund_manager_vnd;
-  if (needMgr && user.role !== "manager") {
-    const payCode = await nextCode(sql, "PAY");
-    const row = await one(
-      sql,
-      `insert into payments (code, user_id, method, amount_vnd, vat_rate, status, ref_type, ref_id, created_by)
-       values ($1,$2,'cash',$3,$4,'refund_pending',$5,$6,$7) returning *`,
-      [payCode, orig.user_id, signed, orig.vat_rate, orig.ref_type, orig.ref_id, user.id],
-    );
-    await audit(sql, user.id, "refund_pending", "payment", (row as { id: string }).id, null, { reason });
-    return { status: 201, body: { payment: row } };
-  }
   let shiftId: string | null = null;
   if (user.role === "receptionist") {
     const sh = await one<{ id: string }>(
@@ -487,6 +486,19 @@ export async function paymentsRefund(sql: Sql, id: string, request: Request, use
     );
     if (!sh) throw err.br("BR-44", "The front desk needs an open shift.");
     shiftId = sh.id;
+  }
+
+  const needMgr = Math.abs(signed) >= settings.refund_manager_vnd;
+  if (needMgr && user.role !== "manager") {
+    const payCode = await nextCode(sql, "PAY");
+    const row = await one(
+      sql,
+      `insert into payments (code, user_id, method, amount_vnd, vat_rate, status, ref_type, ref_id, created_by, shift_id)
+       values ($1,$2,'cash',$3,$4,'refund_pending',$5,$6,$7,$8) returning *`,
+      [payCode, orig.user_id, signed, orig.vat_rate, orig.ref_type, orig.ref_id, user.id, shiftId],
+    );
+    await audit(sql, user.id, "refund_pending", "payment", (row as { id: string }).id, null, { reason });
+    return { status: 201, body: { payment: row } };
   }
   const payCode = await nextCode(sql, "PAY");
   const row = await one(
@@ -507,6 +519,7 @@ type PendingRefund = {
   amount_vnd: number;
   status: string;
   created_by: string | null;
+  shift_id: string | null;
 };
 
 /**
@@ -520,13 +533,15 @@ async function lockPendingRefund(sql: Sql, id: string, user: PublicUser): Promis
   requireRole(user, ["manager"]);
   const p = await one<PendingRefund>(
     sql,
-    `select id, code, user_id, amount_vnd, status, created_by from payments where id = $1 for update`,
+    `select id, code, user_id, amount_vnd, status, created_by, shift_id from payments where id = $1 for update`,
     [id],
   );
   if (!p) throw err.notFound("That refund does not exist.");
   if (p.status !== "refund_pending" || p.amount_vnd >= 0) {
     throw err.conflictState("That refund is no longer waiting for a decision.");
   }
+  // No one at the desk raised it: the centre cancelled a class and owes this. Nothing to decide.
+  if (!p.created_by) throw err.conflictState("The centre owes this refund: the front desk pays it out.");
   // A role can change after the refund was raised, so "managers only" is not
   // enough on its own: whoever asked for the money back does not also release it.
   if (p.created_by && p.created_by === user.id) {
@@ -554,7 +569,37 @@ async function decideRefund(
   const note = str(b.reason);
   if (note && note.length > 500) throw err.field("reason", "The note must be at most 500 characters.");
   const next = approve ? "posted" : "refund_rejected";
-  await sql.query(`update payments set status = $2 where id = $1`, [id, next]);
+
+  let shiftId: string | null = p.shift_id;
+  if (approve) {
+    const open = shiftId
+      ? await one<{ id: string }>(
+          sql,
+          `select id from cashier_shifts where id = $1 and closed_at is null for update`,
+          [shiftId],
+        )
+      : undefined;
+    if (!open) {
+      const cur = p.created_by
+        ? await one<{ id: string }>(
+            sql,
+            `select id from cashier_shifts where receptionist_id = $1 and closed_at is null for update`,
+            [p.created_by],
+          )
+        : undefined;
+      if (!cur) {
+        throw err.conflictState(
+          "The cashier who raised this refund has no open till shift. Ask them to open one, then approve again.",
+        );
+      }
+      shiftId = cur.id;
+    }
+  }
+
+  await sql.query(
+    `update payments set status = $2, shift_id = coalesce($3, shift_id) where id = $1`,
+    [id, next, approve ? shiftId : null],
+  );
   if (approve) {
     const ref = await one<{ ref_type: string; ref_id: string }>(
       sql,
@@ -570,7 +615,7 @@ async function decideRefund(
     "payment",
     id,
     { status: "refund_pending", amount_vnd: p.amount_vnd },
-    { status: next, ...(note ? { note } : {}) },
+    { status: next, ...(note ? { note } : {}), ...(approve && shiftId ? { shift_id: shiftId } : {}) },
   );
   if (p.user_id) {
     await enqueue(
@@ -591,6 +636,42 @@ export async function paymentsApproveRefund(sql: Sql, id: string, request: Reque
 
 export async function paymentsRejectRefund(sql: Sql, id: string, request: Request, user: PublicUser) {
   return decideRefund(sql, id, user, request, false);
+}
+
+/**
+ * The desk hands over cash the centre owes for a cancelled class.
+ *
+ * The refund only counts as paid from this moment, and it comes out of the till of whoever paid it.
+ */
+export async function paymentsPayOutRefund(sql: Sql, id: string, user: PublicUser) {
+  requireRole(user, ["receptionist", "manager"]);
+  const p = await one<PendingRefund & { ref_type: string; ref_id: string }>(
+    sql,
+    `select id, code, user_id, amount_vnd, status, created_by, shift_id, ref_type, ref_id from payments where id = $1 for update`,
+    [id],
+  );
+  if (!p) throw err.notFound("That refund does not exist.");
+  if (p.status !== "refund_pending" || p.amount_vnd >= 0 || p.created_by) {
+    throw err.conflictState("That refund is no longer waiting to be paid out.");
+  }
+  // A manager has no till, as when taking a payment: the row stays off any shift and the audit names them.
+  let shiftId: string | null = null;
+  if (user.role === "receptionist") {
+    const shift = await one<{ id: string }>(
+      sql,
+      `select id from cashier_shifts where receptionist_id = $1 and closed_at is null for update`,
+      [user.id],
+    );
+    if (!shift) throw err.br("BR-44", "The front desk needs an open shift.");
+    shiftId = shift.id;
+  }
+  await sql.query(`update payments set status = 'posted', shift_id = $2 where id = $1`, [id, shiftId]);
+  await restoreIfFullyRefunded(sql, p.ref_type, p.ref_id);
+  await audit(sql, user.id, "refund_paid_out", "payment", id, { status: "refund_pending", amount_vnd: p.amount_vnd }, { status: "posted", shift_id: shiftId });
+  if (p.user_id) {
+    await enqueue(sql, "inapp", "refund_approved", p.user_id, { payment_id: p.id, code: p.code, amount_vnd: Math.abs(p.amount_vnd) }, `refund_approved|${p.id}`);
+  }
+  return { status: 200, body: { status: "posted" } };
 }
 
 /** How many receipts the reconciliation list will show at once. */
@@ -625,7 +706,10 @@ export async function paymentsPending(sql: Sql, request: Request, user: PublicUs
               (select count(*) from payments where status = 'refund_pending')::int as refunds,
               (select count(*) from court_bookings
                 where status = 'hold' and transfer_requested_at is not null
-                  and hold_until > now())::int as awaiting`,
+                  and hold_until > now())::int
+              + (select count(*) from enrollments
+                  where status = 'hold' and transfer_requested_at is not null
+                    and hold_until > now())::int as awaiting`,
     );
     return {
       status: 200,
@@ -654,10 +738,36 @@ export async function paymentsPending(sql: Sql, request: Request, user: PublicUs
       order by b.transfer_requested_at asc`,
   );
 
+  // Class seats on hold with a transfer promised, in the same list under their own kind.
+  const seatRows = await sql.query(
+    `select e.id, e.price_vnd as amount_vnd, e.hold_until, e.transfer_requested_at,
+            u.full_name as member_name, u.member_code, u.phone,
+            c.sport, c.level
+       from enrollments e
+       join classes c on c.id = e.class_id
+       join users u on u.id = e.user_id
+      where e.status = 'hold'
+        and e.transfer_requested_at is not null
+        and e.hold_until > now()
+      order by e.transfer_requested_at asc`,
+  );
+  const seats = seatRows.map((r: any) => ({
+    kind: "enrollment",
+    id: r.id,
+    member_name: r.member_name,
+    member_code: r.member_code,
+    phone: r.phone,
+    sport: r.sport,
+    level: r.level,
+    amount_vnd: r.amount_vnd,
+    hold_until: r.hold_until,
+    transfer_requested_at: r.transfer_requested_at,
+  }));
+
   // `paid_vnd` calculated directly from posted payments: the desk wants to see a part payment
   // for what it is ("2 of 5 taken"), not just the balance left over.
   const orders = await sql.query(
-    `select s.id, s.sport_scope, s.start_on::text as ordered_on, s.end_on::text as end_on,
+    `select s.id, s.start_on::text as ordered_on, s.end_on::text as end_on,
             u.id as user_id, u.full_name, u.phone, u.member_code,
             pl.name as plan_name, coalesce(s.price_vnd, pl.price_vnd)::int as price_vnd, pl.id as plan_id,
             s.promo_discount_vnd, pr.code as promo_code,
@@ -668,7 +778,7 @@ export async function paymentsPending(sql: Sql, request: Request, user: PublicUs
        left join promotions pr on pr.id = s.promo_id
        left join payments p on p.ref_type = 'subscription' and p.ref_id = s.id
       where s.status = 'pending'
-      group by s.id, s.sport_scope, s.start_on, s.end_on,
+      group by s.id, s.start_on, s.end_on,
                u.id, u.full_name, u.phone, u.member_code, pl.name, s.price_vnd, pl.price_vnd, pl.id,
                s.promo_discount_vnd, pr.code
       order by s.start_on asc, u.full_name asc`,
@@ -677,7 +787,7 @@ export async function paymentsPending(sql: Sql, request: Request, user: PublicUs
   const refunds = await sql.query(
     `select p.id, p.code, p.amount_vnd, p.created_at, p.ref_type, p.ref_id,
             u.full_name as member_name, u.member_code,
-            r.full_name as raised_by
+            r.full_name as raised_by, p.created_by is null as centre_owed
        from payments p
        left join users u on u.id = p.user_id
        left join users r on r.id = p.created_by
@@ -731,7 +841,7 @@ export async function paymentsPending(sql: Sql, request: Request, user: PublicUs
 
   return {
     status: 200,
-    body: { awaiting, orders, refunds, receipts: receipts.items, receipts_total: receipts.total, days, capped: false },
+    body: { awaiting: [...awaiting, ...seats], orders, refunds, receipts: receipts.items, receipts_total: receipts.total, days, capped: false },
   };
 }
 
@@ -867,7 +977,7 @@ export async function invoicePdf(sql: Sql, id: string, request: Request, user: P
       serial_no: inv.serial_no,
       issued_at: inv.issued_at,
       seller: {
-        legal_name: inv.seller_legal_name ?? settings.legal_name ?? "Arena3 Sports Center",
+        legal_name: inv.seller_legal_name ?? settings.legal_name ?? "Lê Long Sport",
         tax_code: inv.seller_tax_code ?? settings.tax_code,
         address: inv.seller_address ?? settings.address,
       },
@@ -927,14 +1037,14 @@ export async function reportsRevenue(sql: Sql, request: Request, user: PublicUse
   // FR-PAY-05: the period against the one before it, from the same query, so the
   // screen and the exported file can never disagree about the comparison.
   const win = previousWindow(from, to);
-  const prev = await revenueBody(sql, win.from, win.to, method);
+  const prev = await revenueBody(sql, win.from, win.to, method, false);
   return {
     status: 200,
     body: { ...body.body, method, prev: { from: win.from, to: win.to, totals: prev.body.totals, by_source: prev.body.by_source } },
   };
 }
 
-export async function revenueBody(sql: Sql, from: string, to: string, method: string | null) {
+export async function revenueBody(sql: Sql, from: string, to: string, method: string | null, includeDetails = true) {
   const rows = await sql.query<{
     method: string;
     ref_type: string;
@@ -977,7 +1087,7 @@ export async function revenueBody(sql: Sql, from: string, to: string, method: st
   // Takings per cashier shift (G-07). A payment with no shift — an online
   // payment nobody at the desk took — is its own line rather than being
   // dropped, so the shifts and that line still add up to the total.
-  const by_shift = await sql.query<{
+  const by_shift = includeDetails ? await sql.query<{
     shift_id: string | null;
     cashier: string | null;
     opened_at: string | null;
@@ -999,7 +1109,7 @@ export async function revenueBody(sql: Sql, from: string, to: string, method: st
       group by p.shift_id, u.full_name, s.opened_at, s.closed_at
       order by s.opened_at nulls last`,
     [from, to, method],
-  );
+  ) : [];
   // Revenue per ICT day, gapless across the whole window.
   //
   // The report could only ever be sliced by method and source, so the manager
@@ -1007,7 +1117,7 @@ export async function revenueBody(sql: Sql, from: string, to: string, method: st
   // usually opened to answer. generate_series supplies the days with no
   // takings too: dropping them would make a quiet Tuesday vanish and join
   // Monday straight to Wednesday, which reads as steady trade.
-  const by_day = await sql.query<{ day: string; revenue_vnd: number }>(
+  const by_day = includeDetails ? await sql.query<{ day: string; revenue_vnd: number }>(
     `select to_char(d.day, 'YYYY-MM-DD') as day,
             coalesce(sum(p.amount_vnd) filter (where p.method <> 'quota'), 0)::int as revenue_vnd
        from generate_series($1::date, $2::date, interval '1 day') as d(day)
@@ -1018,7 +1128,7 @@ export async function revenueBody(sql: Sql, from: string, to: string, method: st
       group by d.day
       order by d.day`,
     [from, to, method],
-  );
+  ) : [];
   return {
     status: 200,
     body: {
@@ -1047,8 +1157,8 @@ export async function reportsOccupancy(sql: Sql, request: Request, user: PublicU
               end
             ),0)::int as minutes
        from courts c
-       left join occupancies o
-         on o.court_id = c.id and o.start_at < $2 and o.end_at > $1
+       left join ${PLAYED_SQL} o
+         on o.court_id = c.id and o.kind in ('booking','session') and o.start_at < $2 and o.end_at > $1
        where c.retired_at is null or o.id is not null
       group by c.id, c.court_code
       order by c.court_code`,
@@ -1078,6 +1188,12 @@ export async function settingsPatch(sql: Sql, request: Request, user: PublicUser
   const b = await readJson(request);
   const patch = parseSettingsPatch(b);
   if (b.cancel_tiers !== undefined) patch.cancel_tiers = JSON.stringify(parseCancelTiers(b.cancel_tiers));
+  if (b.ui_config !== undefined) {
+    const stored = await one<{ ui_config: unknown }>(sql, `select ui_config from center_settings where id = 1`);
+    const ui = parseUiConfigPatch(b.ui_config, stored?.ui_config);
+    if (!ui.ok) throw err.field(ui.field, ui.message);
+    patch.ui_config = JSON.stringify(ui.value);
+  }
   const keys = Object.keys(patch);
   const current = await one<Record<string, string>>(
     sql,
@@ -1085,7 +1201,7 @@ export async function settingsPatch(sql: Sql, request: Request, user: PublicUser
             cancel_court_hours, cancel_class_hours, noshow_grace_minutes, checkin_before_minutes,
             refund_manager_vnd, self_checkin_enabled, gate_dedup_minutes, at_risk_idle_days, minor_age, vat_rate, legal_name, tax_code, address,
             freeze_max_days_year, waitlist_offer_hours, deposit_pct, deposit_peak_only, cancel_tiers::text,
-            series_min_weeks, series_max_weeks, series_discount_pct, loyalty_earn_vnd, loyalty_redeem_vnd
+            series_min_weeks, series_max_weeks, series_discount_pct, loyalty_earn_vnd, loyalty_redeem_vnd, member_court_fee_vnd, member_day_rate_vnd, max_active_classes, ui_config::text
        from center_settings where id = 1`,
   );
   if (keys.length === 0) {
@@ -1100,7 +1216,7 @@ export async function settingsPatch(sql: Sql, request: Request, user: PublicUser
   const minW = Number(patch.series_min_weeks ?? current!.series_min_weeks);
   const maxW = Number(patch.series_max_weeks ?? current!.series_max_weeks);
   if (minW > maxW) throw err.field("series_max_weeks", "The maximum cannot be below the minimum.");
-  const sets = keys.map((k, i) => `${k} = $${i + 1}${k === "cancel_tiers" ? "::jsonb" : ""}`);
+  const sets = keys.map((k, i) => `${k} = $${i + 1}${k === "cancel_tiers" || k === "ui_config" ? "::jsonb" : ""}`);
   await sql.query(`update center_settings set ${sets.join(", ")} where id = 1`, keys.map((k) => patch[k]));
   await audit(
     sql,
@@ -1150,6 +1266,47 @@ export async function priceRulesPut(sql: Sql, request: Request, user: PublicUser
   return priceRulesGet(sql);
 }
 
+// The log stores a table and an id. A manager needs the booking code or the member's name, so each page
+// looks them up by kind. A record deleted since simply has no name and the row falls back to its kind.
+const AUDIT_SUBJECT_SQL: Record<string, string> = {
+  user: `select t.id, t.full_name as subject from users t where t.id = any($1::uuid[])`,
+  payment: `select t.id, concat_ws(' · ', t.code, u.full_name) as subject, t.amount_vnd as subject_vnd
+              from payments t left join users u on u.id = t.user_id where t.id = any($1::uuid[])`,
+  booking: `select t.id, concat_ws(' · ', t.code, u.full_name) as subject
+              from court_bookings t left join users u on u.id = t.user_id where t.id = any($1::uuid[])`,
+  booking_series: `select t.id, concat_ws(' · ', t.code, u.full_name) as subject
+                     from booking_series t left join users u on u.id = t.user_id where t.id = any($1::uuid[])`,
+  court: `select t.id, t.court_code as subject from courts t where t.id = any($1::uuid[])`,
+  plan: `select t.id, t.name as subject from membership_plans t where t.id = any($1::uuid[])`,
+  promotion: `select t.id, t.code as subject from promotions t where t.id = any($1::uuid[])`,
+  equipment: `select t.id, t.name as subject from equipment_items t where t.id = any($1::uuid[])`,
+  work_order: `select t.id, concat_ws(' · ', t.code, t.title) as subject from work_orders t where t.id = any($1::uuid[])`,
+  ticket: `select t.id, u.full_name as subject from tickets t left join users u on u.id = t.user_id where t.id = any($1::uuid[])`,
+  subscription: `select t.id, concat_ws(' · ', u.full_name, p.name) as subject
+                   from subscriptions t join users u on u.id = t.user_id
+                   join membership_plans p on p.id = t.plan_id where t.id = any($1::uuid[])`,
+};
+
+async function auditSubjects(sql: Sql, rows: { entity: string; entity_id: string | null }[]) {
+  const out = new Map<string, { subject: string; subject_vnd?: number }>();
+  const idsOf = (kind: string) => [...new Set(rows.filter((r) => r.entity === kind && r.entity_id).map((r) => r.entity_id!))];
+  for (const [kind, text] of Object.entries(AUDIT_SUBJECT_SQL)) {
+    const ids = idsOf(kind);
+    if (!ids.length) continue;
+    const found = await sql.query<{ id: string; subject: string; subject_vnd?: number }>(text, [ids]);
+    for (const f of found) out.set(`${kind}:${f.id}`, { subject: f.subject, subject_vnd: f.subject_vnd });
+  }
+  const classIds = idsOf("class");
+  if (classIds.length) {
+    const found = await sql.query<{ id: string; sport: string; level: string }>(
+      `select id, sport, level from classes where id = any($1::uuid[])`,
+      [classIds],
+    );
+    for (const c of found) out.set(`class:${c.id}`, { subject: classCode(c.sport, c.level, c.id) });
+  }
+  return out;
+}
+
 export async function auditList(sql: Sql, request: Request, user: PublicUser) {
   requireRole(user, ["manager"]);
   const sp = new URL(request.url).searchParams;
@@ -1191,6 +1348,8 @@ export async function auditList(sql: Sql, request: Request, user: PublicUser) {
   const rows = await page(limit, offset);
   const { items, total } = await pageOf(rows, { limit, offset }, async () => Number((await page(1, 0))[0]?.total ?? 0));
   const more = offset + items.length < total;
+  const subjects = await auditSubjects(sql, items as unknown as { entity: string; entity_id: string | null }[]);
+  const named = items.map((it) => ({ ...it, ...subjects.get(`${it.entity}:${it.entity_id}`) }));
   // What the filters can offer: only what actually exists, so the pickers never
   // drift from the handlers that write the log.
   const actions = await sql.query<{ action: string }>(`select distinct action from audit_logs order by action`);
@@ -1201,7 +1360,7 @@ export async function auditList(sql: Sql, request: Request, user: PublicUser) {
   return {
     status: 200,
     body: {
-      items,
+      items: named,
       more,
       total,
       limit,
@@ -1211,4 +1370,35 @@ export async function auditList(sql: Sql, request: Request, user: PublicUser) {
       actors,
     },
   };
+}
+
+type DeskSubscription = {
+    user_id: string;
+    plan_id: string;
+    status: string;
+    price_vnd: number;
+    sub_price_vnd: number | null;
+    court_discount_pct: number;
+    promo_id: string | null;
+    promo_discount_vnd: number;
+  };
+
+async function subscriptionPaymentPromo(sql: Sql, sub: DeskSubscription, b: Record<string, unknown>) {
+  const basePrice = sub.sub_price_vnd ?? sub.price_vnd;
+  let discount = sub.status === "pending" ? sub.promo_discount_vnd : 0;
+  let promoId: string | null = sub.status === "pending" ? sub.promo_id : null;
+  const code = str(b.promo_code);
+  if (code && !(sub.status === "pending" && promoId)) {
+    const quote = await quotePromo(sql, {
+      code,
+      userId: sub.user_id,
+      scope: "plan",
+      sport: "all",
+      planId: sub.plan_id,
+      orderVnd: basePrice,
+    });
+    discount = quote.discount_vnd;
+    promoId = quote.promo_id;
+  }
+  return { basePrice, discount, promoId };
 }
