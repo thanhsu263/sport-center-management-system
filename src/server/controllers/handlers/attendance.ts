@@ -15,7 +15,7 @@ import { requireFlag } from "../../services/flags";
 import { audit, getSettings, readJson, str } from "../helpers";
 import { classCode } from "../../../shared/arena3/labels";
 import { absentStreak, ABSENT_STREAK_LIMIT } from "../../services/rules";
-import { avatarUrlSql, requireRole, type PublicUser } from "../session";
+import { requireRole, type PublicUser } from "../session";
 import { addDays, ictDateString, ictDateTime } from "../../../shared/arena3/time";
 import { one } from "../tx";
 import { reportDay } from "./desk";

@@ -26,7 +26,6 @@ import { pageParams } from "../validate";
 import { bookingsCheckIn } from "./bookings";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const DAY_MS = 86_400_000;
 
 export const MANUAL_REASONS = ["no_phone", "dead_battery", "qr_failed", "forgot", "other"] as const;
 export const OVERRIDE_REASONS = ["expired_ok", "manager_ok", "guest_pass", "renewing", "other"] as const;
