@@ -9,24 +9,25 @@
  * enrolled in a class they lead or assist (BR-45). A student's health notes
  * only leave this module inside that scope (BR-46).
  */
-import type { Sql } from "@/lib/db";
+import type { Sql } from "@/server/data/db";
 import { err } from "../errors";
-import { requireFlag } from "../flags";
-import { audit, enqueue, readJson, str } from "../helpers";
+import { requireFlag } from "../../services/flags";
+import { audit, enqueue, readJson, sqlPatch, str } from "../helpers";
 import {
   ABSENT_STREAK_LIMIT,
   LEVELS,
   PLAN_PHASES,
+  INTENSITIES,
   TRAINING_GOALS,
   absentStreak,
   homeworkComplete,
   normalizeChecklist,
   normalizeDone,
   validateMetrics,
-} from "../rules";
+} from "../../services/rules";
 import { getActiveSportCodes } from "./sports";
 import { requireRole, type PublicUser } from "../session";
-import { addDays, ictDateString, ictDateTime } from "../time";
+import { addDays, ictDateString, ictDateTime } from "../../../shared/arena3/time";
 import { one } from "../tx";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -608,8 +609,6 @@ export async function meTraining(sql: Sql, user: PublicUser) {
  * Training plans (FR-TRN-04)                                          *
  * ------------------------------------------------------------------ */
 
-const INTENSITIES = ["light", "medium", "hard"] as const;
-
 type Block = {
   order: number;
   title: string;
@@ -797,58 +796,23 @@ export async function trainingCreate(sql: Sql, request: Request, user: PublicUse
 export async function trainingPatch(sql: Sql, id: string, request: Request, user: PublicUser) {
   requireRole(user, ["coach", "manager"]);
   await requireFlag(sql, "F4");
-  const plan = await one<{
-    id: string;
-    class_id: string | null;
-    user_id: string | null;
-    session_id: string | null;
-    created_by: string | null;
-    title: string | null;
-    published: boolean;
-    is_template: boolean;
-    version: number;
-    payload: Record<string, unknown>;
-  }>(sql, `select * from training_plans where id = $1 for update`, [pathId(id)]);
+  const plan = await one<EditableTrainingPlan>(sql, `select * from training_plans where id = $1 for update`, [pathId(id)]);
   if (!plan) throw err.notFound();
   if (user.role !== "manager" && plan.created_by !== user.id) {
     if (plan.class_id) assertClassStaff(await loadClass(sql, plan.class_id), user);
     else throw err.forbidden("That plan is not yours.");
   }
   const b = await readJson(request);
-  const sets: string[] = [];
-  const params: unknown[] = [plan.id];
+  const { sets, params, add } = sqlPatch([plan.id]);
   if (typeof b.published === "boolean") {
-    params.push(b.published);
-    sets.push(`published = $${params.length}`);
+    add("published", b.published);
   }
   if (b.title !== undefined) {
     const title = (str(b.title) ?? "").trim();
     if (title.length > 120) throw err.field("title", "Keep the title under 120 characters.");
-    params.push(title || null);
-    sets.push(`title = $${params.length}`);
+    add("title", title || null);
   }
-  let newPayload: Record<string, unknown> | null = null;
-  let version = plan.version;
-  if (b.payload !== undefined) {
-    newPayload = cleanPayload(b.payload);
-    // A session that already has results keeps the plan it was run with (BR-48).
-    if (plan.session_id && (await one(sql, `select 1 as ok from session_results where session_id = $1 limit 1`, [plan.session_id]))) {
-      throw err.br("BR-48", "That session already has results, so its plan can no longer change. Copy it to a new session instead.");
-    }
-    // Editing something students can already see makes a new version; the old one is kept.
-    if (plan.published && !plan.is_template) {
-      await sql.query(
-        `insert into training_plan_versions (plan_id, version, title, payload, edited_by)
-         values ($1,$2,$3,$4::jsonb,$5) on conflict (plan_id, version) do nothing`,
-        [plan.id, plan.version, plan.title, JSON.stringify(plan.payload), user.id],
-      );
-      version = plan.version + 1;
-      params.push(version);
-      sets.push(`version = $${params.length}`);
-    }
-    params.push(JSON.stringify(newPayload));
-    sets.push(`payload = $${params.length}::jsonb`);
-  }
+  const { newPayload, version } = await editTrainingPayload(sql, plan, b, user, add);
   if (sets.length === 0) throw err.field("published", "Nothing to change.");
   if (plan.is_template && b.published === true) throw err.conflictState("A template is not published to students.");
   const row = await one<{
@@ -1034,4 +998,41 @@ export async function plansDuplicateWeek(sql: Sql, classId: string, request: Req
     copied += n.length;
   }
   return { status: 200, body: { copied, skipped } };
+}
+
+type EditableTrainingPlan = {
+    id: string;
+    class_id: string | null;
+    user_id: string | null;
+    session_id: string | null;
+    created_by: string | null;
+    title: string | null;
+    published: boolean;
+    is_template: boolean;
+    version: number;
+    payload: Record<string, unknown>;
+  };
+
+async function editTrainingPayload(sql: Sql, plan: EditableTrainingPlan, b: Record<string, unknown>, user: PublicUser, add: ReturnType<typeof sqlPatch>["add"]) {
+  let newPayload: Record<string, unknown> | null = null;
+  let version = plan.version;
+  if (b.payload !== undefined) {
+    newPayload = cleanPayload(b.payload);
+    // A session that already has results keeps the plan it was run with (BR-48).
+    if (plan.session_id && (await one(sql, `select 1 as ok from session_results where session_id = $1 limit 1`, [plan.session_id]))) {
+      throw err.br("BR-48", "That session already has results, so its plan can no longer change. Copy it to a new session instead.");
+    }
+    // Editing something students can already see makes a new version; the old one is kept.
+    if (plan.published && !plan.is_template) {
+      await sql.query(
+        `insert into training_plan_versions (plan_id, version, title, payload, edited_by)
+         values ($1,$2,$3,$4::jsonb,$5) on conflict (plan_id, version) do nothing`,
+        [plan.id, plan.version, plan.title, JSON.stringify(plan.payload), user.id],
+      );
+      version = plan.version + 1;
+      add("version", version);
+    }
+    add("payload", JSON.stringify(newPayload), "::jsonb");
+  }
+  return { newPayload, version };
 }
