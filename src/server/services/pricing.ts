@@ -31,22 +31,22 @@ export async function lookupPrice(
       order by (court_id is not null) desc`,
     [opts.sport, dayKind, minutes],
   );
-  const courtRule = rules.find((r) => r.court_id === opts.courtId);
-  const sportRule = rules.find((r) => r.court_id == null);
-  const hit = courtRule ?? sportRule;
+  const courtRule = rules.find((rule) => rule.court_id === opts.courtId);
+  const sportRule = rules.find((rule) => rule.court_id == null);
+  const priceRule = courtRule ?? sportRule;
   // BR-37. No rule is not a free court, and a rule outside the bounds a
   // price can have is not a price — 0đ or 99,999,999đ both came from a table
   // somebody edited by hand. Refuse to quote either; callers look the price up
   // before `booking_replace_hold`, so the member's current hold survives.
-  if (!hit || !slotPriceOk(hit.price_vnd)) {
+  if (!priceRule || !slotPriceOk(priceRule.price_vnd)) {
     throw err.br("BR-37", "There is no price for that slot yet — ask the desk.", {
       sport: opts.sport,
       day_kind: dayKind,
     });
   }
-  return { price_vnd: hit.price_vnd, is_peak: hit.is_peak };
+  return { price_vnd: priceRule.price_vnd, is_peak: priceRule.is_peak };
 }
 
-export function applyDiscount(list: number, pct: number, round = 1000): number {
-  return roundVnd(list * (1 - pct / 100), round);
+export function applyDiscount(listPrice: number, discountPct: number, roundingStep = 1000): number {
+  return roundVnd(listPrice * (1 - discountPct / 100), roundingStep);
 }

@@ -1,38 +1,9 @@
+import { PLAYED_SQL } from "./played";
 import type { Sql } from "@/server/data/db";
 import { BOOKING_COLS, PAYMENT_COLS } from "../../services/columns";
-import type {
-  Booking,
-  BookingResponse,
-  CancelQuoteResponse,
-  CancelResponse,
-  CheckInResponse,
-  CollectBalanceResponse,
-  ConfirmResponse,
-  HoldResponse,
-  MeBookingsResponse,
-  MyBooking,
-  MyClassSession,
-  Payment,
-  Reply,
-  RescheduleResponse,
-  SettledBooking,
-  TransferConfirmResponse,
-  TransferRejectResponse,
-  WalkInResponse,
-} from "../../../shared/arena3/contracts";
+import type { Booking, BookingResponse, CancelQuoteResponse, CancelResponse, CheckInResponse, CollectBalanceResponse, ConfirmResponse, HoldResponse, MeBookingsResponse, MyBooking, MyClassSession, Payment, Reply, RescheduleResponse, SettledBooking, TransferConfirmResponse, TransferRejectResponse, WalkInResponse } from "../../../shared/arena3/contracts";
 import { ApiError, err, isConflictSlot } from "../errors";
-import {
-  audit,
-  bookingBuyer,
-  enqueue,
-  enqueueReceipt,
-  getSettings,
-  issueInvoice,
-  nextCode,
-  num,
-  readJson,
-  str,
-} from "../helpers";
+import { audit, bookingBuyer, enqueue, enqueueReceipt, getSettings, issueInvoice, nextCode, num, readJson, str } from "../helpers";
 import { isValidVnPhone, normalizePhone } from "../../services/phone";
 import { memberCourtFee } from "../../services/membership";
 import { dueNow, quoteCancel } from "../../services/policy";
@@ -93,7 +64,6 @@ export function assertSlotGrid(
 }
 
 async function assertBookWindow(
-  sql: Sql,
   start: Date,
   opts: { walkIn: boolean; settings: Awaited<ReturnType<typeof getSettings>> },
 ) {
@@ -160,7 +130,7 @@ export async function occupancyGet(sql: Sql, request: Request) {
     kind: string;
     ref_id: string;
   }>(
-    `select court_id, start_at, end_at, kind, ref_id from occupancies
+    `select court_id, start_at, end_at, kind, ref_id from ${PLAYED_SQL} o
       where start_at < $2 and end_at > $1
       order by court_id, start_at`,
     [start.toISOString(), end.toISOString()],
@@ -472,78 +442,55 @@ export async function courtsPatch(sql: Sql, id: string, request: Request, user: 
     b.sport !== undefined;
 
   // Preserve exact original behavior if only status is being patched (or no extra fields)
-  if (!hasExtraFields) {
-    if (!status || !(COURT_STATUSES as readonly string[]).includes(status)) {
-      throw err.validation(`status must be one of ${COURT_STATUSES.join(", ")}.`);
-    }
-    if (cur.status === status) return { status: 200, body: { court: cur, upcoming: 0 } };
+  if (!hasExtraFields) return patchCourtStatus(sql, id, user, b, cur, status);
+  return patchCourtMetadata(sql, id, user, b, cur, status);
+}
 
-    if (status === "closed" && cur.status !== "closed") {
-      const remaining = await one<{ cnt: number }>(
+async function patchCourtStatus(sql: Sql, id: string, user: PublicUser, b: Record<string, unknown>, cur: Awaited<ReturnType<typeof courtById>>, status: string | undefined) {
+  if (!status || !(COURT_STATUSES as readonly string[]).includes(status)) {
+    throw err.validation(`status must be one of ${COURT_STATUSES.join(", ")}.`);
+  }
+  if (cur.status === status) return { status: 200, body: { court: cur, upcoming: 0 } };
+
+  if (status === "closed" && cur.status !== "closed") {
+    const remaining = await one<{ cnt: number }>(
+      sql,
+      `select count(*)::int as cnt from courts where sport = $1 and retired_at is null and status <> 'closed' and id <> $2`,
+      [cur.sport, id],
+    );
+    if (!remaining || remaining.cnt === 0) {
+      const activeClasses = await one<{ cnt: number }>(
         sql,
-        `select count(*)::int as cnt from courts where sport = $1 and retired_at is null and status <> 'closed' and id <> $2`,
-        [cur.sport, id],
+        `select count(*)::int as cnt from classes where sport = $1 and status = 'open'`,
+        [cur.sport],
       );
-      if (!remaining || remaining.cnt === 0) {
-        const activeClasses = await one<{ cnt: number }>(
-          sql,
-          `select count(*)::int as cnt from classes where sport = $1 and status = 'open'`,
-          [cur.sport],
+      if ((activeClasses?.cnt ?? 0) > 0) {
+        throw new ApiError(
+          409,
+          "CONFLICT_STATE",
+          "Cannot close the last available court for a sport with active classes.",
         );
-        if ((activeClasses?.cnt ?? 0) > 0) {
-          throw new ApiError(
-            409,
-            "CONFLICT_STATE",
-            "Cannot close the last available court for a sport with active classes.",
-          );
-        }
       }
     }
-
-    const reason = str(b.reason) ?? null;
-    await sql.query(`update courts set status = $2 where id = $1`, [id, status]);
-    const live = await one<{ n: number }>(
-      sql,
-      `select count(*)::int as n from occupancies where court_id = $1 and end_at > now()`,
-      [id],
-    );
-    await audit(sql, user.id, "patch_court", "court", id, { from: cur.status, to: status, reason });
-    const court = await one(
-      sql,
-      `select id, court_code, sport, status, display_name, sort_order, retired_at from courts where id = $1`,
-      [id],
-    );
-    return { status: 200, body: { court, upcoming: live?.n ?? 0 } };
   }
 
-  if (b.status !== undefined) {
-    if (!status || !(COURT_STATUSES as readonly string[]).includes(status)) {
-      throw err.validation(`status must be one of ${COURT_STATUSES.join(", ")}.`);
-    }
-  }
+  const reason = str(b.reason) ?? null;
+  await sql.query(`update courts set status = $2 where id = $1`, [id, status]);
+  const live = await one<{ n: number }>(
+    sql,
+    `select count(*)::int as n from occupancies where court_id = $1 and end_at > now()`,
+    [id],
+  );
+  await audit(sql, user.id, "patch_court", "court", id, { from: cur.status, to: status, reason });
+  const court = await one(
+    sql,
+    `select id, court_code, sport, status, display_name, sort_order, retired_at from courts where id = $1`,
+    [id],
+  );
+  return { status: 200, body: { court, upcoming: live?.n ?? 0 } };
+}
 
-  let nextCourtCode = cur.court_code;
-  if (b.court_code !== undefined) {
-    const rawCode = str(b.court_code)?.trim().toUpperCase() || "";
-    if (rawCode.length > 8 || !/^[A-Z]{2}-\d{2,3}$/.test(rawCode)) {
-      throw err.field(
-        "court_code",
-        "Court code must match format like CL-01 or BR-12 (2 capital letters, dash, 2-3 digits).",
-      );
-    }
-    if (rawCode !== cur.court_code) {
-      const dup = await one(
-        sql,
-        `select 1 from courts where lower(court_code) = lower($1) and id <> $2`,
-        [rawCode, id],
-      );
-      if (dup) {
-        throw err.conflictSlot("That court code is already in use.");
-      }
-      nextCourtCode = rawCode;
-    }
-  }
-
+async function courtSportForPatch(sql: Sql, id: string, b: Record<string, unknown>, cur: Awaited<ReturnType<typeof courtById>>) {
   let nextSport = cur.sport;
   if (b.sport !== undefined) {
     const s = str(b.sport);
@@ -573,6 +520,39 @@ export async function courtsPatch(sql: Sql, id: string, request: Request, user: 
     }
   }
 
+  return nextSport;
+}
+
+async function patchCourtMetadata(sql: Sql, id: string, user: PublicUser, b: Record<string, unknown>, cur: Awaited<ReturnType<typeof courtById>>, status: string | undefined) {
+  if (b.status !== undefined) {
+    if (!status || !(COURT_STATUSES as readonly string[]).includes(status)) {
+      throw err.validation(`status must be one of ${COURT_STATUSES.join(", ")}.`);
+    }
+  }
+
+  let nextCourtCode = cur.court_code;
+  if (b.court_code !== undefined) {
+    const rawCode = str(b.court_code)?.trim().toUpperCase() || "";
+    if (rawCode.length > 8 || !/^[A-Z]{2}-\d{2,3}$/.test(rawCode)) {
+      throw err.field(
+        "court_code",
+        "Court code must match format like CL-01 or BR-12 (2 capital letters, dash, 2-3 digits).",
+      );
+    }
+    if (rawCode !== cur.court_code) {
+      const dup = await one(
+        sql,
+        `select 1 from courts where lower(court_code) = lower($1) and id <> $2`,
+        [rawCode, id],
+      );
+      if (dup) {
+        throw err.conflictSlot("That court code is already in use.");
+      }
+      nextCourtCode = rawCode;
+    }
+  }
+
+  const nextSport = await courtSportForPatch(sql, id, b, cur);
   const nextStatus = status || cur.status;
   const nextDisplayName =
     b.display_name !== undefined ? str(b.display_name)?.trim() || null : cur.display_name;
@@ -581,6 +561,10 @@ export async function courtsPatch(sql: Sql, id: string, request: Request, user: 
   }
   const nextSortOrder = b.sort_order !== undefined ? num(b.sort_order) ?? null : cur.sort_order;
 
+  return saveCourtMetadata(sql, id, user, cur, nextCourtCode, nextSport, nextStatus, nextDisplayName, nextSortOrder);
+}
+
+async function saveCourtMetadata(sql: Sql, id: string, user: PublicUser, cur: Awaited<ReturnType<typeof courtById>>, nextCourtCode: string, nextSport: string, nextStatus: string, nextDisplayName: string | null, nextSortOrder: number | null) {
   await sql.query(
     `update courts
         set court_code = $1, sport = $2, status = $3, display_name = $4, sort_order = $5
@@ -634,7 +618,7 @@ export async function bookingsHold(sql: Sql, request: Request, user: PublicUser)
   const start = new Date(startAt);
   if (Number.isNaN(start.getTime())) throw err.field("start_at", "That time is not valid.");
   const { end } = slotBounds(start, settings.slot_minutes);
-  await assertBookWindow(sql, start, { walkIn: false, settings });
+  await assertBookWindow(start, { walkIn: false, settings });
   const court = await courtById(sql, courtId);
   if (court.status !== "ready") throw err.br("BR-06", "That court is not available.");
   await assertNoCourtOverlap(sql, user.id, start, end);
@@ -1280,7 +1264,7 @@ export async function bookingsReschedule(
     throw err.field("start_at", "That is the slot you already have.");
   }
   const { end } = slotBounds(start, settings.slot_minutes);
-  await assertBookWindow(sql, start, { walkIn: false, settings });
+  await assertBookWindow(start, { walkIn: false, settings });
 
   await assertNoCourtOverlap(sql, user.id, start, end, booking.id);
   const overlap = await overlapClass(sql, user.id, start, end);
@@ -1375,7 +1359,7 @@ export async function walkIn(sql: Sql, request: Request, user: PublicUser): Prom
   const start = new Date(startAt);
   if (Number.isNaN(start.getTime())) throw err.field("start_at", "That time is not valid.");
   const { end } = slotBounds(start, settings.slot_minutes);
-  await assertBookWindow(sql, start, { walkIn: true, settings });
+  await assertBookWindow(start, { walkIn: true, settings });
   const court = await courtById(sql, courtId);
   if (court.status !== "ready") throw err.br("BR-06", "That court is not available.");
   if (user.role === "receptionist") {
