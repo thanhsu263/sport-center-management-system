@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>Arena3 – Báo cáo sửa giao diện</title>
+<style>
+  @page { size: A4; margin: 16mm 14mm; }
+  * { box-sizing: border-box; }
+  body { font-family: "Segoe UI", Arial, sans-serif; color: #1c241b; font-size: 11.5pt; line-height: 1.5; margin: 0; }
+  h1 { font-size: 26pt; margin: 0 0 4pt; letter-spacing: -0.5pt; }
+  h2 { font-size: 16pt; margin: 0 0 6pt; color: #1f5c43; }
+  h3 { font-size: 12.5pt; margin: 14pt 0 4pt; }
+  p { margin: 0 0 7pt; }
+  .page { page-break-after: always; }
+  .page:last-child { page-break-after: auto; }
+  .muted { color: #5f6759; }
+  .big { font-size: 13pt; }
+  .box { break-inside: avoid; border-radius: 8pt; padding: 10pt 12pt; margin: 8pt 0; }
+  .green { background: #e4efe8; border: 1px solid #b9d3c3; }
+  .red { background: #f8e6e3; border: 1px solid #e3b9b3; }
+  .amber { background: #f6eddb; border: 1px solid #e4d2a8; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10pt; }
+  figure { margin: 0; }
+  figure img { width: 100%; border: 1px solid #cfc8b4; border-radius: 6pt; display: block; }
+  figcaption { font-size: 9.5pt; margin-top: 3pt; font-weight: 600; }
+  .tag { display: inline-block; font-size: 9pt; font-weight: 700; padding: 1pt 7pt; border-radius: 9pt; margin-bottom: 3pt; }
+  .tag.before { background: #f1d3cf; color: #8a2b20; }
+  .tag.after { background: #cfe5d8; color: #1f5c43; }
+  table { border-collapse: collapse; width: 100%; font-size: 10.5pt; }
+  th, td { border-bottom: 1px solid #ddd6c3; padding: 6pt 6pt; text-align: left; vertical-align: top; }
+  th { background: #efe9d8; }
+  .bar { height: 11pt; border-radius: 3pt; }
+  .b1 { background: #c9543f; } .b2 { background: #2f7a58; }
+  .barrow { margin: 6pt 0; font-size: 10pt; }
+  .num { font-weight: 700; }
+  ul { margin: 0 0 7pt 0; padding-left: 16pt; }
+  li { margin-bottom: 3pt; }
+  .phones { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8pt; }
+  .phones img { max-height: 160mm; object-fit: cover; object-position: top; }
+</style>
+</head>
+<body>
+
+<!-- ============ TRANG 1: TÓM TẮT ============ -->
+<section class="page">
+  <h1>Arena3 – Báo cáo sửa giao diện</h1>
+  <p class="muted">Viết bằng tiếng người, không dùng thuật ngữ · ngày 04/10/2026</p>
+
+  <div class="box red">
+    <p><b>Sếp lớn chê:</b> “UI/UX khó nhìn, list dài vô tận, 1000 user”.</p>
+    <p style="margin:0"><b>Đúng thật.</b> Tụi tao nhét thử 1.051 hội viên vào app để kiểm tra. Màn <b>“At risk”</b> (danh sách hội viên sắp bỏ đi mà lễ tân cần gọi điện) dài tới <b>27.965 điểm ảnh</b> trên máy tính – phải cuộn khoảng <b>34 màn hình</b> mới hết. Trên điện thoại còn tệ hơn: <b>39 màn hình</b>. Không có ô tìm kiếm, không có bộ lọc, không có chia trang. Mỗi người là một cái thẻ to đùng.</p>
+  </div>
+
+  <div class="box green">
+    <p><b>Giờ thì:</b> màn đó chỉ còn <b>khoảng 2 màn hình</b> trên máy tính (gọn hơn <b>16 lần</b>), có ô tìm kiếm, nút lọc kèm con số, và chia trang 20 người một lần.</p>
+    <p style="margin:0">Menu của quản lý cũng hết bị tràn ra ngoài màn hình. Các màn danh sách dài khác cũng được chia trang.</p>
+  </div>
+</section>
+
+<!-- ============ TRANG 2: AT RISK DESKTOP ============ -->
+<section class="page">
+  <h2>1. Màn “At risk” – thủ phạm chính</h2>
+  <p>Đây là danh sách hội viên lâu không đến tập hoặc sắp hết gói. Lễ tân dùng nó để gọi điện hỏi thăm.</p>
+  <div class="grid2">
+    <figure><span class="tag before">TRƯỚC</span><img src="before/receptionist-desk-at-risk-desktop.png"><figcaption>Mỗi người một thẻ to. Dài 27.965 điểm ảnh.</figcaption></figure>
+    <figure><span class="tag after">SAU</span><img src="after/receptionist-desk-at-risk-desktop.png"><figcaption>Mỗi người một dòng. Cả trang chỉ còn 1.736 điểm ảnh.</figcaption></figure>
+  </div>
+  <h3>Cái gì mới?</h3>
+  <ul>
+    <li><b>Các nút lọc có con số</b>: “To call 169” (cần gọi), “Already contacted” (đã gọi), “Absent in a row” (nghỉ liên tiếp)… bấm vào là lọc ngay, nhìn con số biết còn bao nhiêu việc.</li>
+    <li><b>Ô tìm kiếm</b>: gõ tên, số điện thoại hoặc mã hội viên.</li>
+    <li><b>Chọn cách sắp xếp</b>: gấp nhất trước, hết gói sớm nhất, vắng lâu nhất, A–Z.</li>
+    <li><b>Mặc định chỉ hiện người “cần gọi”</b>: người đã gọi rồi tự ẩn đi, đỡ rối. Muốn xem lại thì bấm “Already contacted”.</li>
+    <li><b>Số điện thoại bấm gọi được luôn</b> trên điện thoại.</li>
+    <li><b>Phần giải thích dài được gấp lại</b> (“Who ends up on this list?”), không còn chiếm chỗ ở đầu trang.</li>
+  </ul>
+</section>
+
+<!-- ============ TRANG 3: AT RISK TOÀN TRANG + MOBILE ============ -->
+<section class="page">
+  <h2>1b. “At risk” trên điện thoại và chia trang</h2>
+  <div class="grid2">
+    <figure><span class="tag before">TRƯỚC · điện thoại</span><img src="before/receptionist-desk-at-risk-mobile.png" style="max-height:150mm;object-fit:cover;object-position:top"><figcaption>Dài 32.821 điểm ảnh (~39 màn hình). Chữ trên menu dưới đáy dính vào nhau.</figcaption></figure>
+    <figure><span class="tag after">SAU · điện thoại</span><img src="after/receptionist-desk-at-risk-mobile.png" style="max-height:150mm;object-fit:cover;object-position:top"><figcaption>Dài 3.688 điểm ảnh. Nút lọc vuốt ngang được. Menu đáy chỉ còn 4 nút + “More” cho các mục ít dùng.</figcaption></figure>
+  </div>
+  <div class="box green" style="margin-top:12pt">
+    <p style="margin:0"><b>Chia trang:</b> mỗi trang 20 người, cuối trang có “Showing 1–20 of 169 · Page 1 of 9 · Previous / Next”. 1.000 người = 50 trang nhỏ, thay vì một dải dài vô tận.</p>
+  </div>
+</section>
+
+<!-- ============ TRANG 4: MENU ============ -->
+<section class="page">
+  <h2>2. Menu của quản lý bị tràn</h2>
+  <p>Quản lý có tới 11 tab xếp một hàng nên rất chật. Lễ tân thì chữ “At risk” bị rớt thành hai dòng.</p>
+  <div class="grid2">
+    <figure><span class="tag before">TRƯỚC</span><img src="before/manager-manager-desktop.png" style="max-height:80mm;object-fit:cover;object-position:top"><figcaption>11 tab nhồi chung một hàng, chữ bé xíu, khó tìm.</figcaption></figure>
+    <figure><span class="tag after">SAU</span><img src="after/manager-more-menu-desktop.png" style="max-height:80mm;object-fit:cover;object-position:top"><figcaption>6 tab hay dùng + nút “More” gom 5 tab ít dùng (Plans, Promos, Pricing, Audit, Settings).</figcaption></figure>
+  </div>
+  <h3>Trên điện thoại</h3>
+  <div class="grid2">
+    <figure><span class="tag before">TRƯỚC</span><img src="before/manager-manager-mobile.png" style="max-height:105mm;object-fit:cover;object-position:bottom"><figcaption>11 nút nhét trong một thanh dưới đáy → nhỏ xíu, chữ chồng chữ, khó bấm trúng.</figcaption></figure>
+    <figure><span class="tag after">SAU</span><img src="after/manager-more-menu-mobile.png" style="max-height:105mm;object-fit:cover;object-position:bottom"><figcaption>Thanh đáy chỉ còn 4 nút chính (Reports, Members, Attendance, Payments) + “More”. Bấm “More” hiện ngăn kéo 7 nút to, dễ bấm bằng ngón tay.</figcaption></figure>
+  </div>
+</section>
+
+<!-- ============ TRANG 5: MEMBERS ============ -->
+<section class="page">
+  <h2>3. Danh sách hội viên (Members)</h2>
+  <p>Màn này đã có chia trang từ trước, nhưng nhìn nặng nề: mỗi người một thẻ dày, bộ lọc là 4 ô chọn xổ xuống.</p>
+  <div class="grid2">
+    <figure><span class="tag before">TRƯỚC</span><img src="before/manager-manager-members-desktop.png"><figcaption>Thẻ dày, bộ lọc ẩn trong các ô xổ xuống.</figcaption></figure>
+    <figure><span class="tag after">SAU</span><img src="after/manager-manager-members-desktop.png"><figcaption>Bảng gọn có tiêu đề cột. Lọc theo tình trạng gói bằng các nút to. Có dòng “1,051 members”.</figcaption></figure>
+  </div>
+  <ul style="margin-top:8pt">
+    <li>Tình trạng gói (đang dùng / hết trong tuần / hết hạn / chưa có gói) giờ là <b>các nút bấm</b> thay vì ô xổ xuống.</li>
+    <li>Chia trang dùng chung một bộ phận với các màn khác: “Showing 1–25 of 1,051 · Page 1 of 43”.</li>
+    <li>Bấm vào cả dòng là mở hồ sơ hội viên (trước đây phải bấm đúng vào cái tên).</li>
+  </ul>
+</section>
+
+<!-- ============ TRANG 6: SỐ LIỆU + CÒN LẠI ============ -->
+<section class="page">
+  <h2>4. Con số trước và sau</h2>
+  <p class="muted">Đo bằng chiều cao cả trang (điểm ảnh). Một màn hình máy tính ≈ 820, điện thoại ≈ 844.</p>
+
+  <table>
+    <tr><th>Màn hình</th><th>Thiết bị</th><th>Trước</th><th>Sau</th><th>Kết quả</th></tr>
+    <tr><td>At risk</td><td>Máy tính</td><td>27.965 (≈34 màn)</td><td>1.736 (≈2 màn)</td><td class="num" style="color:#1f5c43">Ngắn hơn 16 lần</td></tr>
+    <tr><td>At risk</td><td>Điện thoại</td><td>32.821 (≈39 màn)</td><td>3.688 (≈4,4 màn)</td><td class="num" style="color:#1f5c43">Ngắn hơn 8,9 lần</td></tr>
+    <tr><td>Payments (biên lai)</td><td>Máy tính</td><td>4.838</td><td>1.886</td><td class="num" style="color:#1f5c43">Ngắn hơn 2,6 lần</td></tr>
+    <tr><td>Payments (biên lai)</td><td>Điện thoại</td><td>9.272</td><td>3.472</td><td class="num" style="color:#1f5c43">Ngắn hơn 2,7 lần</td></tr>
+    <tr><td>Members</td><td>Điện thoại</td><td>4.589</td><td>3.831</td><td class="num">Ngắn hơn ~17%</td></tr>
+    <tr><td>Members</td><td>Máy tính</td><td>2.213</td><td>2.010</td><td class="num">Ngắn hơn ~9%</td></tr>
+  </table>
+
+  <h3 style="margin-top:8pt">Chiều dài màn “At risk” trên máy tính</h3>
+  <div class="barrow">Trước <span class="num">27.965</span><div class="bar b1" style="width:100%"></div></div>
+  <div class="barrow">Sau <span class="num">1.736</span><div class="bar b2" style="width:6.2%"></div></div>
+
+  <h3 style="margin-top:8pt">Hai màn nữa cũng được sửa</h3>
+  <ul>
+    <li><b>Payments – danh sách biên lai</b>: trước đây là một cột dài hết cỡ; giờ chia trang 15 biên lai một lần, và <b>có ô tìm kiếm</b> (trước đó code có sẵn nhưng quên gắn lên màn hình nên không ai thấy). Phần “Waiting for payment” (chờ thu tiền) giữ nguyên vì có liên quan đến tiền.</li>
+    <li><b>Coach – điểm danh</b>: mỗi học viên một dòng gọn trong một khung chung, có dòng đếm ngay “Present · Late · Absent” kèm số người, và nút <b>“Mark everyone present”</b> (đánh dấu tất cả có mặt) để huấn luyện viên sửa nhanh ngoại lệ.</li>
+  </ul>
+
+</section>
+<section class="page">
+  <h2>5. Chưa làm hết và một chuyện cần biết</h2>
+  <div class="box amber">
+    <p style="margin:0 0 4pt"><b>Nói thật, chưa làm hết:</b></p>
+    <ul style="margin:0">
+      <li>Màn <b>Reports</b> của quản lý (biểu đồ doanh thu) vẫn dài ~5.000 điểm ảnh, tụi tao chưa đụng.</li>
+      <li>Màn điểm danh của huấn luyện viên chỉ gọn thêm chút xíu vì phần lớn chiều dài là các bảng “Kế hoạch buổi tập” và “Bài tập về nhà”, không phải danh sách học viên.</li>
+      <li>Phần “Members” chưa có sắp xếp theo cột và chưa có số đếm trên từng nút lọc (cần sửa thêm phía máy chủ).</li>
+    </ul>
+  </div>
+
+  <div class="box red" style="break-inside:avoid;margin-top:14pt">
+    <p style="margin:0 0 4pt"><b>⚠ Một chuyện cần biết (không liên quan giao diện):</b></p>
+    <p style="margin:0">Trong lúc test, máy làm việc đang trỏ nhầm vào <b>cơ sở dữ liệu thật (production)</b>, nên 12 hội viên thử nghiệm (mã A3-2026-0064 đến 0075) và vài giao dịch tiền mặt thử đã bị ghi vào đó. Chưa xóa gì cả – cần bạn đồng ý rồi mới dọn. Từ lúc phát hiện, mọi test đều chạy trên dữ liệu giả ở máy riêng.</p>
+  </div>
+</section>
+
+</body>
+</html>
