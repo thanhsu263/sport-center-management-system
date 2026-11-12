@@ -6,6 +6,41 @@ import { requireRole, type PublicUser } from "../session";
 
 const COURT_CODE_RE = /^[A-Z]{2}-\d{2,3}$/;
 
+async function generateCourtCode(sql: Sql, courtPrefix: string | null): Promise<string> {
+  const prefix = courtPrefix ? `${courtPrefix}-` : "CT-";
+  const existing = await sql.query<{ court_code: string }>(
+    `select court_code from courts where court_code like $1`,
+    [`${prefix}%`],
+  );
+  const usedNumbers = new Set<number>();
+  for (const court of existing) {
+    const match = /^[A-Z]{2}-(\d+)$/.exec(court.court_code);
+    if (match && match[1]) {
+      usedNumbers.add(parseInt(match[1], 10));
+    }
+  }
+  let nextNumber = 1;
+  while (usedNumbers.has(nextNumber)) nextNumber++;
+  return `${prefix}${String(nextNumber).padStart(2, "0")}`;
+}
+
+function describeCourtBlocker(occupancy: {
+  kind: string;
+  start_at: string;
+  end_at: string;
+  code: string | null;
+  title: string | null;
+}) {
+  return {
+    kind: occupancy.kind,
+    start_at: occupancy.start_at,
+    end_at: occupancy.end_at,
+    description: occupancy.code
+      ? `Booking ${occupancy.code}`
+      : occupancy.title ? `Class ${occupancy.title}` : occupancy.kind,
+  };
+}
+
 export async function managerCourtsList(sql: Sql, user: PublicUser) {
   requireRole(user, ["manager"]);
 
@@ -66,23 +101,7 @@ export async function managerCourtCreate(sql: Sql, request: Request, user: Publi
 
   if (!courtCode) {
     // Auto-generate code based on sport prefix and lowest unused number
-    const prefix = spRow.court_prefix ? `${spRow.court_prefix}-` : "CT-";
-    const existing = await sql.query<{ court_code: string }>(
-      `select court_code from courts where court_code like $1`,
-      [`${prefix}%`],
-    );
-    const used = new Set<number>();
-    for (const row of existing) {
-      const match = /^[A-Z]{2}-(\d+)$/.exec(row.court_code);
-      if (match && match[1]) {
-        used.add(parseInt(match[1], 10));
-      }
-    }
-    let n = 1;
-    while (used.has(n)) {
-      n++;
-    }
-    courtCode = `${prefix}${String(n).padStart(2, "0")}`;
+    courtCode = await generateCourtCode(sql, spRow.court_prefix);
   } else {
     // Validate custom code
     if (courtCode.length > 8 || !COURT_CODE_RE.test(courtCode)) {
@@ -208,18 +227,8 @@ export async function managerCourtRetire(
       "CONFLICT_STATE",
       "Cannot retire court with upcoming bookings or sessions.",
       {
-        affected: upcoming.map((u) => ({
-          kind: u.kind,
-          start_at: u.start_at,
-          end_at: u.end_at,
-          description: u.code ? `Booking ${u.code}` : u.title ? `Class ${u.title}` : u.kind,
-        })),
-        blockers: upcoming.map((u) => ({
-          kind: u.kind,
-          start_at: u.start_at,
-          end_at: u.end_at,
-          description: u.code ? `Booking ${u.code}` : u.title ? `Class ${u.title}` : u.kind,
-        })),
+        affected: upcoming.map(describeCourtBlocker),
+        blockers: upcoming.map(describeCourtBlocker),
       },
     );
   }

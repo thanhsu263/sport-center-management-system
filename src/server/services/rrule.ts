@@ -10,6 +10,15 @@ const DAY_MAP: Record<string, number> = {
   SA: 6,
 };
 
+function parseWeeklyRule(rrule: string) {
+  return Object.fromEntries(
+    rrule.split(";").map((part) => {
+      const [key, value] = part.split("=");
+      return [key ?? "", value ?? ""];
+    }),
+  );
+}
+
 /** Subset: FREQ=WEEKLY;BYDAY=MO,WE;BYHOUR=18 */
 export function expandWeekly(
   rrule: string,
@@ -17,28 +26,25 @@ export function expandWeekly(
   from: Date,
   until: Date,
 ): { start: Date; end: Date }[] {
-  const parts = Object.fromEntries(
-    rrule.split(";").map((p) => {
-      const [k, v] = p.split("=");
-      return [k ?? "", v ?? ""];
-    }),
-  );
+  const parts = parseWeeklyRule(rrule);
   if ((parts.FREQ ?? "WEEKLY") !== "WEEKLY") return [];
   const days = (parts.BYDAY ?? "")
     .split(",")
     .map((d) => DAY_MAP[d.trim()])
     .filter((n): n is number => n !== undefined);
   const hour = Number(parts.BYHOUR ?? 18);
-  const out: { start: Date; end: Date }[] = [];
+  const startTime = `${String(hour).padStart(2, "0")}:00`;
+  const durationMs = durationMin * 60_000;
+  const sessions: { start: Date; end: Date }[] = [];
   let cursor = ictDateString(from);
   const endDate = ictDateString(until);
   while (cursor <= endDate) {
-    const dt = ictDateTime(cursor, `${String(hour).padStart(2, "0")}:00`);
-    const wd = ictWeekday(dt);
-    if (days.includes(wd) && dt >= from && dt < until) {
-      out.push({ start: dt, end: new Date(dt.getTime() + durationMin * 60_000) });
+    const start = ictDateTime(cursor, startTime);
+    const weekday = ictWeekday(start);
+    if (days.includes(weekday) && start >= from && start < until) {
+      sessions.push({ start, end: new Date(start.getTime() + durationMs) });
     }
     cursor = addDays(cursor, 1);
   }
-  return out;
+  return sessions;
 }
