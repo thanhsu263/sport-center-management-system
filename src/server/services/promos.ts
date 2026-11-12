@@ -7,12 +7,12 @@
  * money actually posts, so a hold that expires or a payment that fails never
  * spends a use (BR-41).
  */
-import type { Sql } from "@/lib/db";
-import { err } from "./errors";
+import type { Sql } from "@/server/data/db";
+import { err } from "../controllers/errors";
 import { MIN_PAYABLE_VND, computeDiscount, normalizeCode } from "./rules";
-import { one } from "./tx";
+import { one } from "../controllers/tx";
 
-export type PromoScope = "plan" | "court";
+export type PromoScope = "plan" | "court" | "class";
 
 export type PromoRow = {
   id: string;
@@ -85,7 +85,7 @@ export async function quotePromo(sql: Sql, input: QuoteInput): Promise<PromoQuot
   if (new Date(promo.starts_at) > now) throw no("That code is not active yet.");
   if (promo.ends_at && new Date(promo.ends_at) <= now) throw no("That code has expired.");
   if (!promo.applies_to.includes(input.scope)) {
-    throw no(`That code does not apply to ${input.scope === "plan" ? "plans" : "courts"}.`);
+    throw no(`That code does not apply to ${input.scope === "plan" ? "plans" : input.scope === "class" ? "classes" : "courts"}.`);
   }
   if (promo.sport && promo.sport !== "all" && input.sport && promo.sport !== input.sport && input.sport !== "all") {
     throw no(`That code is only for ${promo.sport}.`);

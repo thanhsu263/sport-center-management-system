@@ -1,4 +1,5 @@
 import { PayOS } from "@payos/node";
+import type { Sql } from "@/server/data/db";
 
 /**
  * The payOS gateway, wrapped so the rest of the app never talks to it directly.
@@ -152,9 +153,68 @@ export async function readPaymentLink(orderCode: number): Promise<LinkState> {
   };
 }
 
-/** Withdraw a link whose hold has expired, so the customer cannot still pay it. */
+let overridePaymentLinkCanceller: ((orderCode: number, reason: string) => Promise<void>) | null = null;
+/** @internal test-only */
+export function setOverridePaymentLinkCanceller(fn: ((orderCode: number, reason: string) => Promise<void>) | null): void {
+  overridePaymentLinkCanceller = fn;
+}
+
+/** Withdraw a link whose hold has ended, so the customer cannot still pay it. */
 export async function cancelPaymentLink(orderCode: number, reason: string): Promise<void> {
+  if (overridePaymentLinkCanceller) return overridePaymentLinkCanceller(orderCode, reason);
   await payos().paymentRequests.cancel(orderCode, reason.slice(0, 255));
+}
+
+/**
+ * Withdraw every pending payOS link in `rows` and mark them expired locally.
+ *
+ * A failure at payOS is swallowed (the link may already be cancelled or paid
+ * there); the local row is still closed so nothing offers it again. The caller
+ * must already hold the row locks, taken before any class or enrolment lock, so
+ * this never inverts the payments → class → enrolment order `settleOnline` uses.
+ */
+export async function withdrawLinks(
+  sql: Sql,
+  rows: Array<{ id: string; provider_order_code: string | number | null }>,
+  reason: string,
+  providerStatus: string,
+): Promise<void> {
+  for (const row of rows) {
+    if (row.provider_order_code != null) {
+      try {
+        await cancelPaymentLink(Number(row.provider_order_code), reason);
+      } catch {
+        // Already cancelled or already paid at payOS: the local row closes either way.
+      }
+    }
+    await sql.query(`update payments set status = 'expired', provider_status = $2 where id = $1`, [
+      row.id,
+      providerStatus,
+    ]);
+  }
+}
+
+/**
+ * Lock the pending payOS links of these enrolments, before any class lock.
+ *
+ * `settleOnline` locks a payment row and then the class (through
+ * `settleEnrollment`). Every path that both ends a seat hold and closes its link
+ * takes the payment rows here first, so the two never wait on each other in
+ * opposite orders.
+ */
+export async function lockEnrollmentLinks(
+  sql: Sql,
+  enrollmentIds: string[],
+): Promise<Array<{ id: string; provider_order_code: string | number | null }>> {
+  if (!enrollmentIds.length) return [];
+  return sql.query<{ id: string; provider_order_code: string | number | null }>(
+    `select id, provider_order_code from payments
+      where ref_type = 'enrollment' and ref_id = any($1::uuid[])
+        and status::text = 'pending' and provider = 'payos'
+      order by id
+      for update`,
+    [enrollmentIds],
+  );
 }
 
 export type VerifiedWebhook = {
