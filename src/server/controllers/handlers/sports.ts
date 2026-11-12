@@ -346,8 +346,6 @@ export async function managerSportDelete(sql: Sql, code: string, user: PublicUse
   const checks = [
     { table: "courts", query: `select 1 from courts where sport = $1 limit 1` },
     { table: "classes", query: `select 1 from classes where sport = $1 limit 1` },
-    { table: "membership_plans", query: `select 1 from membership_plans where sport_scope = $1 limit 1` },
-    { table: "subscriptions", query: `select 1 from subscriptions where sport_scope = $1 limit 1` },
     { table: "promotions", query: `select 1 from promotions where sport = $1 limit 1` },
     { table: "equipment_items", query: `select 1 from equipment_items where sport = $1 limit 1` },
     { table: "member_levels", query: `select 1 from member_levels where sport = $1 limit 1` },
