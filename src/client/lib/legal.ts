@@ -23,7 +23,7 @@ export const PRIVACY: Record<"en" | "vi", LegalDoc> = {
   en: {
     title: "Personal data notice",
     intro:
-      "How Lê Long Sport Center collects and uses your personal data when you use the app and the centre, under Decree 13/2023/ND-CP on personal data protection. You agree to it when you create an account; you can withdraw that consent at any time.",
+      "How Lê Long Sport collects and uses your personal data when you use the app and the centre, under Decree 13/2023/ND-CP on personal data protection. You agree to it when you create an account; you can withdraw that consent at any time.",
     sections: [
       {
         heading: "What we collect",
@@ -84,7 +84,7 @@ export const PRIVACY: Record<"en" | "vi", LegalDoc> = {
   vi: {
     title: "Thông báo về dữ liệu cá nhân",
     intro:
-      "Cách Lê Long Sport Center thu thập và sử dụng dữ liệu cá nhân của bạn khi bạn dùng app và đến trung tâm, theo Nghị định 13/2023/NĐ-CP về bảo vệ dữ liệu cá nhân. Bạn đồng ý với thông báo này khi tạo tài khoản, và có thể rút lại sự đồng ý bất cứ lúc nào.",
+      "Cách Lê Long Sport thu thập và sử dụng dữ liệu cá nhân của bạn khi bạn dùng app và đến trung tâm, theo Nghị định 13/2023/NĐ-CP về bảo vệ dữ liệu cá nhân. Bạn đồng ý với thông báo này khi tạo tài khoản, và có thể rút lại sự đồng ý bất cứ lúc nào.",
     sections: [
       {
         heading: "Chúng tôi thu thập gì",
@@ -147,7 +147,7 @@ export const PRIVACY: Record<"en" | "vi", LegalDoc> = {
 export const TERMS: Record<"en" | "vi", LegalDoc> = {
   en: {
     title: "Terms of use",
-    intro: "The rules for using the Lê Long Sport Center app and the centre. By creating an account you agree to them.",
+    intro: "The rules for using the Lê Long Sport app and the centre. By creating an account you agree to them.",
     sections: [
       {
         heading: "Your account",
@@ -194,7 +194,7 @@ export const TERMS: Record<"en" | "vi", LegalDoc> = {
   },
   vi: {
     title: "Điều khoản sử dụng",
-    intro: "Quy định khi dùng app Lê Long Sport Center và sử dụng dịch vụ tại trung tâm. Khi tạo tài khoản, bạn đồng ý với các điều khoản này.",
+    intro: "Quy định khi dùng app Lê Long Sport và sử dụng dịch vụ tại trung tâm. Khi tạo tài khoản, bạn đồng ý với các điều khoản này.",
     sections: [
       {
         heading: "Tài khoản của bạn",

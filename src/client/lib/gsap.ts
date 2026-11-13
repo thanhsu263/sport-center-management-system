@@ -3,7 +3,7 @@ import { gsap } from "gsap";
 import { CustomEase } from "gsap/CustomEase";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { type RefObject } from "react";
-import { useCalm } from "@/lib/calm";
+import { useCalm } from "@/client/lib/calm";
 
 /**
  * The one door to GSAP.

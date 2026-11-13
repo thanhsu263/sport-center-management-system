@@ -1,4 +1,4 @@
-import { Color, Mesh, Program, Renderer, Triangle } from "ogl";
+import { Color, Flowmap, Mesh, Program, Renderer, Texture, Triangle, Vec2 } from "ogl";
 import { useEffect, useRef } from "react";
 
 /**
@@ -70,7 +70,11 @@ function useShader(fragment: string, makeUniforms: () => Uniforms, deps: unknown
     const host = ref.current;
     if (!host) return;
 
+    const canvas = document.createElement("canvas");
+    const context = canvas.getContext("webgl2") ?? canvas.getContext("webgl");
+    if (!context) return; // Keep the media fallback when GPU rendering is unavailable.
     const renderer = new Renderer({
+      canvas,
       alpha: true,
       premultipliedAlpha: true,
       antialias: false,
@@ -335,6 +339,316 @@ export function Threads({
     }),
     [color, amplitude, speed, opacity],
   );
+  return <div ref={ref} className={shell} />;
+}
+
+/* ── Court ───────────────────────────────────────────────────────── */
+
+/**
+ * A badminton court in perspective, lit from above: lime lines on a dark glossy floor, the net
+ * across the middle, ceiling lamps and their reflections, a shuttle crossing with a short trail.
+ *
+ * Both dials mean something. `glow` is how many hours are free today (a full day lights the lines
+ * up, an empty one leaves them dim); `tilt` is how far the visitor has scrolled, which lifts the
+ * camera as the hero leaves. The pointer drags a pool of light across the floor.
+ */
+const COURT_FRAG = /* glsl */ `
+  precision highp float;
+  uniform vec2 uResolution;
+  uniform float uTime;
+  uniform vec2 uMouse;
+  uniform float uTilt;
+  uniform float uGlow;
+  varying vec2 vUv;
+
+  const vec3 BG = vec3(0.106, 0.133, 0.125);
+  const vec3 LIME = vec3(0.831, 0.961, 0.235);
+  const vec3 CHALK = vec3(0.961, 0.973, 0.949);
+  const float HL = 6.7;
+  const float HW = 3.05;
+  const float SW = 2.59;
+  const float ZC = 12.0;
+
+  float hash(vec2 p) { p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
+  float segV(vec2 c, float x, float a, float b) { return length(vec2(c.x - x, max(abs(c.y - 0.5 * (a + b)) - 0.5 * (b - a), 0.0))); }
+  float segH(vec2 c, float z, float a, float b) { return length(vec2(max(abs(c.x - 0.5 * (a + b)) - 0.5 * (b - a), 0.0), c.y - z)); }
+
+  float courtDist(vec2 c) {
+    float d = segV(c, HW, -HL, HL);
+    d = min(d, segV(c, -HW, -HL, HL));
+    d = min(d, segV(c, SW, -HL, HL));
+    d = min(d, segV(c, -SW, -HL, HL));
+    d = min(d, segH(c, HL, -HW, HW));
+    d = min(d, segH(c, -HL, -HW, HW));
+    d = min(d, segH(c, HL - 0.76, -HW, HW));
+    d = min(d, segH(c, -HL + 0.76, -HW, HW));
+    d = min(d, segH(c, 1.98, -HW, HW));
+    d = min(d, segH(c, -1.98, -HW, HW));
+    d = min(d, segV(c, 0.0, 1.98, HL));
+    d = min(d, segV(c, 0.0, -HL, -1.98));
+    return d;
+  }
+
+  void main() {
+    // CSS pixels, not device pixels, so the picture does not change with the pixel ratio.
+    vec2 fc = vUv * uResolution;
+    vec2 p = (fc - 0.5 * uResolution) / uResolution.y;
+    float aspect = uResolution.x / uResolution.y;
+    float sx = clamp((aspect - 1.0) * 0.32, 0.0, 0.34);
+    float hy = 0.17 + uTilt * 0.12;
+    float camH = 3.4 + uTilt * 1.4;
+    float yaw = -0.2 + (uMouse.x - 0.5) * 0.06;
+    float ca = cos(yaw);
+    float sa = sin(yaw);
+    mat2 R = mat2(ca, -sa, sa, ca);
+    mat2 Ri = mat2(ca, sa, -sa, ca);
+    vec2 q = p - vec2(sx, 0.0);
+    vec2 m = (uMouse - 0.5) * vec2(aspect, 1.0) - vec2(sx, 0.0);
+    m.y = min(m.y, hy - 0.04);
+    float onFloor = step(p.y, hy);
+
+    vec3 col = BG * (0.72 - max(p.y - hy, 0.0) * 0.6);
+    col += LIME * exp(-abs(p.y - hy) * 26.0) * 0.05 * uGlow;
+
+    float lamps = 0.0;
+    float refl = 0.0;
+    for (int i = 0; i < 3; i++) {
+      for (int j = 0; j < 4; j++) {
+        float lx = (float(i) - 1.0) * 5.5;
+        float lz = 15.0 + float(j) * 6.5;
+        float r = 0.55 / lz;
+        vec2 d = q - vec2(lx / lz, hy + (7.5 - camH) / lz);
+        d.x *= 0.6;
+        lamps += exp(-dot(d, d) / (r * r));
+        vec2 dr = q - vec2(lx / lz, hy - (7.5 + camH) / lz);
+        dr.y *= 0.22;
+        dr.x *= 0.9;
+        refl += exp(-dot(dr, dr) / (r * r * 1.6));
+      }
+    }
+
+    float z = camH / max(hy - q.y, 0.002);
+    vec2 c = R * (vec2(q.x * z, z) - vec2(0.0, ZC));
+    float zm = camH / (hy - m.y);
+    vec2 mc = R * (vec2(m.x * zm, zm) - vec2(0.0, ZC));
+    vec2 dv = c - mc;
+    float r2 = dot(dv, dv);
+    float light = exp(-r2 / 16.0);
+    c += dv * 0.5 * exp(-r2 / 4.5);
+    c.x += sin(c.y * 0.6 + uTime * 0.7) * 0.03;
+    float d = courtDist(c);
+    // Edge width of one pixel on the floor, worked out from the projection (the same job fwidth does,
+    // which GLSL 1.00 shaders do not get in a WebGL2 context).
+    float px = z / uResolution.y;
+    float pz = z * z / (camH * uResolution.y);
+    float aa = max(abs(courtDist(c + R * vec2(px, 0.0)) - d) + abs(courtDist(c + R * vec2(0.0, pz)) - d), 1e-4);
+    float hw = 0.035;
+    float core = (1.0 - smoothstep(hw - aa, hw + aa, d)) * min(1.0, hw * 2.0 / aa);
+    float halo = exp(-d / 0.22) * 0.45 + exp(-d / 0.9) * 0.12;
+    float fade = exp(-max(z - 6.0, 0.0) * 0.035) * smoothstep(0.0, 0.03, hy - p.y);
+    vec3 floorC = vec3(0.075, 0.100, 0.090) * (0.8 + 0.4 * exp(-z * 0.05));
+    floorC += (hash(vec2(floor(c.x * 1.2), 3.0)) - 0.5) * 0.012;
+    floorC += mix(CHALK, LIME, 0.6) * light * 0.10 * (0.5 + uGlow);
+    floorC += LIME * (core * 0.75 + halo) * fade * uGlow * (0.55 + light * 1.1);
+    floorC += CHALK * core * light * 0.18 * fade;
+    floorC += vec3(0.85, 0.92, 0.80) * refl * 0.10 * fade;
+    col = mix(col + vec3(0.85, 0.92, 0.80) * lamps * 0.35, floorC, onFloor);
+
+    // The net is a vertical plane across the middle of the court.
+    float tn = ca * ZC / (ca - sa * q.x);
+    float hN = camH + tn * (q.y - hy);
+    float cxN = ca * tn * q.x + sa * (tn - ZC);
+    float front = max(1.0 - onFloor, step(tn, z));
+    float inNet = step(0.0, tn) * step(0.0, hN) * step(hN, 1.55) * step(abs(cxN), HW + 0.15) * front;
+    float tape = 1.0 - smoothstep(0.0, 0.05, abs(hN - 1.5));
+    float post = 1.0 - smoothstep(0.0, 0.06, abs(abs(cxN) - HW - 0.12));
+    vec3 netC = col * 0.55 + CHALK * (tape * 0.55 + post * 0.4) + LIME * 0.05 * uGlow;
+    col = mix(col, netC, inNet);
+
+    // A shuttle crossing the court, every few seconds, alternating direction.
+    float cyc = uTime * 0.16;
+    float sgn = mod(floor(cyc), 2.0) < 0.5 ? 1.0 : -1.0;
+    float sp = fract(cyc);
+    float trail = 0.0;
+    for (int i = 0; i < 14; i++) {
+      float s = sp - float(i) * 0.012;
+      if (s < 0.0) break;
+      vec2 cc = vec2(mix(-1.3, 1.1, s), mix(-4.6, 4.8, s)) * sgn;
+      float hh = 1.0 + 13.6 * s * (1.0 - s);
+      vec2 ww = Ri * cc + vec2(0.0, ZC);
+      vec2 dd = q - vec2(ww.x / ww.y, hy + (hh - camH) / ww.y);
+      float rr = 0.14 / ww.y;
+      float k = 1.0 - float(i) / 14.0;
+      trail += exp(-dot(dd, dd) / (rr * rr)) * k * k;
+    }
+    col += mix(CHALK, LIME, 0.35) * trail * 0.9;
+
+    float vig = smoothstep(1.15, 0.3, length((vUv - vec2(0.6, 0.45)) * vec2(1.05, 1.25)));
+    col *= mix(0.45, 1.0, vig);
+    col += (hash(fc + fract(uTime * 7.0) * 113.0) - 0.5) * 0.03;
+    gl_FragColor = vec4(clamp(col, 0.0, 1.0), 1.0);
+  }
+`;
+
+/** What the page feeds the court. Mutate it; the shader reads it every frame, nothing re-renders. */
+export type CourtDrive = { tilt: number; glow: number };
+
+export function Court({ drive }: { drive?: { current: CourtDrive } }) {
+  // Pointer target and its eased value, as mutable state the uniform getters read per frame.
+  const pointer = useRef({ x: 0.5, y: 0.5, ex: 0.5, ey: 0.5 });
+  const mouse = useRef<[number, number]>([0.5, 0.5]);
+
+  useEffect(() => {
+    const onMove = (e: PointerEvent) => {
+      pointer.current.x = e.clientX / window.innerWidth;
+      pointer.current.y = 1 - e.clientY / window.innerHeight;
+    };
+    window.addEventListener("pointermove", onMove, { passive: true });
+    return () => window.removeEventListener("pointermove", onMove);
+  }, []);
+
+  const ref = useShader(
+    COURT_FRAG,
+    () => ({
+      uMouse: {
+        // ogl reads `.value` once per frame, which makes this the easing step for the pointer.
+        get value() {
+          const s = pointer.current;
+          s.ex += (s.x - s.ex) * 0.08;
+          s.ey += (s.y - s.ey) * 0.08;
+          mouse.current[0] = s.ex;
+          mouse.current[1] = s.ey;
+          return mouse.current;
+        },
+      },
+      uTilt: { get value() { return drive?.current.tilt ?? 0; } },
+      uGlow: { get value() { return drive?.current.glow ?? 0.8; } },
+    }),
+    [],
+  );
+  return <div ref={ref} className={shell} />;
+}
+
+/* ── Hall flow ───────────────────────────────────────────────────── */
+
+const FLOW_FRAG = /* glsl */ `
+  precision highp float;
+  varying vec2 vUv;
+  uniform sampler2D tMap;
+  uniform sampler2D tFlow;
+  uniform vec2 uCover;
+  void main() {
+    // Flow xy is the wake's direction, z how fresh it is.
+    vec3 flow = texture2D(tFlow, vUv).rgb;
+    vec2 uv = (vUv - 0.5) * uCover + 0.5;
+    vec2 off = flow.xy * 0.08;
+    // The three channels drift apart inside the wake, like air bending light.
+    float r = texture2D(tMap, uv - off * 1.5).r;
+    float g = texture2D(tMap, uv - off).g;
+    float b = texture2D(tMap, uv - off * 0.5).b;
+    vec3 col = vec3(r, g, b) + vec3(0.83, 0.96, 0.25) * min(length(flow.xy), 1.0) * 0.14;
+    gl_FragColor = vec4(col, 1.0);
+  }
+`;
+
+/**
+ * Redraws the hero footage through an OGL flowmap: the pointer leaves a short wake through the
+ * hall, the way air trails a shuttle. It finds the `<video>` already playing in its section
+ * (`[data-media]`), so the plain footage stays underneath as the fallback for touch screens,
+ * reduced motion, no WebGL, or a video from another origin that cannot be read into a texture.
+ */
+export function HallFlow() {
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const host = ref.current;
+    const video = host?.closest("[data-media]")?.querySelector("video");
+    if (!host || !video || !window.matchMedia("(pointer: fine)").matches) return;
+    const probe = document.createElement("canvas");
+    if (!(probe.getContext("webgl2") ?? probe.getContext("webgl"))) return;
+
+    const renderer = new Renderer({ alpha: true, antialias: false, dpr: Math.min(window.devicePixelRatio || 1, MAX_DPR) });
+    const gl = renderer.gl;
+    gl.clearColor(0, 0, 0, 0);
+    Object.assign(gl.canvas.style, { width: "100%", height: "100%", display: "block", opacity: "0", transition: "opacity .6s" });
+    host.appendChild(gl.canvas);
+
+    const flowmap = new Flowmap(gl, { falloff: 0.3, dissipation: 0.965 });
+    const texture = new Texture(gl, { generateMipmaps: false });
+    const cover = [1, 1];
+    const program = new Program(gl, {
+      vertex: VERT,
+      fragment: FLOW_FRAG,
+      uniforms: { tMap: { value: texture }, tFlow: flowmap.uniform, uCover: { value: cover } },
+    });
+    const mesh = new Mesh(gl, { geometry: new Triangle(gl), program });
+
+    const resize = () => {
+      const w = host.clientWidth || 1;
+      const h = host.clientHeight || 1;
+      renderer.setSize(w, h);
+      flowmap.aspect = w / h;
+      // object-cover: crop the footage on whichever axis overflows the frame.
+      const va = (video.videoWidth || 16) / (video.videoHeight || 9);
+      const ca = w / h;
+      cover[0] = ca < va ? ca / va : 1;
+      cover[1] = ca < va ? 1 : va / ca;
+    };
+    resize();
+    const ro = new ResizeObserver(resize);
+    ro.observe(host);
+    video.addEventListener("loadedmetadata", resize);
+
+    const last = { x: 0, y: 0, t: 0 };
+    const vel = new Vec2();
+    let moved = false;
+    const onMove = (e: PointerEvent) => {
+      const r = host.getBoundingClientRect();
+      const x = e.clientX - r.left;
+      const y = e.clientY - r.top;
+      if (x < 0 || y < 0 || x > r.width || y > r.height) return;
+      const now = performance.now();
+      const dt = Math.max(14, now - last.t);
+      if (last.t) vel.set((x - last.x) / dt, (y - last.y) / dt);
+      last.x = x; last.y = y; last.t = now;
+      flowmap.mouse.set(x / r.width, 1 - y / r.height);
+      moved = true;
+    };
+    window.addEventListener("pointermove", onMove, { passive: true });
+
+    let raf = 0;
+    let shown = false;
+    const loop = () => {
+      raf = requestAnimationFrame(loop);
+      if (document.hidden || video.readyState < 2) return;
+      if (!moved) { flowmap.mouse.set(-1, -1); vel.set(0, 0); }
+      moved = false;
+      flowmap.velocity.lerp(vel, vel.len() ? 0.5 : 0.1);
+      flowmap.update();
+      texture.image = video;
+      texture.needsUpdate = true;
+      try {
+        renderer.render({ scene: mesh });
+      } catch {
+        // A cross-origin video taints the texture; leave the plain footage showing.
+        cancelAnimationFrame(raf);
+        gl.canvas.remove();
+        return;
+      }
+      if (!shown) { shown = true; gl.canvas.style.opacity = "1"; }
+    };
+    raf = requestAnimationFrame(loop);
+
+    return () => {
+      cancelAnimationFrame(raf);
+      ro.disconnect();
+      video.removeEventListener("loadedmetadata", resize);
+      window.removeEventListener("pointermove", onMove);
+      gl.canvas.remove();
+      gl.getExtension("WEBGL_lose_context")?.loseContext();
+    };
+  }, []);
+
   return <div ref={ref} className={shell} />;
 }
 
