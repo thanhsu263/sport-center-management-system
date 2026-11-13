@@ -1,20 +1,23 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
-import { ArenaMark } from "@/components/mark";
-import { Cover } from "@/components/media";
-import { Button, Card, Check, DateField, Field, Input, Modal } from "@/components/ui";
+import { ArenaMark } from "@/client/components/mark";
+import { Cover } from "@/client/components/media";
+import { Button, Card, Check, DateField, Field, Input, Modal } from "@/client/components/ui";
 import { AnimatePresence, motion } from "motion/react";
-import { Reveal } from "@/components/motion";
-import { GLBackground, Magnet, SplitText, SpotlightCard } from "@/components/fx";
-import { ApiClientError, apiPost, homeFor, setSession, type SessionUser } from "@/lib/arena3/client";
-import { LangSwitch } from "@/components/lang-switch";
-import { t, tServer } from "@/lib/i18n";
-import { LegalBody } from "@/components/legal-page";
-import { PRIVACY, TERMS } from "@/lib/legal";
+import { Reveal } from "@/client/components/motion";
+import { GLBackground, Magnet, SplitText, SpotlightCard } from "@/client/components/fx";
+import { ApiClientError, apiPost, homeFor, setSession, type SessionUser } from "@/client/arena3/client";
+import { LangSwitch } from "@/client/components/lang-switch";
+import { t, tServer } from "@/client/lib/i18n";
+import { ageYears } from "@/shared/arena3/time";
+import { LegalBody } from "@/client/components/legal-page";
+import { PRIVACY, TERMS } from "@/client/lib/legal";
 
-export const Route = createFileRoute("/register")({ component: Register });
+export const Route = createFileRoute("/register")({
+  component: Register,
+});
 
 /**
  * The consent sentence with its two documents linked (R-1).
@@ -50,6 +53,9 @@ function ConsentLabel({ onOpen }: { onOpen: (which: "terms" | "privacy") => void
     </span>
   );
 }
+
+/** The default `minor_age` setting; the sign-up page has no session to read the real one with. */
+const MINOR_AGE = 18;
 
 /** Puts a styled node where a translated sentence has its single placeholder. */
 const SLOT = "";
@@ -87,7 +93,7 @@ function Register() {
     dob: "",
     pii_consent: false,
   });
-  /** Opens when the date of birth makes this a minor — the server decides the age, so the form asks only then. */
+  /** The server asked for a guardian (its minor age is a setting and may be above 18). Cleared when the birthday changes. */
   const [askGuardian, setAskGuardian] = useState(false);
   const [guardian, setGuardian] = useState({ name: "", phone: "" });
   /** The masked address the code went to, e.g. `ng****@example.com`. */
@@ -104,6 +110,9 @@ function Register() {
 
   // Only complain once there is something to complain about — a red line under
   // an empty box the moment the page loads is noise, not help.
+  // The guardian step follows the birthday as it is picked, so going back to an adult date closes it
+  // at once. 18 is the default minor age; a centre that set it higher still gets asked by the server.
+  const needGuardian = askGuardian || (form.dob !== "" && ageYears(form.dob) < MINOR_AGE);
   const mismatch = confirm.length > 0 && confirm !== form.password;
   const tooWeak =
     form.password.length > 0 && !(form.password.length >= 8 && /[A-Za-z]/.test(form.password) && /\d/.test(form.password));
@@ -119,7 +128,7 @@ function Register() {
     try {
       const res = await apiPost<{ otp?: string; sent_to?: string | null }>(
         "/auth/register",
-        askGuardian ? { ...form, guardian_name: guardian.name, guardian_phone: guardian.phone } : form,
+        needGuardian ? { ...form, guardian_name: guardian.name, guardian_phone: guardian.phone } : form,
       );
       setShown(res.otp ?? "");
       setSentTo(res.sent_to ?? null);
@@ -170,12 +179,12 @@ function Register() {
           <div className="relative flex h-full min-h-dvh flex-col justify-between p-10">
             <Link to="/" className="inline-flex items-center gap-2 self-start rounded-full bg-pass/90 px-3 py-1.5 text-pass-fg">
               <ArenaMark className="size-8" />
-              <span className="font-display text-2xl">Lê Long Sport Center</span>
+              <span className="font-display text-2xl">Lê Long Sport</span>
             </Link>
             <div className="max-w-sm rounded-[var(--radius-xl)] bg-pass/92 p-6 text-pass-fg">
               <SplitText
                 as="p"
-                text={t("An active plan lets you book courts and join classes.")}
+                text={t("Join a class with a coach, or book a court by the hour.")}
                 splitBy="words"
                 stagger={0.05}
                 delay={0.2}
@@ -192,11 +201,15 @@ function Register() {
         <Reveal className="w-full max-w-md" from="up">
         <SpotlightCard className="rounded-[var(--radius-xl)]" size={360} strength={0.1}>
         <Card className="relative z-[2] w-full p-6">
-          <div className="flex items-center gap-2">
+          {/* The photo panel already carries the mark on wide screens. */}
+          <div className="flex items-center gap-2 lg:hidden">
             <ArenaMark className="size-7" />
-            <p className="text-2xs text-muted">Lê Long Sport Center</p>
+            <p className="text-2xs text-muted">Lê Long Sport</p>
           </div>
-          <h1 className="mt-3 font-display text-3xl">{t("Create an account")}</h1>
+          <h1 className="mt-3 font-display text-3xl lg:mt-0">{t("Create an account")}</h1>
+          <p className="mt-1 text-xs font-medium tabular-nums text-muted">
+            {t("Step {n} of {total}", { n: step === "form" ? 1 : 2, total: 2 })}
+          </p>
           <AnimatePresence mode="wait">
           {step === "form" ? (
             <motion.form
@@ -243,14 +256,24 @@ function Register() {
                 />
               </Field>
               <Field label={t("Date of birth")}>
-                <DateField value={form.dob} onChange={(v) => setForm({ ...form, dob: v })} aria-label={t("Date of birth")} />
+                <DateField
+                  value={form.dob}
+                  onChange={(v) => {
+                    setForm({ ...form, dob: v });
+                    // The server's request was about the old birthday; the new one decides by itself.
+                    setAskGuardian(false);
+                    if (error?.field === "guardian_name") setError(null);
+                  }}
+                  aria-label={t("Date of birth")}
+                />
               </Field>
-              {askGuardian ? (
+              {needGuardian ? (
                 <>
                   <Field label={t("Guardian name")} hint={error?.field === "guardian_name" ? error.message : undefined}>
                     <Input
                       required
-                      autoFocus
+                      // Only when the server sent the person here; on a date pick, focus stays on the date.
+                      autoFocus={askGuardian}
                       autoComplete="off"
                       value={guardian.name}
                       onChange={(e) => setGuardian({ ...guardian, name: e.target.value })}
@@ -315,10 +338,16 @@ function Register() {
               <Magnet radius={140} pull={0.22} wrapperClassName="w-full" className="w-full">
                 <Button
                   type="submit"
-                  disabled={busy || mismatch || tooWeak || !form.password || !form.email || !form.dob || !form.pii_consent}
+                  disabled={
+                    busy ||
+                    !form.email ||
+                    !form.dob ||
+                    !form.pii_consent ||
+                    mismatch || tooWeak || !form.password
+                  }
                   className="w-full"
                 >
-                  {busy ? t("Sending…") : t("Send OTP")}
+                  {busy ? t("Sending…") : t("Send the code")}
                 </Button>
               </Magnet>
             </motion.form>
