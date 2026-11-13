@@ -19,8 +19,8 @@ const parseLit = (lit) => {
 
 const dictKeys = new Map();
 const keyRe = new RegExp(`^${BS}s*(${q('"')}|${q("'")})${BS}s*:${BS}s*`, "gm");
-for (const f of readdirSync("src/lib/i18n").filter((f) => /^vi.(core|pub|public|member|desk|manager|ops|srv|redesign).ts$/.test(f))) {
-  const src = readFileSync(join("src/lib/i18n", f), "utf8");
+for (const f of readdirSync("src/client/lib/i18n").filter((f) => /^vi.(core|pub|public|member|desk|manager|ops|srv|redesign).ts$/.test(f))) {
+  const src = readFileSync(join("src/client/lib/i18n", f), "utf8");
   for (const m of src.matchAll(keyRe)) dictKeys.set(parseLit(m[1]), f);
 }
 
