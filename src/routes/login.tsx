@@ -2,15 +2,31 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Eye, EyeOff } from "lucide-react";
 import { useEffect, useState, type FormEvent } from "react";
 import { toast } from "sonner";
-import { ArenaMark } from "@/components/mark";
-import { Cover, HeroVideo, MediaCaption } from "@/components/media";
-import { Button, Card, Field, Input } from "@/components/ui";
-import { Reveal, Stagger, StaggerItem } from "@/components/motion";
-import { GLBackground, Magnet, ShinyText, SplitText, SpotlightCard } from "@/components/fx";
-import { ApiClientError, apiPost, homeFor, setSession, takeSessionNotice, type SessionUser } from "@/lib/arena3/client";
-import { roleLabel } from "@/lib/arena3/labels";
-import { LangSwitch } from "@/components/lang-switch";
-import { t, tServer, tk } from "@/lib/i18n";
+import { GoogleSignIn } from "@/client/components/google-sign-in";
+import { ArenaMark } from "@/client/components/mark";
+import { Cover, HeroVideo, MediaCaption } from "@/client/components/media";
+import { Button, Card, Field, Input } from "@/client/components/ui";
+import { Reveal, Stagger, StaggerItem } from "@/client/components/motion";
+import { GLBackground, Magnet, ShinyText, SplitText, SpotlightCard } from "@/client/components/fx";
+import { ApiClientError, apiPost, homeFor, setSession, takeSessionNotice, type SessionUser } from "@/client/arena3/client";
+import { roleLabel } from "@/shared/arena3/labels";
+import { LangSwitch } from "@/client/components/lang-switch";
+import { t, tServer, tk } from "@/client/lib/i18n";
+
+/** Where the member was heading before sign-in (e.g. the desk QR link), else their home. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function navigateAfterLogin(navigate: any, role: SessionUser["role"]) {
+  let next: string | null = null;
+  try {
+    next = sessionStorage.getItem("arena3:after-login");
+    sessionStorage.removeItem("arena3:after-login");
+  } catch {
+    /* storage blocked: go home */
+  }
+  const home = homeFor(role);
+  if (next && next.startsWith(home.split("/").slice(0, 2).join("/") + "/")) navigate({ href: next });
+  else navigate({ to: home });
+}
 
 export const Route = createFileRoute("/login")({ component: Login });
 
@@ -34,9 +50,9 @@ const DEMOS: { role: SessionUser["role"]; phone: string; name: string; note: str
   { role: "manager", phone: "0900000001", name: "Phạm Quốc Bảo", note: tk("Pricing · classes · reports") },
   { role: "receptionist", phone: "0900000002", name: "Trần Thu Hà", note: tk("Search · take payment · walk-ins") },
   { role: "coach", phone: "0901110011", name: "Nguyễn Minh Khoa", note: tk("Badminton classes") },
-  { role: "member", phone: "0901230101", name: "Nam", note: tk("All-access plan · court booked today") },
-  { role: "member", phone: "0901230102", name: "Linh", note: tk("Plan expires in ~4 days") },
-  { role: "member", phone: "0901230106", name: "Ha", note: tk("Expired: needs a renewal") },
+  { role: "member", phone: "0901230101", name: "Nam", note: tk("Court booked today · paid at the desk") },
+  { role: "member", phone: "0901230102", name: "Linh", note: tk("Class booked for this week") },
+  { role: "member", phone: "0901230106", name: "Ha", note: tk("No booking today · nothing to pay") },
 ];
 
 function Login() {
@@ -68,7 +84,7 @@ function Login() {
       });
       setSession(res.token, res.user);
       toast.success(t("Welcome, {name}", { name: res.user.full_name }), { id: "login-hello" });
-      navigate({ to: homeFor(res.user.role) });
+      navigateAfterLogin(navigate, res.user.role);
     } catch (err) {
       const msg = err instanceof Error ? tServer(err.message) : t("Could not sign you in");
       toast.error(msg, { id: "login-error-toast" });
@@ -98,7 +114,7 @@ function Login() {
         <div className="relative flex h-full flex-col justify-between p-10">
           <Link to="/" className="inline-flex items-center gap-2 self-start rounded-full bg-pass/90 px-3 py-1.5 text-pass-fg">
             <ArenaMark className="size-8" />
-            <span className="font-display text-2xl">Lê Long Sport Center</span>
+            <span className="font-display text-2xl">Lê Long Sport</span>
           </Link>
           <div className="max-w-sm rounded-[var(--radius-xl)] bg-pass/92 p-6 text-pass-fg">
             <ShinyText className="shiny-on-media text-2xs" speed={6}>
@@ -106,7 +122,7 @@ function Login() {
             </ShinyText>
             <SplitText
               as="p"
-              text={t("One schedule for courts, classes and cash.")}
+              text={t("One schedule for your classes, your coach and your courts.")}
               splitBy="words"
               stagger={0.055}
               delay={0.25}
@@ -121,7 +137,7 @@ function Login() {
         </div>
         <Cover slot="auth.login.image" alt="" scrim="none" className="mb-6 h-36 rounded-[var(--radius-xl)] lg:hidden">
           <MediaCaption>
-            <span className="font-display text-2xl">Lê Long Sport Center</span>
+            <span className="font-display text-2xl">Lê Long Sport</span>
           </MediaCaption>
         </Cover>
         <div className="mb-6 flex items-center gap-2 lg:hidden">
@@ -181,12 +197,24 @@ function Login() {
                 {error.message}
               </p>
             ) : null}
-            <Magnet radius={140} pull={0.22} wrapperClassName="w-full" className="w-full">
+            <Magnet radius={80} pull={0.05} wrapperClassName="w-full" className="w-full">
               <Button type="submit" disabled={busy} className="w-full">
                 {busy ? t("Signing in…") : t("Sign in")}
               </Button>
             </Magnet>
           </form>
+          <GoogleSignIn
+            onSignedIn={(res) => {
+              setSession(res.token, res.user);
+              toast.success(t("Welcome, {name}", { name: res.user.full_name }), { id: "login-hello" });
+              navigateAfterLogin(navigate, res.user.role);
+            }}
+            onError={(err) => {
+              const msg = err instanceof Error ? tServer(err.message) : t("Could not sign you in");
+              toast.error(msg, { id: "login-error-toast" });
+              setError({ message: msg, credentials: false });
+            }}
+          />
           <div className="mt-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 text-sm">
             <Link to="/register" className="hit text-accent-2 underline underline-offset-2">
               {t("Create an account")}
