@@ -15,10 +15,17 @@ export const DEFAULT_VENUE: Venue = { open: 6, close: 22, holdMinutes: 5 };
 export type VenueRaw = { open_time?: string | null; close_time?: string | null; hold_minutes?: number | null };
 
 function hourOf(time: string | null | undefined): number | null {
-  const m = /^(\d{1,2}):(\d{2})/.exec(time ?? "");
-  if (!m) return null;
-  const h = Number(m[1]);
-  return h >= 0 && h <= 24 ? h : null;
+  const match = /^(\d{1,2}):(\d{2})/.exec(time ?? "");
+  if (!match) return null;
+  const hour = Number(match[1]);
+  return hour >= 0 && hour <= 24 ? hour : null;
+}
+
+function closingHour(time: string): number | null {
+  const hour = hourOf(time);
+  if (hour == null) return null;
+  const hasPartialHour = /:(?!00)\d{2}/.test(time.slice(time.indexOf(":")));
+  return hasPartialHour ? hour + 1 : hour;
 }
 
 /**
@@ -28,9 +35,7 @@ function hourOf(time: string | null | undefined): number | null {
 export function venueFrom(raw?: VenueRaw | null): Venue {
   const open = hourOf(raw?.open_time);
   // A closing time like 21:30 still sells the 21:00 hour, so the close rounds up.
-  const closeRaw = raw?.close_time ?? "";
-  const closeHour = hourOf(closeRaw);
-  const close = closeHour == null ? null : /:(?!00)\d{2}/.test(closeRaw.slice(closeRaw.indexOf(":"))) ? closeHour + 1 : closeHour;
+  const close = closingHour(raw?.close_time ?? "");
   const hold = Number(raw?.hold_minutes);
   const pairOk = open != null && close != null && close > open;
   return {
@@ -41,8 +46,8 @@ export function venueFrom(raw?: VenueRaw | null): Venue {
 }
 
 /** The bookable hours of the day: open, open + 1, …, close - 1. */
-export function hoursOf(v: Venue): number[] {
-  return Array.from({ length: Math.max(0, v.close - v.open) }, (_, i) => v.open + i);
+export function hoursOf(venue: Venue): number[] {
+  return Array.from({ length: Math.max(0, venue.close - venue.open) }, (_, index) => venue.open + index);
 }
 
 /** 6 → "06:00". */

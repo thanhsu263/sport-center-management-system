@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import { ApiClientError, apiGet } from "@/lib/arena3/client";
-import { t } from "@/lib/i18n";
+import { ApiClientError, apiGet } from "@/client/arena3/client";
+import { t } from "@/client/lib/i18n";
 
 /** Why a read did not come back, in the shape a screen needs to say so. */
 export type ReadError = {
