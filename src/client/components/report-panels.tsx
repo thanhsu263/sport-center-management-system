@@ -1,15 +1,17 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { CalendarDays, Flame, Gauge, LayoutGrid, TrendingUp, UserPlus, Users } from "lucide-react";
-import { CardTitle, SectionTitle } from "@/components/section";
+import { CardTitle, SectionTitle } from "@/client/components/section";
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { toast } from "sonner";
-import { money } from "@/components/shell";
-import { Badge, Button, Card, EmptyState, LoadError, Select, Skeleton, Stat } from "@/components/ui";
-import { SportDot, useSports } from "@/components/sports-ui";
-import { downloadReport } from "@/lib/arena3/client";
-import { levelLabel, sportLabel } from "@/lib/arena3/labels";
-import { t, tk, tServer } from "@/lib/i18n";
-import { useRead } from "@/lib/use-read";
+import { money } from "@/client/components/shell";
+import { Badge, Button, Card, EmptyState, LoadError, Select, ShowMore, Skeleton, Stat } from "@/client/components/ui";
+import { SportDot, useSports } from "@/client/components/sports-ui";
+import { downloadReport } from "@/client/arena3/client";
+import { levelLabel, sportLabel } from "@/shared/arena3/labels";
+import { t, tk, tServer } from "@/client/lib/i18n";
+import { useRead } from "@/client/lib/use-read";
+import { useLimits } from "@/client/lib/use-centre";
+import { cn } from "@/client/lib/cn";
 
 type Kind = "revenue" | "capacity" | "members" | "attendance" | "at-risk";
 
@@ -34,7 +36,7 @@ export function ExportButtons({
     try {
       const q = new URLSearchParams({ from, to, format });
       for (const [k, v] of Object.entries(extra)) if (v) q.set(k, v);
-      const name = await downloadReport(`/reports/${kind}/export?${q}`, `arena3-${kind}-${from}_${to}.${format}`);
+      const name = await downloadReport(`/reports/${kind}/export?${q}`, `lelong-${kind}-${from}_${to}.${format}`);
       toast.success(t("Saved {name}", { name }));
     } catch (e) {
       toast.error(tServer((e as Error).message));
@@ -100,57 +102,45 @@ type Capacity = {
   revenue_by_source: { court_vnd: number; class_vnd: number };
 };
 
-function heat(pct: number, isSingleDay: boolean): React.CSSProperties {
-  if (isSingleDay) {
-    if (pct > 0) {
-      return { background: "var(--color-heat-5)", color: "#ffffff" };
-    }
-    return { background: "var(--color-heat-0)", color: "var(--color-fg)" };
-  }
-  let bg = "var(--color-heat-0)";
-  let fg = "var(--color-fg)";
-  if (pct > 75) {
-    bg = "var(--color-heat-5)";
-    fg = "#ffffff";
-  } else if (pct > 50) {
-    bg = "var(--color-heat-4)";
-    fg = "#ffffff";
-  } else if (pct > 25) {
-    bg = "var(--color-heat-3)";
-    fg = "var(--color-fg)";
-  } else if (pct > 10) {
-    bg = "var(--color-heat-2)";
-    fg = "var(--color-fg)";
-  } else if (pct > 0) {
-    bg = "var(--color-heat-1)";
-    fg = "var(--color-fg)";
-  }
-  return {
-    background: bg,
-    color: fg,
-  };
+/** Share of courts in play per hour, one labelled bar per hour; the peak hours are lit. */
+function BusyBars({ hours: rows, peakPct }: { hours: Array<{ hour: number; pct: number }>; peakPct: number }) {
+  const top = Math.max(1, ...rows.map((x) => x.pct));
+  return (
+    <div className="overflow-x-auto px-4 pb-4 pt-4" role="region" aria-label={t("Busy hours chart, scrolls sideways")} tabIndex={0}>
+      <ol className="flex min-w-[560px] items-end gap-1.5">
+        {rows.map((h) => {
+          const peak = h.pct > 0 && h.pct >= (top * peakPct) / 100;
+          const hh = `${String(h.hour).padStart(2, "0")}h`;
+          return (
+            <li key={h.hour} className="flex flex-1 flex-col items-center gap-1" title={`${hh} · ${Math.round(h.pct)}%`}>
+              <span className={cn("text-2xs tabular-nums", peak ? "font-semibold text-fg" : "text-muted")}>
+                {Math.round(h.pct)}%
+              </span>
+              <div className="flex h-36 w-full items-end rounded-t-[4px] bg-wood/40">
+                <div
+                  className={cn(
+                    "w-full rounded-t-[4px] transition-[height] duration-500 motion-reduce:transition-none",
+                    peak ? "bg-accent shadow-[0_0_14px_rgb(212_245_60/0.4)]" : "bg-accent/40",
+                  )}
+                  style={{ height: h.pct > 0 ? `${Math.max(3, (h.pct / top) * 100)}%` : "2px" }}
+                />
+              </div>
+              <span className={cn("text-2xs tabular-nums", peak ? "font-semibold text-fg" : "text-muted")}>{hh}</span>
+            </li>
+          );
+        })}
+      </ol>
+    </div>
+  );
 }
 
-export function CapacityPanel({ from, to }: { from: string; to: string }) {
+/** `summary` = totals and the per-sport table; `busy` = the whole-day court × hour grid, shown last on the page. */
+export function CapacityPanel({ from, to, part = "summary" }: { from: string; to: string; part?: "summary" | "busy" }) {
   const [sport, setSport] = useState("");
   const q = new URLSearchParams({ from, to });
   if (sport) q.set("sport", sport);
+  const limits = useLimits();
   const { data, error, reload } = useRead<Capacity>(`/reports/capacity?${q}`);
-
-  const isSingleDay = from === to;
-  const courtsBySport = useMemo(() => {
-    if (!data?.courts) return [];
-    const map = new Map<string, typeof data.courts>();
-    for (const c of data.courts) {
-      const list = map.get(c.sport) ?? [];
-      list.push(c);
-      map.set(c.sport, list);
-    }
-    return Array.from(map.entries()).map(([s, list]) => ({
-      sport: s,
-      courts: list,
-    }));
-  }, [data]);
 
   const busiestSummary = useMemo(() => {
     if (!data?.by_hour?.length) return "";
@@ -158,7 +148,7 @@ export function CapacityPanel({ from, to }: { from: string; to: string }) {
       .filter((h) => h.pct > 0)
       .sort((a, b) => b.pct - a.pct);
     if (sorted.length === 0) return t("No bookings in this window");
-    const top3 = sorted.slice(0, 3);
+    const top3 = sorted.slice(0, limits.report_peak_hours);
     const text = top3
       .map((h, idx) =>
         idx === 0
@@ -167,17 +157,21 @@ export function CapacityPanel({ from, to }: { from: string; to: string }) {
       )
       .join(", ");
     return t("Busiest: {hours}", { hours: text });
-  }, [data]);
+  }, [data, limits.report_peak_hours]);
 
   return (
-    <section className="mt-10" aria-labelledby="cap-h">
+    <section className="mt-10" aria-labelledby={part === "summary" ? "cap-h" : "busy-h"}>
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <SectionTitle
-          id="cap-h"
-          icon={LayoutGrid}
-          text={tk("Court capacity")}
-          hint={t("Share of open hours that were sold, as bookings or class sessions.")}
-        />
+        {part === "summary" ? (
+          <SectionTitle
+            id="cap-h"
+            icon={LayoutGrid}
+            text={tk("Court capacity")}
+            hint={t("Share of open hours that were sold, as bookings or class sessions.")}
+          />
+        ) : (
+          <SectionTitle id="busy-h" icon={Flame} text={t("Busy hours")} hint={t("The whole day, hour by hour, for every court.")} />
+        )}
         <div className="flex flex-wrap items-center gap-2">
           <SportSelect value={sport} onChange={setSport} />
           <ExportButtons kind="capacity" from={from} to={to} extra={{ sport }} />
@@ -196,6 +190,8 @@ export function CapacityPanel({ from, to }: { from: string; to: string }) {
         </div>
       ) : (
         <>
+          {part === "summary" && (
+          <>
           <div className="mt-4 grid gap-3 md:grid-cols-3">
             <Stat
               label={t("Hours sold")}
@@ -234,17 +230,16 @@ export function CapacityPanel({ from, to }: { from: string; to: string }) {
               </tbody>
             </table>
           </Card>
+          </>
+          )}
 
-          <Card className="mt-3 p-0">
+          {part === "busy" && (
+          <Card className="mt-4 p-0">
             <div className="flex flex-wrap items-center justify-between gap-3 px-4 pt-4">
               <CardTitle
                 icon={Flame}
                 title={t("When courts are busy ({from} – {to})", { from, to })}
-                hint={
-                  isSingleDay
-                    ? t("Booked or free, hour by hour.")
-                    : t("Each square shows how often that court was booked at that hour, {from} – {to}.", { from, to })
-                }
+                hint={t("Share of courts in play at each hour. The brightest bars are the peak.")}
               />
               {busiestSummary && (
                 <div className="text-right">
@@ -255,138 +250,9 @@ export function CapacityPanel({ from, to }: { from: string; to: string }) {
               )}
             </div>
 
-            {/* Mini bar chart of all courts by hour */}
-            <div className="px-4 pt-3 pb-1">
-              <div className="flex items-end gap-1 h-8 w-full max-w-xl">
-                {data.by_hour.map((h) => (
-                  <div
-                    key={h.hour}
-                    className="group relative flex-1 flex flex-col items-center justify-end h-full"
-                    title={`${String(h.hour).padStart(2, "0")}:00 · ${Math.round(h.pct)}%`}
-                  >
-                    <div
-                      className="w-full rounded-t-[2px] transition-all bg-[var(--color-accent)] opacity-75 group-hover:opacity-100"
-                      style={{ height: `${Math.max(4, Math.round(h.pct))}%` }}
-                    />
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="overflow-x-auto px-2 pb-3 pt-2" role="region" aria-label={t("When courts are busy table, scrolls sideways")} tabIndex={0}>
-              <table className="w-full min-w-[640px] border-separate border-spacing-0.5 text-center text-xs">
-                <thead className="text-2xs text-muted">
-                  <tr>
-                    <th className="sticky left-0 bg-surface px-2 py-1 text-left font-medium">{t("Court")}</th>
-                    {data.hours.map((h) => (
-                      <th key={h} className="px-1 py-1 font-medium">
-                        {String(h).padStart(2, "0")}h
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {courtsBySport.map((group) => (
-                    <Fragment key={`sport-group-${group.sport}`}>
-                      <tr className="bg-surface/80">
-                        <td
-                          colSpan={data.hours.length + 1}
-                          className="sticky left-0 bg-surface px-2 py-1 text-left text-xs font-semibold text-fg"
-                        >
-                          <div className="flex items-center gap-1.5">
-                            <SportDot sport={group.sport} />
-                            <span>{sportLabel(group.sport)}</span>
-                          </div>
-                        </td>
-                      </tr>
-                      {group.courts.map((c) => (
-                        <tr key={c.court_id}>
-                          <th scope="row" className="sticky left-0 bg-surface px-2 py-1 text-left font-medium">
-                            {c.court_code}
-                          </th>
-                          {c.cells.map((p, i) => {
-                            const detail = c.cell_details?.[i];
-                            const booked = detail?.days_booked ?? (p > 0 ? 1 : 0);
-                            const total = detail?.days_total ?? 1;
-                            const title = isSingleDay
-                              ? `${c.court_code} · ${String(data.hours[i]).padStart(2, "0")}:00 · ${p > 0 ? t("Booked") : t("Free")}`
-                              : `${c.court_code} · ${String(data.hours[i]).padStart(2, "0")}:00 · ${t("booked {booked} of {total} days ({pct}%)", {
-                                  booked,
-                                  total,
-                                  pct: Math.round(p),
-                                })}`;
-                            return (
-                              <td
-                                key={i}
-                                className="h-7 min-w-[1.75rem] rounded-[4px] border border-transparent transition-colors hover:ring-2 hover:ring-primary focus-visible:ring-2 focus-visible:ring-primary outline-none cursor-default"
-                                style={heat(p, isSingleDay)}
-                                tabIndex={0}
-                                role="gridcell"
-                                aria-label={title}
-                                title={title}
-                              />
-                            );
-                          })}
-                        </tr>
-                      ))}
-                    </Fragment>
-                  ))}
-                  <tr>
-                    <th scope="row" className="sticky left-0 bg-surface px-2 py-1 text-left font-semibold">
-                      {t("All courts")}
-                    </th>
-                    {data.by_hour.map((h) => (
-                      <td key={h.hour} className="px-1 py-1.5 font-semibold tabular-nums text-2xs">
-                        {Math.round(h.pct)}%
-                      </td>
-                    ))}
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-
-            {isSingleDay ? (
-              <div className="flex flex-wrap items-center justify-end gap-3 border-t border-line/50 px-4 py-2.5 text-2xs text-muted">
-                <span className="font-medium">{t("Status:")}</span>
-                <span className="inline-flex items-center gap-1.5">
-                  <span className="size-3.5 rounded-[2px] border border-line" style={{ background: "var(--color-heat-0)" }} />
-                  {t("Free")}
-                </span>
-                <span className="inline-flex items-center gap-1.5">
-                  <span className="size-3.5 rounded-[2px]" style={{ background: "var(--color-heat-5)" }} />
-                  {t("Booked")}
-                </span>
-              </div>
-            ) : (
-              <div className="flex flex-wrap items-center justify-end gap-3 border-t border-line/50 px-4 py-2.5 text-2xs text-muted">
-                <span className="font-medium">{t("Occupancy:")}</span>
-                <span className="inline-flex items-center gap-1.5">
-                  <span className="size-3 rounded-[2px] border border-line" style={{ background: "var(--color-heat-0)" }} />
-                  0%
-                </span>
-                <span className="inline-flex items-center gap-1.5">
-                  <span className="size-3 rounded-[2px]" style={{ background: "var(--color-heat-1)" }} />
-                  1–10%
-                </span>
-                <span className="inline-flex items-center gap-1.5">
-                  <span className="size-3 rounded-[2px]" style={{ background: "var(--color-heat-2)" }} />
-                  11–25%
-                </span>
-                <span className="inline-flex items-center gap-1.5">
-                  <span className="size-3 rounded-[2px]" style={{ background: "var(--color-heat-3)" }} />
-                  26–50%
-                </span>
-                <span className="inline-flex items-center gap-1.5">
-                  <span className="size-3 rounded-[2px]" style={{ background: "var(--color-heat-4)" }} />
-                  51–75%
-                </span>
-                <span className="inline-flex items-center gap-1.5">
-                  <span className="size-3 rounded-[2px]" style={{ background: "var(--color-heat-5)" }} />
-                  76–100%
-                </span>
-              </div>
-            )}
+            <BusyBars hours={data.by_hour} peakPct={limits.report_peak_pct} />
           </Card>
+          )}
         </>
       )}
     </section>
@@ -399,12 +265,8 @@ type MembersReport = {
   members: {
     new: number;
     active: number;
-    expiring: number;
-    plans_ended: number;
-    plans_renewed: number;
-    renewal_rate: number | null;
   };
-  trend: Array<{ month: string; new_members: number; plans_started: number }>;
+  trend: Array<{ month: string; new_members: number; classes_joined: number }>;
   attendance_on: boolean;
   classes: Array<{
     id: string;
@@ -428,7 +290,21 @@ export function MembersPanel({ from, to }: { from: string; to: string }) {
   const q = new URLSearchParams({ from, to });
   if (sport) q.set("sport", sport);
   const { data, error, reload } = useRead<MembersReport>(`/reports/members?${q}`);
-  const showAttendance = !!data?.attendance_on;
+  // Only show the attendance column when at least one class has a figure for it.
+  const showAttendance = !!data?.attendance_on && !!data?.classes.some((c) => c.attendance_pct != null);
+  const CLASS_STEP = 12;
+  const [classShown, setClassShown] = useState(CLASS_STEP);
+  // Fullest first, so the classes that need a decision (full with a waitlist, or nearly empty) sit at the two ends.
+  const classes = useMemo(
+    () => [...(data?.classes ?? [])].sort((a, b) => b.fill_pct - a.fill_pct || b.waitlisted - a.waitlisted || a.code.localeCompare(b.code)),
+    [data],
+  );
+  const classSummary = useMemo(() => {
+    const full = classes.filter((c) => c.fill_pct >= 100).length;
+    const low = classes.filter((c) => c.fill_pct < 40).length;
+    const waiting = classes.reduce((n, c) => n + c.waitlisted, 0);
+    return { full, low, waiting };
+  }, [classes]);
 
   return (
     <section className="mt-10" aria-labelledby="mem-h">
@@ -437,7 +313,7 @@ export function MembersPanel({ from, to }: { from: string; to: string }) {
           id="mem-h"
           icon={Users}
           text={tk("Members and class sign-ups")}
-          hint={t("New members, plan renewals and how full each class is.")}
+          hint={t("New members, participation and how full each class is.")}
         />
         <div className="flex flex-wrap items-center gap-2">
           <SportSelect value={sport} onChange={setSport} />
@@ -453,19 +329,13 @@ export function MembersPanel({ from, to }: { from: string; to: string }) {
         <Skeleton className="mt-4 h-64" />
       ) : (
         <>
-          <div className="mt-4 grid gap-3 md:grid-cols-4">
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
             <Stat label={t("New members")} value={data.members.new} icon={UserPlus} note={t("Signed up in this period")} />
-            <Stat label={t("Active plans")} value={data.members.active} hint={t("members with a plan running")} />
-            <Stat label={t("Plans ending")} value={data.members.expiring} hint={t("and not renewed yet")} />
-            <Stat
-              label={t("Renewal rate")}
-              value={pctText(data.members.renewal_rate)}
-              hint={t("{a} of {b} ended plans", { a: data.members.plans_renewed, b: data.members.plans_ended })}
-            />
+            <Stat label={t("Participating members")} value={data.members.active} hint={t("With a booking or confirmed class in this period")} />
           </div>
 
           <Card className="mt-3">
-            <CardTitle icon={TrendingUp} title={t("Last 12 months")} hint={t("New members and plans started, month by month.")} />
+            <CardTitle icon={TrendingUp} title={t("Last 12 months")} hint={t("New members by signup month; confirmed class places by class start month.")} />
             {chartReady ? (
               <div className="mt-3 h-52">
                 <ResponsiveContainer width="100%" height="100%">
@@ -497,7 +367,7 @@ export function MembersPanel({ from, to }: { from: string; to: string }) {
                     />
                     <Legend iconType="circle" wrapperStyle={{ fontSize: 12 }} />
                     <Bar dataKey="new_members" name={t("New members")} fill="var(--color-accent)" radius={[4, 4, 0, 0]} maxBarSize={18} />
-                    <Bar dataKey="plans_started" name={t("Plans started")} fill="var(--color-line-strong)" radius={[4, 4, 0, 0]} maxBarSize={18} />
+                    <Bar dataKey="classes_joined" name={t("Confirmed class places")} fill="var(--color-line-strong)" radius={[4, 4, 0, 0]} maxBarSize={18} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -506,49 +376,88 @@ export function MembersPanel({ from, to }: { from: string; to: string }) {
             )}
           </Card>
 
-          <Card className="mt-3 overflow-x-auto p-0" role="region" aria-label={t("Classes table, scrolls sideways")} tabIndex={0}>
-            <CardTitle className="px-4 pt-4" icon={CalendarDays} title={t("Classes running in this period")} hint={t("How full each class was.")} />
-            {data.classes.length === 0 ? (
+          <Card className="mt-3 p-0">
+            <div className="flex flex-wrap items-end justify-between gap-3 px-4 pt-4">
+              <CardTitle icon={CalendarDays} title={t("Classes running in this period")} hint={t("How full each class was.")} />
+              {classes.length > 0 ? (
+                <div className="flex flex-wrap gap-1.5 text-2xs">
+                  <span className="rounded-full border border-line px-2.5 py-1 tabular-nums text-muted">
+                    {t("{n} classes", { n: classes.length })}
+                  </span>
+                  <span className="rounded-full bg-accent/15 px-2.5 py-1 font-medium tabular-nums text-accent">
+                    {t("{n} full", { n: classSummary.full })}
+                  </span>
+                  {classSummary.waiting > 0 ? (
+                    <span className="rounded-full bg-warn/15 px-2.5 py-1 font-medium tabular-nums text-warn">
+                      {t("{n} waiting", { n: classSummary.waiting })}
+                    </span>
+                  ) : null}
+                  <span className="rounded-full border border-line px-2.5 py-1 tabular-nums text-muted">
+                    {t("{n} under 40%", { n: classSummary.low })}
+                  </span>
+                </div>
+              ) : null}
+            </div>
+            {classes.length === 0 ? (
               <p className="px-4 pb-4 pt-2 text-sm text-muted">{t("No classes were running in this period.")}</p>
             ) : (
-              <table className="mt-2 w-full min-w-[560px] text-sm">
-                <thead className="text-left text-2xs text-muted">
-                  <tr>
-                    <th className="px-4 py-2 font-medium">{t("Class")}</th>
-                    <th className="px-3 py-2 font-medium">{t("Coach")}</th>
-                    <th className="px-3 py-2 text-right font-medium">{t("Enrolled")}</th>
-                    <th className="px-3 py-2 text-right font-medium">{t("Waitlist")}</th>
-                    <th className="px-3 py-2 text-right font-medium">{t("Full")}</th>
-                    {showAttendance ? <th className="px-4 py-2 text-right font-medium">{t("Attendance")}</th> : null}
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.classes.map((c) => (
-                    <tr key={c.id} className="border-t border-line/60">
-                      <td className="px-4 py-2">
-                        <span className="font-medium">{c.code}</span>
-                        <span className="block text-xs text-muted">
-                          {sportLabel(c.sport)} · {levelLabel(c.level)}
-                        </span>
-                      </td>
-                      <td className="px-3 py-2">{c.coach}</td>
-                      <td className="px-3 py-2 text-right tabular-nums">
-                        {c.enrolled}/{c.capacity}
-                      </td>
-                      <td className="px-3 py-2 text-right tabular-nums">{c.waitlisted}</td>
-                      <td className="px-3 py-2 text-right">
-                        <Badge tone={c.fill_pct >= 100 ? "accent" : c.fill_pct < 40 ? "hold" : "ink"}>
-                          {c.fill_pct}%
-                        </Badge>
-                      </td>
-                      {showAttendance ? (
-                        <td className="px-4 py-2 text-right tabular-nums">{pctText(c.attendance_pct)}</td>
-                      ) : null}
+              <div className="overflow-x-auto" role="region" aria-label={t("Classes table, scrolls sideways")} tabIndex={0}>
+                <table className="mt-3 w-full min-w-[560px] text-sm">
+                  <thead className="text-left text-2xs text-muted">
+                    <tr>
+                      <th className="px-4 py-2 font-medium">{t("Class")}</th>
+                      <th className="px-3 py-2 font-medium">{t("Coach")}</th>
+                      <th className="w-[38%] px-3 py-2 font-medium">{t("Full")}</th>
+                      <th className="px-3 py-2 text-right font-medium">{t("Waitlist")}</th>
+                      {showAttendance ? <th className="px-4 py-2 text-right font-medium">{t("Attendance")}</th> : null}
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {classes.slice(0, classShown).map((c) => {
+                      const full = c.fill_pct >= 100;
+                      const low = c.fill_pct < 40;
+                      return (
+                        <tr key={c.id} className="border-t border-line/50 transition-colors duration-150 hover:bg-fg/[0.03]">
+                          <td className="px-4 py-2.5">
+                            <span className="flex items-center gap-2 font-medium">
+                              <SportDot sport={c.sport} />
+                              {sportLabel(c.sport)} · {levelLabel(c.level)}
+                            </span>
+                            <span className="block pl-4 font-mono text-2xs text-muted">{c.code}</span>
+                          </td>
+                          <td className="px-3 py-2.5 text-muted">{c.coach}</td>
+                          <td className="px-3 py-2.5">
+                            <div className="flex items-center gap-3">
+                              <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-fg/[0.07]" aria-hidden="true">
+                                <div
+                                  className={cn("h-full rounded-full", full ? "bg-accent" : low ? "bg-muted/50" : "bg-accent/55")}
+                                  style={{ width: `${Math.min(100, c.fill_pct)}%` }}
+                                />
+                              </div>
+                              <span className="w-24 shrink-0 text-right text-xs tabular-nums">
+                                <span className={cn("font-medium", full ? "text-accent" : low ? "text-muted" : "text-fg")}>
+                                  {c.enrolled}/{c.capacity}
+                                </span>
+                                <span className="ml-1.5 text-muted">{c.fill_pct}%</span>
+                              </span>
+                            </div>
+                          </td>
+                          <td className="px-3 py-2.5 text-right tabular-nums">
+                            {c.waitlisted > 0 ? <Badge tone="hold">{c.waitlisted}</Badge> : <span className="text-muted/50">·</span>}
+                          </td>
+                          {showAttendance ? (
+                            <td className="px-4 py-2.5 text-right tabular-nums">{pctText(c.attendance_pct)}</td>
+                          ) : null}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             )}
+            <div className="pb-4">
+              <ShowMore shown={classShown} total={classes.length} step={CLASS_STEP} onMore={() => setClassShown((n) => n + CLASS_STEP)} />
+            </div>
           </Card>
         </>
       )}

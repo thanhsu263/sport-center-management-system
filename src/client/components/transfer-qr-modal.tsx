@@ -4,10 +4,10 @@ import { Copy } from "lucide-react";
 import { toast } from "sonner";
 import { Button, Modal } from "./ui";
 import { money } from "./shell";
-import { apiPost } from "@/lib/arena3/client";
-import { t, tServer } from "@/lib/i18n";
-import { useRead } from "@/lib/use-read";
-import { transferReference, vietQrPayload } from "@/lib/vietqr";
+import { apiPost } from "@/client/arena3/client";
+import { t, tServer } from "@/client/lib/i18n";
+import { useRead } from "@/client/lib/use-read";
+import { transferReference, vietQrPayload } from "@/shared/vietqr";
 
 /** The centre's account as `/v1/bank-transfer` answers it. */
 export type CentreBank = {
@@ -195,7 +195,7 @@ export function TransferQrModal({
     }
   }
 
-  const reference = `ARENA3 ${code}`;
+  const reference = `LELONG ${code}`;
   return (
     <Modal
       open={open}
@@ -292,7 +292,7 @@ export function MemberTransferModal({
         <p className="text-sm text-muted">
           {t("Scan with your banking app, or type the details in by hand. Keep the reference exactly as it is, so reception can find your transfer.")}
         </p>
-        <VietQrPanel bank={bank} amountVnd={amountVnd} reference={`ARENA3 ${bookingCode}`} />
+        <VietQrPanel bank={bank} amountVnd={amountVnd} reference={`LELONG ${bookingCode}`} />
         <p className="text-xs text-muted">
           {t("A transfer is not a payment until reception finds it in the bank. Your court stays held meanwhile.")}
         </p>
