@@ -1,11 +1,11 @@
 import { useState } from "react";
 import { toast } from "sonner";
-import { Button, ButtonLink, Card, Modal } from "@/components/ui";
-import { money, when } from "@/components/shell";
-import { Stagger, StaggerItem } from "@/components/motion";
-import { apiPost, openInvoice } from "@/lib/arena3/client";
-import { sportLabel } from "@/lib/arena3/labels";
-import { locale, t, tServer } from "@/lib/i18n";
+import { Button, ButtonLink, Card, Modal } from "@/client/components/ui";
+import { money, when } from "@/client/components/shell";
+import { Stagger, StaggerItem } from "@/client/components/motion";
+import { apiPost, openInvoice } from "@/client/arena3/client";
+import { levelLabel, sportLabel } from "@/shared/arena3/labels";
+import { locale, t, tServer } from "@/client/lib/i18n";
 
 export type Notification = {
   id: string;
@@ -143,7 +143,7 @@ export function notificationContent(n: Pick<Notification, "template" | "payload"
         case "class_cancelled":
           return {
             title: t("A class was cancelled"),
-            body: `${t("The class has been cancelled and any session you had in it is given back.")}${reason}`,
+            body: `${typeof p.refund_vnd === "number" && p.refund_vnd > 0 ? t("The class has been cancelled. Collect your {amount} refund in cash at the front desk.", { amount: money(p.refund_vnd) }) : t("The class has been cancelled.")}${reason}`,
             link,
           };
         default:
@@ -160,14 +160,43 @@ export function notificationContent(n: Pick<Notification, "template" | "payload"
     case "sub_expiring":
       return {
         title: t("Plan expiring soon"),
-        body: t("Your plan ends within a week. Renew to keep your court hours and discount."),
+        body: t("Your plan ends within a week. Renew to keep your discount."),
         link: { to: "/app/plans", label: t("See plans") },
       };
     case "waitlist_offer":
       return {
         title: t("A class seat opened"),
-        body: t("A seat is yours if you claim it before the offer runs out."),
+        body: t("Claim it before the offer runs out. A paid class then holds the seat while you pay."),
         link: { to: "/app/classes", label: t("Claim the seat") },
+      };
+    case "class_payment_exception": {
+      const name = typeof p.member_name === "string" ? p.member_name : t("A member");
+      const cls =
+        typeof p.sport === "string"
+          ? `${sportLabel(p.sport)}${typeof p.level === "string" ? ` · ${levelLabel(p.level)}` : ""}`
+          : t("a class");
+      const why =
+        p.reason === "duplicate"
+          ? t("{name} paid twice for the same seat in {class}.", { name, class: cls })
+          : p.reason === "released"
+            ? t("{name} paid for a seat in {class} after releasing it.", { name, class: cls })
+            : p.reason === "class_cancelled"
+              ? t("{name} paid for a seat in {class}, which is cancelled.", { name, class: cls })
+              : t("{name} paid for a seat in {class} after the hold ended, and the class is full.", { name, class: cls });
+      return {
+        title: t("Class payment to sort out"),
+        body: `${why} ${t("The money is posted but bought no seat. Settle it with them by hand.")}`,
+        link:
+          typeof p.user_id === "string"
+            ? { to: `/desk/member/${p.user_id}`, label: t("Open their profile") }
+            : { to: "/desk/payments", label: t("Open payments") },
+      };
+    }
+    case "waitlist_seat_taken":
+      return {
+        title: t("Seat taken"),
+        body: t("The open seat was taken. You are still first in line when another opens."),
+        link: { to: "/app/classes", label: t("View class") },
       };
     case "refund_approved": {
       const amount = typeof p.amount_vnd === "number" ? money(p.amount_vnd) : null;
@@ -248,6 +277,14 @@ export function notificationContent(n: Pick<Notification, "template" | "payload"
         body: typeof p.reply === "string" && p.reply ? p.reply : t("Reception answered your message."),
         link: { to: "/account", label: t("Open Support") },
       };
+    // Closed with no answer written. Without this case the default below would
+    // show the member the words "ticket closed".
+    case "ticket_closed":
+      return {
+        title: t("Reception closed your request"),
+        body: t("The front desk has dealt with it. Send another note if it is still open for you."),
+        link: { to: "/account", label: t("Open Support") },
+      };
     default:
       return { title: n.template.replace(/_/g, " "), body: t("Open your account for the details.") };
   }
@@ -262,6 +299,7 @@ export function NotificationList({
   onRead,
   limit = 8,
   hideRead = false,
+  hideMarkAll = false,
 }: {
   items: Notification[];
   /** Called with the ids just marked read, so the owner can update its copy. */
@@ -269,6 +307,8 @@ export function NotificationList({
   limit?: number;
   /** Tuck read notifications out of the list. Nothing is deleted. */
   hideRead?: boolean;
+  /** The owner shows its own "Mark all as read". */
+  hideMarkAll?: boolean;
 }) {
   const [open, setOpen] = useState<Notification | null>(null);
   const [all, setAll] = useState(false);
@@ -291,7 +331,7 @@ export function NotificationList({
 
   return (
     <>
-      {unread.length ? (
+      {unread.length && !hideMarkAll ? (
         <div className="mt-2 flex items-center justify-between text-sm text-muted">
           <span>{t("{n} unread", { n: unread.length })}</span>
           <button
