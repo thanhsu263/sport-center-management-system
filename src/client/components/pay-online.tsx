@@ -3,9 +3,9 @@ import QRCode from "qrcode";
 import { toast } from "sonner";
 import { Button, Modal } from "./ui";
 import { money } from "./shell";
-import { apiPost } from "@/lib/arena3/client";
-import { t, tServer } from "@/lib/i18n";
-import { useLive } from "@/lib/use-live";
+import { apiPost } from "@/client/arena3/client";
+import { t, tServer } from "@/client/lib/i18n";
+import { useLive } from "@/client/lib/use-live";
 
 /**
  * Take an online payment through payOS.
@@ -48,7 +48,7 @@ export function PayOnlineButton({
   variant = "outline",
   onPaid,
 }: {
-  refType: "booking" | "subscription";
+  refType: "booking" | "subscription" | "enrollment";
   refId: string;
   label?: string;
   size?: "sm" | "md";

@@ -2,9 +2,9 @@ import { useRef } from "react";
 import { DrawSVGPlugin } from "gsap/DrawSVGPlugin";
 import { Physics2DPlugin } from "gsap/Physics2DPlugin";
 import { ScrambleTextPlugin } from "gsap/ScrambleTextPlugin";
-import { gsap, motionOff, registerGsap, useGSAP } from "@/lib/gsap";
-import { useCalm } from "@/lib/calm";
-import { cn } from "@/lib/cn";
+import { gsap, motionOff, registerGsap, useGSAP } from "@/client/lib/gsap";
+import { useCalm } from "@/client/lib/calm";
+import { cn } from "@/client/lib/cn";
 
 registerGsap(DrawSVGPlugin, Physics2DPlugin, ScrambleTextPlugin);
 
