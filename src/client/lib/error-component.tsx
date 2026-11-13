@@ -1,9 +1,9 @@
 import type { ErrorComponentProps } from "@tanstack/react-router";
 import { Compass, RefreshCw, TriangleAlert } from "lucide-react";
 import { useEffect, useState } from "react";
-import { getStoredUser, homeFor } from "@/lib/arena3/client";
-import { cn } from "@/lib/cn";
-import { t, tk } from "@/lib/i18n";
+import { getStoredUser, homeFor } from "@/client/arena3/client";
+import { cn } from "@/client/lib/cn";
+import { t, tk } from "@/client/lib/i18n";
 
 // These two screens are what a person sees when the app itself has failed, so they lean on as little
 // of it as they can: icons, the translator and the stored role, nothing from the component kit.

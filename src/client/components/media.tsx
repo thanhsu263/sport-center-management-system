@@ -9,11 +9,11 @@ import {
   type CSSProperties,
   type ReactNode,
 } from "react";
-import { cn } from "@/lib/cn";
-import { useCalm } from "@/lib/calm";
-import { sportPhoto } from "@/lib/arena3/media";
-import { t, useLang } from "@/lib/i18n";
-import { ArenaMark, CourtBackdrop } from "./mark";
+import { cn } from "@/client/lib/cn";
+import { useCalm } from "@/client/lib/calm";
+import { sportPhoto } from "@/shared/arena3/media";
+import { t, useLang } from "@/client/lib/i18n";
+import { ArenaMark } from "./mark";
 
 export { sportPhoto };
 
@@ -54,7 +54,8 @@ export function SiteAssetsProvider({
 
   const refresh = useCallback(async () => {
     try {
-      const res = await fetch("/v1/site-assets");
+      // The list is cached for a minute; a manager who just changed a photo should see it now.
+      const res = await fetch("/v1/site-assets", { cache: "no-cache" });
       if (!res.ok) return;
       const data = (await res.json()) as { items?: PublicSiteAsset[] };
       if (Array.isArray(data.items)) {
@@ -78,6 +79,12 @@ export function SiteAssetsProvider({
   const value = useMemo(() => ({ assets: assetMap, refresh }), [assetMap, refresh]);
 
   return <SiteAssetsContext.Provider value={value}>{children}</SiteAssetsContext.Provider>;
+}
+
+/** Reads the site's pictures again, after a manager changed one. */
+export function useRefreshAssets(): () => Promise<void> {
+  const ctx = useContext(SiteAssetsContext);
+  return ctx?.refresh ?? (async () => {});
 }
 
 export type AssetResult = {
@@ -137,6 +144,7 @@ export function Cover({
   initialsClassName?: string;
 }) {
   const asset = useAsset(slot);
+  const [broken, setBroken] = useState<string | null>(null);
   const effectiveUrl = src ?? asset.url;
   const effectiveAlt = alt !== undefined ? alt : asset.alt;
   const enabled = slot ? asset.enabled : true;
@@ -145,9 +153,10 @@ export function Cover({
 
   return (
     <div className={cn("relative overflow-hidden bg-wood", className)} style={style}>
-      {enabled && effectiveUrl ? (
+      {enabled && effectiveUrl && broken !== effectiveUrl ? (
         <img
           src={effectiveUrl}
+          onError={() => setBroken(effectiveUrl)}
           alt={effectiveAlt}
           aria-hidden={!effectiveAlt ? true : undefined}
           loading={eager ? "eager" : "lazy"}
@@ -215,76 +224,6 @@ export function MediaCaption({ children, className }: { children: ReactNode; cla
   );
 }
 
-export function PassCard({
-  slot,
-  plan,
-  sport,
-  endOn,
-  benefits,
-  code,
-}: {
-  slot?: string;
-  plan: string;
-  sport: string;
-  endOn: string;
-  /** What this plan actually grants — never a court-hours figure for a plan without court hours. */
-  benefits: string[];
-  code?: string | null;
-}) {
-  const asset = useAsset(slot);
-  const showCustomBg = slot && asset.enabled && asset.url;
-
-  return (
-    <article className="group relative overflow-hidden rounded-[var(--radius-xl)] bg-pass p-6 text-pass-fg transition-transform duration-300 hover:-translate-y-0.5">
-      <span className="sweep pointer-events-none absolute inset-0" aria-hidden />
-      {showCustomBg ? (
-        <img
-          src={asset.url}
-          alt=""
-          aria-hidden
-          className="pointer-events-none absolute inset-0 size-full object-cover opacity-20"
-        />
-      ) : (
-        <CourtBackdrop className="pointer-events-none absolute -right-10 -bottom-8 h-56 w-56 text-pass-fg opacity-[0.16] [mask-image:radial-gradient(120%_115%_at_100%_100%,#000_18%,transparent_70%)]" />
-      )}
-      <div className="relative flex flex-col gap-6">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <span className="inline-block rounded-[var(--radius-sm)] border border-pass-fg/20 bg-volt/15 px-2.5 py-1 text-xs font-bold text-volt">
-              {t("Membership pass")}
-            </span>
-            <p className="mt-3 font-display text-2xl tracking-tight">{plan}</p>
-          </div>
-          {code ? (
-            <div className="text-right">
-              <p className="text-xs font-medium text-pass-muted">{t("Member code")}</p>
-              <p className="font-mono text-sm font-semibold tracking-wider">{code}</p>
-            </div>
-          ) : null}
-        </div>
-        <div className="grid grid-cols-3 gap-3 border-t border-pass-fg/15 pt-4">
-          <div>
-            <p className="text-xs text-pass-muted">{t("Sport")}</p>
-            <p className="mt-0.5 text-sm font-semibold">{sport}</p>
-          </div>
-          <div>
-            <p className="text-xs text-pass-muted">{t("Includes")}</p>
-            {benefits.map((b) => (
-              <p key={b} className="mt-0.5 text-sm font-semibold tabular-nums">
-                {b}
-              </p>
-            ))}
-          </div>
-          <div className="text-right">
-            <p className="text-xs text-pass-muted">{t("Valid through")}</p>
-            <p className="mt-0.5 text-sm font-semibold tabular-nums">{endOn}</p>
-          </div>
-        </div>
-      </div>
-    </article>
-  );
-}
-
 const BootReady = createContext<(() => void) | null>(null);
 // True once the cover is gone. Outside a BootGate there is no cover, so it is always open.
 const BootOpen = createContext(true);
@@ -311,7 +250,7 @@ export function BootGate({ children }: { children: ReactNode }) {
       return;
     }
     const show = window.setTimeout(() => setSlow(true), 400);
-    const cap = window.setTimeout(() => setReady(true), 12_000);
+    const cap = window.setTimeout(() => setReady(true), 1_800);
     return () => {
       window.clearTimeout(show);
       window.clearTimeout(cap);
@@ -331,7 +270,7 @@ export function BootGate({ children }: { children: ReactNode }) {
             <div className="grid h-full place-items-center text-muted" role="status">
               <div className="flex flex-col items-center gap-3">
                 <ArenaMark />
-                <p className="font-display text-lg">{t("Opening Lê Long Sport Center")}</p>
+                <p className="font-display text-lg">{t("Opening Lê Long Sport")}</p>
               </div>
             </div>
           ) : null}

@@ -1,6 +1,6 @@
 import { type ComponentType } from "react";
 import { ArrowDownRight, ArrowUpRight, Minus } from "lucide-react";
-import { cn } from "@/lib/cn";
+import { cn } from "@/client/lib/cn";
 import { CountUp, useReducedMotionAfterMount } from "./motion";
 
 export type StatItem = {

@@ -5,7 +5,7 @@ import {
   type ComponentType,
 } from "react";
 import { MoreHorizontal } from "lucide-react";
-import { cn } from "@/lib/cn";
+import { cn } from "@/client/lib/cn";
 
 export type RowActionItem = {
   label: string;

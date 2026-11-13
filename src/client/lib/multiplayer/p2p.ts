@@ -52,6 +52,36 @@ export interface P2PRoomOptions {
   onMessage?: (from: string, data: unknown, channel: "state" | "reliable") => void;
   /** Fires once, on the first successful signaling poll (registration). */
   onConnected?: () => void;
+  /**
+   * Bearer token for the relay, read fresh on each call.
+   *
+   * A callback and not a value: a room outlives a token refresh, and `close()`
+   * fires its leave during teardown, by which point anything captured at
+   * construction may be stale. Omit it when the relay needs no auth.
+   */
+  getAuthToken?: () => string | null;
+  /**
+   * The relay refused this session (401/403). The room has stopped — direct
+   * connections are not going to happen, so the app should say so rather than
+   * leave the user looking at a relay badge and guessing.
+   */
+  onAuthError?: (status: number) => void;
+}
+
+/**
+ * The relay rejected who we are, as opposed to being briefly unreachable.
+ *
+ * Worth its own type because the two want opposite handling: a transient
+ * failure should be retried forever, and this should stop the room. Treating
+ * them alike is what hid a signaling route that answered 401 to every single
+ * call — the poll loop swallowed it and retried every 400ms, so the only
+ * symptom was chat quietly never leaving the server relay.
+ */
+class SignalingAuthError extends Error {
+  constructor(readonly status: number) {
+    super(`signaling refused the session: ${status}`);
+    this.name = "SignalingAuthError";
+  }
 }
 
 interface PeerSlot {
@@ -119,8 +149,10 @@ export class P2PRoom {
   async join(): Promise<void> {
     try {
       await this.pollOnce();
-    } catch {
+    } catch (e) {
       // First poll can fail transiently; the scheduled loop below retries.
+      // Unless we were refused, in which case there is nothing to start.
+      if (this.failIfRefused(e)) return;
     }
     if (this.closed) return;
     this.schedulePoll(this.anyPairConnecting() ? FAST_POLL_MS : IDLE_POLL_MS);
@@ -140,7 +172,7 @@ export class P2PRoom {
     // drops this peer and closes their side of the pair.
     void fetch("/api/rtc", {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: this.signalHeaders(true),
       body: JSON.stringify({ op: "leave", room: this.opts.room, peer: this.opts.selfId }),
       keepalive: true,
     }).catch(() => {});
@@ -185,6 +217,19 @@ export class P2PRoom {
     return false;
   }
 
+  /**
+   * Headers for one signaling call.
+   *
+   * The token never travels in the query string: `/api/rtc?...` ends up in
+   * server logs and browser history, which is no place for a session.
+   */
+  private signalHeaders(json: boolean): Record<string, string> {
+    const headers: Record<string, string> = json ? { "content-type": "application/json" } : {};
+    const token = this.opts.getAuthToken?.();
+    if (token) headers.authorization = `Bearer ${token}`;
+    return headers;
+  }
+
   private async pollOnce(): Promise<void> {
     const params = new URLSearchParams({
       room: this.opts.room,
@@ -192,8 +237,9 @@ export class P2PRoom {
       name: this.opts.name ?? "",
       since: String(this.cursor),
     });
-    const res = await fetch(`/api/rtc?${params}`);
+    const res = await fetch(`/api/rtc?${params}`, { headers: this.signalHeaders(false) });
     if (this.closed) return;
+    if (res.status === 401 || res.status === 403) throw new SignalingAuthError(res.status);
     if (!res.ok) throw new Error(`signaling poll failed: ${res.status}`);
     const body = (await res.json()) as RtcPollResponse;
     if (this.closed) return;
@@ -214,10 +260,28 @@ export class P2PRoom {
     if (this.closed) return;
     try {
       await this.pollOnce();
-    } catch {
+    } catch (e) {
       // Transient poll failures are expected (tab sleep, deploy roll); retry.
+      // A refusal is not one of those — every later poll would be refused the
+      // same way, so stop and tell the app instead of retrying twice a second
+      // for as long as the tab is open.
+      if (this.failIfRefused(e)) return;
     }
     this.schedulePoll(this.anyPairConnecting() ? FAST_POLL_MS : IDLE_POLL_MS);
+  }
+
+  /**
+   * Shut the room down when the relay refused us; `false` for anything else,
+   * which callers then treat as transient.
+   */
+  private failIfRefused(e: unknown): boolean {
+    if (!(e instanceof SignalingAuthError)) return false;
+    console.warn(`[p2p] ${e.message} — no direct connections for this room`);
+    const notify = this.opts.onAuthError;
+    const status = e.status;
+    this.close();
+    notify?.(status);
+    return true;
   }
 
   private reconcileRoster(peers: { id: string; name: string }[]): void {
@@ -450,7 +514,7 @@ export class P2PRoom {
       try {
         const res = await fetch("/api/rtc", {
           method: "POST",
-          headers: { "content-type": "application/json" },
+          headers: this.signalHeaders(true),
           body: JSON.stringify({
             op: "signal",
             room: this.opts.room,
@@ -461,8 +525,11 @@ export class P2PRoom {
           }),
         });
         if (res.ok) return;
+        if (res.status === 401 || res.status === 403) throw new SignalingAuthError(res.status);
         throw new Error(`signal POST failed: ${res.status}`);
       } catch (err) {
+        // Retrying a refusal just delays the same answer twice over.
+        if (this.failIfRefused(err)) return;
         if (attempt >= SIGNAL_RETRY_DELAYS_MS.length) {
           // Delivery gave up; the pair converges on the next offer cycle (or
           // the watchdog rebuilds it). Logged once so failures are visible.

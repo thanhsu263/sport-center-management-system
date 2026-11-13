@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { cn } from "@/lib/cn";
+import { cn } from "@/client/lib/cn";
 
 /** Sport-centre line icons: same 24px grid and 1.75 stroke as lucide, drawn for things lucide lacks. */
 export type ArenaIconName =

@@ -1,10 +1,10 @@
 import { useRouterState } from "@tanstack/react-router";
 import { CircleCheck, RefreshCw, ServerCrash, WifiOff, X } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Button } from "@/components/ui";
-import { cn } from "@/lib/cn";
-import { dismissBack, newScreen, retryNow, useLink } from "@/lib/connection";
-import { t } from "@/lib/i18n";
+import { Button } from "@/client/components/ui";
+import { cn } from "@/client/lib/cn";
+import { dismissBack, newScreen, retryNow, useLink } from "@/client/lib/connection";
+import { t } from "@/client/lib/i18n";
 
 /**
  * The one place that says the screen cannot reach its server, and how to get going again.

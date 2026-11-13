@@ -26,10 +26,10 @@ import {
   Minus,
   type LucideIcon,
 } from "lucide-react";
-import { cn } from "@/lib/cn";
-import { PAGE_SIZES, lastPageOffset, pageWindow } from "@/lib/paging";
-import { locale, t } from "@/lib/i18n";
-import { formatDate, statusLabel, statusTone } from "@/lib/arena3/labels";
+import { cn } from "@/client/lib/cn";
+import { PAGE_SIZES, lastPageOffset, pageWindow } from "@/client/lib/paging";
+import { locale, t } from "@/client/lib/i18n";
+import { formatDate, statusLabel, statusTone } from "@/shared/arena3/labels";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { EASE_SMOOTH } from "../motion";
 
@@ -851,6 +851,7 @@ export function Stat({
   trend,
   icon: Icon,
   note,
+  glass = false,
 }: {
   label: string;
   value: ReactNode;
@@ -859,15 +860,25 @@ export function Stat({
   icon?: LucideIcon;
   /** Always-visible plain-words definition of the figure. */
   note?: string;
+  /** Frosted card for headline figures that sit over the page's background effects. */
+  glass?: boolean;
 }) {
   const Arrow =
     trend?.pct == null || trend.pct === 0 ? Minus : trend.pct > 0 ? ArrowUpRight : ArrowDownRight;
   return (
-    <Card>
+    <Card
+      className={cn(
+        "group transition-[transform,border-color,box-shadow] duration-200 ease-out hover:-translate-y-0.5 hover:border-accent/40 hover:shadow-[0_10px_30px_-12px_rgb(212_245_60/0.25)] motion-reduce:transform-none motion-reduce:transition-none",
+        // Frosted pane: see-through fill, a light sheen from the top-left, a bright top edge and a
+        // soft lime glow behind, so the glass reads even on the dark hall background.
+        glass &&
+          "relative overflow-hidden border-white/10 bg-[linear-gradient(135deg,rgb(255_255_255/0.09),rgb(255_255_255/0.02)_45%,rgb(212_245_60/0.05))] backdrop-blur-xl backdrop-saturate-150 [box-shadow:inset_0_1px_0_rgb(255_255_255/0.14),0_12px_40px_-16px_rgb(0_0_0/0.6)] before:pointer-events-none before:absolute before:-right-10 before:-top-12 before:size-40 before:rounded-full before:bg-accent/15 before:blur-3xl before:content-[''] [&>*]:relative",
+      )}
+    >
       <div className="flex items-center justify-between gap-2">
         <p className="kicker text-2xs text-muted">{t(label)}</p>
         {Icon ? (
-          <span aria-hidden="true" className="grid size-8 place-items-center rounded-[var(--radius-sm)] bg-accent/10 text-accent-2">
+          <span aria-hidden="true" className="grid size-8 place-items-center rounded-[var(--radius-sm)] bg-accent/10 text-accent-2 transition-colors duration-200 group-hover:bg-accent/20">
             <Icon className="size-4" strokeWidth={1.9} />
           </span>
         ) : null}
@@ -913,9 +924,9 @@ export function ShowMore({ shown, total, step, onMore }: { shown: number; total:
   );
 }
 
-export { PageHero, type PageHeroStat } from "@/components/page-hero";
-export { StatStrip, type StatItem } from "@/components/stat-strip";
-export { EmptyState, type EmptyStateAction } from "@/components/empty-state";
-export { RowActions, type RowActionItem } from "@/components/row-actions";
-export { ContextLayout, ContextCard } from "@/components/context-layout";
-export { useSports, SportBadge, SportDot, SportThumbnail, type SportInfo } from "@/components/sports-ui";
+export { PageHero, type PageHeroStat } from "@/client/components/page-hero";
+export { StatStrip, type StatItem } from "@/client/components/stat-strip";
+export { EmptyState, type EmptyStateAction } from "@/client/components/empty-state";
+export { RowActions, type RowActionItem } from "@/client/components/row-actions";
+export { ContextLayout, ContextCard } from "@/client/components/context-layout";
+export { useSports, SportBadge, SportDot, SportThumbnail, type SportInfo } from "@/client/components/sports-ui";

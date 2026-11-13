@@ -1,5 +1,5 @@
 import { type ReactNode } from "react";
-import { cn } from "@/lib/cn";
+import { cn } from "@/client/lib/cn";
 import { useAsset } from "./media";
 import { Spot, type SpotName } from "./illustrations";
 import { CountUp, useReducedMotionAfterMount } from "./motion";
@@ -22,7 +22,10 @@ export function PageHero({
   action,
   fallbackSpot = "court",
   className,
+  display = false,
 }: {
+  /** Oversized title and big stat numbers (the coach's schedule); other pages keep the compact hero. */
+  display?: boolean;
   slot?: string;
   title: ReactNode;
   subtitle?: ReactNode;
@@ -90,7 +93,9 @@ export function PageHero({
             {badge ? <div className="mb-1.5">{badge}</div> : null}
             <h1
               className={cn(
-                "font-display text-xl font-bold tracking-tight text-balance sm:text-2xl lg:text-3xl",
+                display
+                  ? "display-xl text-[clamp(2.5rem,7vw,4.5rem)]"
+                  : "font-display text-xl font-bold tracking-tight text-balance sm:text-2xl lg:text-3xl",
                 hasImage ? "text-[var(--color-on-media)]" : "text-fg",
               )}
             >
@@ -115,7 +120,13 @@ export function PageHero({
         {stats && stats.length > 0 ? (
           <div className="mt-3 flex flex-wrap items-center gap-3 border-t border-white/10 pt-2.5 sm:mt-4 sm:gap-6 sm:pt-3">
             {stats.map((s, idx) => (
-              <div key={idx} className="flex items-center gap-2 text-xs sm:text-sm">
+              <div
+                key={idx}
+                className={cn(
+                  "flex gap-2 text-xs sm:text-sm",
+                  display ? "flex-col-reverse items-start gap-0.5" : "items-center",
+                )}
+              >
                 {s.live ? (
                   <span className="relative flex h-2 w-2">
                     <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[var(--color-volt)] opacity-75" />
@@ -133,6 +144,7 @@ export function PageHero({
                 <span
                   className={cn(
                     "font-semibold tracking-tight",
+                    display && "font-athletic text-4xl leading-none tabular-nums sm:text-5xl",
                     hasImage ? "text-[var(--color-on-media)]" : "text-fg",
                   )}
                 >
