@@ -1,14 +1,14 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { isValidVnPhone, normalizePhone, passwordOk, phoneLast9 } from "./phone.ts";
-import { rruleLabel } from "./labels.ts";
+import { rruleLabel } from "../../shared/arena3/labels.ts";
 import { numberToVietnamese, vndInWords } from "./money-words.ts";
-import { addDays, classMinutes, elapsedAtLeast, ictDateTime, ictHour, ictMinutes, pad2, roundVnd, slotSpan } from "./time.ts";
-import { ApiError, mapDbError } from "./errors.ts";
-import { checkOpeningHours, pageParams, parseSettingsPatch } from "./validate.ts";
-import { alignOffset, lastPageOffset, pageWindow } from "../paging.ts";
-import { crc16, readTlv, transferReference, validBankAccount, vietQrPayload } from "../vietqr.ts";
-import { DEFAULT_VENUE, hhmm, hoursOf, venueFrom } from "../venue.ts";
+import { addDays, ageYears, classMinutes, elapsedAtLeast, ictDateTime, ictHour, ictMinutes, pad2, roundVnd, slotSpan } from "../../shared/arena3/time.ts";
+import { ApiError, mapDbError } from "../controllers/errors.ts";
+import { checkOpeningHours, pageParams, parseSettingsPatch } from "../controllers/validate.ts";
+import { alignOffset, lastPageOffset, pageWindow } from "../../client/lib/paging.ts";
+import { crc16, readTlv, transferReference, validBankAccount, vietQrPayload } from "../../shared/vietqr.ts";
+import { DEFAULT_VENUE, hhmm, hoursOf, venueFrom } from "../../client/lib/venue.ts";
 import {
   absentStreak,
   attendanceLocked,
@@ -18,6 +18,7 @@ import {
   normalizeChecklist,
   normalizeDone,
   planActiveOn,
+  isTicketMessage,
   slotPriceOk,
   ticketBody,
   validateMetrics,
@@ -58,6 +59,14 @@ describe("time / price slot", () => {
   });
   it("addDays stays on the calendar date", () => {
     assert.equal(addDays("2026-09-30", 1), "2026-10-01");
+  });
+  it("ageYears calculates age in years in ICT", () => {
+    assert.equal(ageYears(null), 0);
+    assert.equal(ageYears(""), 0);
+    assert.equal(ageYears("invalid"), 0);
+    const now = new Date();
+    const twentyYearsAgo = `${now.getFullYear() - 20}-01-01`;
+    assert.equal(ageYears(twentyYearsAgo), 20);
   });
 });
 
@@ -156,6 +165,56 @@ describe("ticketBody / FR-S03", () => {
   it('an empty "ticket:" reduces to the empty string (caller returns 422)', () => {
     assert.equal(ticketBody("ticket:"), "");
     assert.equal(ticketBody("ticket: "), "");
+  });
+  it("unwraps a quote pair the greeting taught people to type", () => {
+    assert.equal(ticketBody("<<ticket: den BC2 bi chay>>"), "den BC2 bi chay");
+    assert.equal(ticketBody("«ticket: den BC2 bi chay»"), "den BC2 bi chay");
+    assert.equal(ticketBody('"ticket: den BC2 bi chay"'), "den BC2 bi chay");
+  });
+  it("leaves quotes that were never a pair", () => {
+    // Starts with a quote and ends with a quote, but the outer two do not
+    // belong together. Stripping them used to yield `a" and "b`, eating the
+    // member's own punctuation; the marker is no longer treated as wrapped, so
+    // the message survives exactly as typed.
+    assert.equal(ticketBody('"ticket: a" and "b"'), '"ticket: a" and "b"');
+    assert.equal(isTicketMessage('"ticket: a" and "b"'), false);
+    // A genuine wrapper still comes off.
+    assert.equal(ticketBody('"ticket: plain"'), "plain");
+    // And quotes inside the note are left where they are.
+    assert.equal(ticketBody("ticket: 'x' or 'y'"), "'x' or 'y'");
+  });
+  it("leaves the member's own quotes alone", () => {
+    // No marker inside the pair, so the quotes are theirs: the support form
+    // runs every message through here.
+    assert.equal(ticketBody('"The lights are out"'), '"The lights are out"');
+    assert.equal(ticketBody("ticket: hỏi về «gói Premium»"), "hỏi về «gói Premium»");
+  });
+});
+
+describe("isTicketMessage / FR-S01", () => {
+  it("leaves a question for the assistant to answer", () => {
+    // These used to match on "góp ý" / "feedback" / "complaint" anywhere in the
+    // message, so the assistant never saw the question it was asked.
+    assert.equal(isTicketMessage("Làm sao góp ý về HLV?"), false);
+    assert.equal(isTicketMessage("Is there a feedback form?"), false);
+    assert.equal(isTicketMessage("How do I file a complaint?"), false);
+    assert.equal(isTicketMessage("Tôi muốn khiếu nại giá sân"), false);
+    assert.equal(isTicketMessage("What are your opening hours?"), false);
+  });
+  it("takes a marker at the very start, however it was typed", () => {
+    assert.equal(isTicketMessage("ticket: den BC2 bi chay"), true);
+    // The full-width colon a Vietnamese IME produces, and a stray space.
+    assert.equal(isTicketMessage("ticket： den BC2 bi chay"), true);
+    assert.equal(isTicketMessage("ticket : den BC2 bi chay"), true);
+    assert.equal(isTicketMessage("<<ticket: den BC2 bi chay>>"), true);
+    assert.equal(isTicketMessage("«ticket: den BC2 bi chay»"), true);
+  });
+  it("ignores a marker buried mid-sentence", () => {
+    assert.equal(isTicketMessage("my ticket: for the class didn't work"), false);
+  });
+  it("accepts a bare marker so the caller can ask for the rest (FR-S03)", () => {
+    assert.equal(isTicketMessage("ticket:"), true);
+    assert.equal(ticketBody("ticket:"), "");
   });
 });
 
