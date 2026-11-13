@@ -17,9 +17,9 @@ import {
   type ElementType,
   type ReactNode,
 } from "react";
-import { cn } from "@/lib/cn";
-import { useReducedMotionAfterMount } from "@/components/motion";
-import { isCalm, useCalm } from "@/lib/calm";
+import { cn } from "@/client/lib/cn";
+import { useReducedMotionAfterMount } from "@/client/components/motion";
+import { isCalm, useCalm } from "@/client/lib/calm";
 
 /**
  * Arena3's effect layer.
@@ -28,13 +28,13 @@ import { isCalm, useCalm } from "@/lib/calm";
  * against our own stack and palette rather than pasted in: the hover and pointer
  * effects run on `motion`, and the WebGL backgrounds live in `./gl` behind a
  * lazy import so `ogl` never lands in the main bundle. GSAP lives elsewhere:
- * `@/lib/gsap`, the landing scenes and the app moments (CLAUDE.md, rule 3).
+ * `@/client/lib/gsap`, the landing scenes and the app moments (CLAUDE.md, rule 3).
  *
  * Two rules hold everywhere in this file:
  *   1. `prefers-reduced-motion` collapses the effect to a plain element, once
  *      mounted (`useReducedMotionAfterMount`, so hydration matches the server).
  *      Nothing here is load-bearing for content. The things that loop on their
- *      own, the shader backgrounds, also follow `useCalm()` (`@/lib/calm`) live,
+ *      own, the shader backgrounds, also follow `useCalm()` (`@/client/lib/calm`) live,
  *      and CSS stops the rest.
  *   2. Pointer effects check `pointerType === "mouse"`. A spotlight that chases
  *      a finger is just a smear, and most of Arena3's traffic is on a phone.
@@ -759,8 +759,11 @@ const Aurora = lazy(() => import("./gl").then((m) => ({ default: m.Aurora })));
 const Silk = lazy(() => import("./gl").then((m) => ({ default: m.Silk })));
 const Threads = lazy(() => import("./gl").then((m) => ({ default: m.Threads })));
 const DotGrid = lazy(() => import("./gl").then((m) => ({ default: m.DotGrid })));
+const Court = lazy(() => import("./gl").then((m) => ({ default: m.Court })));
+const HallFlow = lazy(() => import("./gl").then((m) => ({ default: m.HallFlow })));
 
-export type GLVariant = "aurora" | "silk" | "threads" | "dotgrid";
+/** `flow` redraws the `<video>` in the same `[data-media]` box, so mount it inside that box. */
+export type GLVariant = "aurora" | "silk" | "threads" | "dotgrid" | "court" | "flow";
 
 /**
  * Drops a live shader behind a section.
@@ -792,6 +795,8 @@ export function GLBackground({
   gap?: number;
   dot?: number;
   radius?: number;
+  /** `court` only: live dials (scroll tilt, free-hours glow), mutated by the page. */
+  drive?: { current: { tilt: number; glow: number } };
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const reduced = useCalm();
@@ -800,7 +805,17 @@ export function GLBackground({
   const live = mounted && near && !reduced;
 
   const Comp =
-    variant === "aurora" ? Aurora : variant === "silk" ? Silk : variant === "threads" ? Threads : DotGrid;
+    variant === "aurora"
+      ? Aurora
+      : variant === "silk"
+        ? Silk
+        : variant === "threads"
+          ? Threads
+          : variant === "court"
+            ? Court
+            : variant === "flow"
+              ? HallFlow
+              : DotGrid;
 
   return (
     <div
