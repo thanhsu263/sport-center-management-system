@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { usePageState } from "@/lib/use-page-state";
+import { usePageState } from "@/client/lib/use-page-state";
 import { toast } from "sonner";
 import {
   Badge,
@@ -16,14 +16,14 @@ import {
   Select,
   Skeleton,
   Stat,
-} from "@/components/ui";
-import { UserAvatar } from "@/components/user-avatar";
-import { ExportButtons } from "@/components/report-panels";
-import { ApiClientError, apiGet, apiPost } from "@/lib/arena3/client";
-import { addDaysISO, formatDate, sportLabel, todayISO } from "@/lib/arena3/labels";
-import { scrollBehavior } from "@/lib/calm";
-import { t, tk, tServer } from "@/lib/i18n";
-import { readError, useRead, type ReadError } from "@/lib/use-read";
+} from "@/client/components/ui";
+import { UserAvatar } from "@/client/components/user-avatar";
+import { ExportButtons } from "@/client/components/report-panels";
+import { ApiClientError, apiGet, apiPost } from "@/client/arena3/client";
+import { addDaysISO, formatDate, sportLabel, todayISO } from "@/shared/arena3/labels";
+import { scrollBehavior } from "@/client/lib/calm";
+import { t, tk, tServer } from "@/client/lib/i18n";
+import { readError, useRead, type ReadError } from "@/client/lib/use-read";
 
 type Counts = { present: number; late: number; absent: number; excused: number; rate_pct: number | null };
 
