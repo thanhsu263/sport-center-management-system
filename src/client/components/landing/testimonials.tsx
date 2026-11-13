@@ -1,9 +1,9 @@
 import { useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, Quote } from "lucide-react";
-import { Card } from "@/components/ui";
-import { gsap, motionOff, useGSAP, useScene } from "@/lib/gsap";
-import { useCalm } from "@/lib/calm";
-import { t, tk } from "@/lib/i18n";
+import { Card } from "@/client/components/ui";
+import { gsap, motionOff, useGSAP, useScene } from "@/client/lib/gsap";
+import { useCalm } from "@/client/lib/calm";
+import { t, tk } from "@/client/lib/i18n";
 import { SplitHeading } from "./kit";
 import { rise } from "./tweens";
 
@@ -25,7 +25,7 @@ const TESTIMONIALS = [
   },
   {
     quote: tk(
-      "Plan hours come straight off at the desk. No cash, no working out what counts as peak, no arguing about the price on a Saturday morning.",
+      "Each court is paid at the desk when I book it. No cash, no working out what counts as peak, no arguing about the price on a Saturday morning.",
     ),
     name: "Phạm Hoàng Long",
     meta: tk("Badminton · A3-2026-0003"),

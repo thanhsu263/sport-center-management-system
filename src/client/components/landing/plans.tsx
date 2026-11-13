@@ -1,97 +1,26 @@
-import { useRef } from "react";
-import { Sparkles } from "lucide-react";
-import { Cover, MediaCaption, sportPhoto } from "@/components/media";
-import { ButtonLink, Card } from "@/components/ui";
-import { GLBackground, GlareHover, SpotlightCard, StarBorder } from "@/components/fx";
-import type { CatalogClass, CatalogPlan } from "@/lib/arena3/catalog";
-import { levelLabel, rruleLabel, sportLabel } from "@/lib/arena3/labels";
-import { gsap, useScene } from "@/lib/gsap";
-import { t, tData } from "@/lib/i18n";
-import { CountTo, SplitHeading } from "./kit";
-import { moneyCount, rise } from "./tweens";
-
-/** Memberships for sale. The featured plan alone carries the travelling border. */
-export function PlansScene({ plans }: { plans: CatalogPlan[] }) {
-  const root = useRef<HTMLElement>(null);
-  useScene(root, ({ motion }) => {
-    if (motion && root.current) rise(root.current, "[data-rise]", { stagger: 0.1 });
-  });
-  return (
-    <section ref={root} id="plans" className="relative mx-auto max-w-6xl scroll-mt-20 overflow-hidden px-4 pb-20">
-      {/* Folded-cloth sheen at very low opacity, so the cards do not float on flat cream. */}
-      <GLBackground variant="silk" className="-z-[1] opacity-70" color="#3f7d20" speed={0.5} scale={1.7} opacity={0.13} />
-      <p data-rise className="kicker text-2xs text-muted">
-        {t("Memberships")}
-      </p>
-      <h2 className="mt-2 font-display text-4xl sm:text-5xl">
-        <SplitHeading text={t("Buy in the app, pay at the desk")} />
-      </h2>
-
-      <div className="mt-8 grid gap-4 md:grid-cols-3">
-        {plans.map((p, i) => {
-          const featured = i === 1;
-          const buy = (
-            <ButtonLink to="/register" className="w-full" aria-label={`${t("Join to buy")}: ${tData(p.name)}`}>
-              {t("Join to buy")}
-            </ButtonLink>
-          );
-          return (
-            <div key={p.id} data-rise className="h-full">
-              <SpotlightCard className="lift h-full rounded-[var(--radius-xl)]">
-                <Card interactive className="group flex h-full flex-col overflow-hidden p-0">
-                  <GlareHover>
-                    <Cover
-                      slot={sportPhoto(p.sport_scope)}
-                      alt=""
-                      scrim="none"
-                      className="h-36"
-                      imgClassName="transition-transform duration-[900ms] ease-[var(--ease-smooth)] group-hover:scale-110"
-                    >
-                      <MediaCaption>
-                        <p className="kicker text-2xs">{sportLabel(p.sport_scope)}</p>
-                      </MediaCaption>
-                    </Cover>
-                  </GlareHover>
-                  <div className="relative z-[2] flex flex-1 flex-col p-5">
-                    {featured ? (
-                      <span className="mb-2 inline-flex w-fit items-center gap-1 rounded-full bg-accent/12 px-2.5 py-1 text-2xs font-medium text-accent-2">
-                        <Sparkles className="size-3" /> {t("Most picked")}
-                      </span>
-                    ) : null}
-                    <h3 className="font-display text-2xl">{tData(p.name)}</h3>
-                    <p className="mt-3 font-display text-3xl tabular-nums">
-                      <CountTo value={p.price_vnd} format={moneyCount} duration={1.2} />
-                    </p>
-                    <p className="mt-2 flex-1 text-sm text-muted">
-                      {p.duration_days ? t("{n} days", { n: p.duration_days }) : t("Per session")} ·{" "}
-                      {t("{n} court hours", { n: p.court_hours })} · {t("{n}% off", { n: p.court_discount_pct })}
-                    </p>
-                    <div className="mt-5">
-                      {featured ? (
-                        <StarBorder className="w-full" innerClassName="bg-surface">
-                          {buy}
-                        </StarBorder>
-                      ) : (
-                        buy
-                      )}
-                    </div>
-                  </div>
-                </Card>
-              </SpotlightCard>
-            </div>
-          );
-        })}
-      </div>
-    </section>
-  );
-}
+import { useMemo, useRef, useState } from "react";
+import { Cover, sportPhoto } from "@/client/components/media";
+import { ButtonLink, Card } from "@/client/components/ui";
+import type { CatalogClass } from "@/shared/arena3/contracts";
+import { levelLabel, rruleLabel, sportLabel } from "@/shared/arena3/labels";
+import { gsap, useScene } from "@/client/lib/gsap";
+import { t } from "@/client/lib/i18n";
+import { SplitHeading } from "./kit";
+import { rise } from "./tweens";
 
 /**
  * Classes with seats left. The enrol button sits next to the seat count that decides it, and each
  * seat meter fills to how full the class really is as it scrolls in.
  */
+const FIRST_SHOWN = 4;
+
 export function ClassesScene({ classes }: { classes: CatalogClass[] }) {
   const root = useRef<HTMLElement>(null);
+  const [sport, setSport] = useState("");
+  const [all, setAll] = useState(false);
+  const sports = useMemo(() => [...new Set(classes.map((c) => c.sport))], [classes]);
+  const picked = sport ? classes.filter((c) => c.sport === sport) : classes;
+  const shown = all ? picked : picked.slice(0, FIRST_SHOWN);
   useScene(root, ({ motion }) => {
     const el = root.current;
     if (!motion || !el) return;
@@ -115,11 +44,32 @@ export function ClassesScene({ classes }: { classes: CatalogClass[] }) {
         <SplitHeading text={t("Classes open for enrolment")} />
       </h2>
       <p data-rise className="mt-3 max-w-lg text-muted">
-        {t("Classes with a coach. They never overlap court hours you have booked. Seats go to whoever signs up first.")}
+        {t("Small groups, one coach, a fixed timetable. Pick your level and start with the next session. Seats go to whoever signs up first.")}
       </p>
 
-      <div className="mt-8 grid gap-4 md:grid-cols-2">
-        {classes.map((c) => {
+      {sports.length > 1 ? (
+        <div data-rise className="mt-6 flex flex-wrap gap-2" role="group" aria-label={t("Sport")}>
+          {["", ...sports].map((s) => (
+            <button
+              key={s || "all"}
+              type="button"
+              aria-pressed={sport === s}
+              onClick={() => {
+                setSport(s);
+                setAll(false);
+              }}
+              className={`rounded-full border px-3.5 py-1.5 text-sm transition-colors ${
+                sport === s ? "border-accent bg-accent text-accent-fg" : "border-line text-muted hover:text-fg"
+              }`}
+            >
+              {s ? sportLabel(s) : t("All sports")}
+            </button>
+          ))}
+        </div>
+      ) : null}
+
+      <div className="mt-6 grid gap-4 md:grid-cols-2">
+        {shown.map((c) => {
           const pct = c.capacity ? Math.min(100, (c.enrolled_count / c.capacity) * 100) : 0;
           const nearlyFull = pct >= 80;
           const full = c.enrolled_count >= c.capacity;
@@ -167,6 +117,18 @@ export function ClassesScene({ classes }: { classes: CatalogClass[] }) {
         })}
         {!classes.length ? <p className="text-sm text-muted">{t("No classes published yet.")}</p> : null}
       </div>
+      {picked.length > FIRST_SHOWN ? (
+        <div className="mt-6 flex justify-center">
+          <button
+            type="button"
+            onClick={() => setAll((v) => !v)}
+            aria-expanded={all}
+            className="rounded-full border border-line px-4 py-2 text-sm text-fg transition-colors hover:border-accent"
+          >
+            {all ? t("Show fewer") : t("Show all {n} classes", { n: picked.length })}
+          </button>
+        </div>
+      ) : null}
     </section>
   );
 }

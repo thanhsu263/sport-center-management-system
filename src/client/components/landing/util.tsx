@@ -1,8 +1,8 @@
 import { useContext, createContext, useEffect, useState, type ReactNode } from "react";
-import { DEFAULT_VENUE, type Venue } from "@/lib/venue";
-import type { CatalogPrice } from "@/lib/arena3/catalog";
-import { weekdayShort } from "@/lib/arena3/labels";
-import { t, tk } from "@/lib/i18n";
+import { DEFAULT_VENUE, type Venue } from "@/client/lib/venue";
+import type { CatalogPrice } from "@/shared/arena3/contracts";
+import { weekdayShort } from "@/shared/arena3/labels";
+import { t, tk } from "@/client/lib/i18n";
 
 /**
  * Rich sentences: translate the whole sentence with `{name}` placeholders set to `mark("name")`,
@@ -38,14 +38,12 @@ export const useVenue = () => useContext(VenueCtx);
 export function useVenueHour() {
   const [hour, setHour] = useState<number | null>(null);
   useEffect(() => {
-    const read = () =>
-      setHour(
-        Number(
-          new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Ho_Chi_Minh", hour: "2-digit", hour12: false }).format(
-            new Date(),
-          ),
-        ),
-      );
+    const hourFormatter = new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Asia/Ho_Chi_Minh",
+      hour: "2-digit",
+      hour12: false,
+    });
+    const read = () => setHour(Number(hourFormatter.format(new Date())));
     read();
     const id = setInterval(read, 60_000);
     return () => clearInterval(id);

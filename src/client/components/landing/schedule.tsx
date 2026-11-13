@@ -1,17 +1,17 @@
 import { useRef } from "react";
-import { CourtGrid, DateStrip, type Court as GridCourt } from "@/components/court-grid";
-import { Button, ButtonLink, Card, Seg, Skeleton } from "@/components/ui";
-import { money } from "@/components/shell";
-import type { CatalogCourt, CatalogPrice, CatalogSlot } from "@/lib/arena3/catalog";
-import { sportLabel } from "@/lib/arena3/labels";
-import { gsap, useScene } from "@/lib/gsap";
-import { t } from "@/lib/i18n";
-import { useSports } from "@/components/sports-ui";
+import { CourtGrid, DateStrip, type Court as GridCourt } from "@/client/components/court-grid";
+import { Button, ButtonLink, Card, Seg, Skeleton } from "@/client/components/ui";
+import { money } from "@/client/components/shell";
+import type { CatalogCourt, CatalogPrice, CatalogSlot } from "@/shared/arena3/contracts";
+import { sportLabel } from "@/shared/arena3/labels";
+import { gsap, useScene } from "@/client/lib/gsap";
+import { t } from "@/client/lib/i18n";
+import { useSports } from "@/client/components/sports-ui";
 import { SplitHeading } from "./kit";
 import { rise } from "./tweens";
 import { priceFor, wdLabel } from "./util";
 import { useVenue } from "./util";
-import { hoursOf } from "@/lib/venue";
+import { hoursOf } from "@/client/lib/venue";
 
 export type Picked = { court: GridCourt; hour: number };
 
@@ -93,7 +93,8 @@ export function ScheduleScene({
         />
       ) : null}
 
-      <div className="mt-4">
+      {/* data-no-fly: the 3D ball is cut out of this box, so it never covers a court cell. */}
+      <div data-no-fly className="mt-4">
         {busy ? (
           <div className="grid gap-2">
             <Skeleton className="h-8" />

@@ -1,12 +1,12 @@
 import { useRef } from "react";
-import { Cover, MediaCaption } from "@/components/media";
-import { Button, Card } from "@/components/ui";
-import { GlareHover } from "@/components/fx";
-import type { CatalogCourt, CatalogPrice } from "@/lib/arena3/catalog";
-import { sportLabel } from "@/lib/arena3/labels";
-import { useScene } from "@/lib/gsap";
-import { t } from "@/lib/i18n";
-import { useSports } from "@/components/sports-ui";
+import { Cover, MediaCaption } from "@/client/components/media";
+import { Button, Card } from "@/client/components/ui";
+import { GlareHover } from "@/client/components/fx";
+import type { CatalogCourt, CatalogPrice } from "@/shared/arena3/contracts";
+import { sportLabel } from "@/shared/arena3/labels";
+import { useScene } from "@/client/lib/gsap";
+import { t } from "@/client/lib/i18n";
+import { useSports } from "@/client/components/sports-ui";
 import { CountTo, SplitHeading } from "./kit";
 import { moneyCount, rise } from "./tweens";
 
@@ -117,7 +117,7 @@ export function CourtsScene({
                       {openNow ? t("{n} hours free", { n: openNow }) : t("Fully booked")}
                       <span className="text-subtle"> · {day}</span>
                     </p>
-                    <Button size="sm" onClick={() => onShowTimes(s.id)}>
+                    <Button size="sm" variant="outline" onClick={() => onShowTimes(s.id)}>
                       {t("See free times")}
                     </Button>
                   </div>
