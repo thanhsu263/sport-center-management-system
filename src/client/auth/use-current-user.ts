@@ -46,7 +46,7 @@ export type CurrentUserState = {
  * redirecting on `user: null` alone bounces signed-in visitors to sign-in on
  * every hard reload:
  *
- *   import { RedirectToSignIn } from "@/lib/auth/gates";
+ *   import { RedirectToSignIn } from "@/client/auth/gates";
  *   const { user, isPending } = useCurrentUserState();
  *   if (isPending) return null;              // still resolving — don't redirect yet
  *   if (!user) return <RedirectToSignIn />;  // definitely signed out
