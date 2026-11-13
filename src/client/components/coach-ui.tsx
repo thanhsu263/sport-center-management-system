@@ -1,4 +1,4 @@
-import { cn } from "@/lib/cn";
+import { cn } from "@/client/lib/cn";
 
 /**
  * Numbered steps for a long job split into short screens: only the chosen step is on the page,
