@@ -1,9 +1,9 @@
 import { useRef } from "react";
-import type { CatalogClass } from "@/lib/arena3/catalog";
-import { levelLabel, rruleLabel, sportLabel } from "@/lib/arena3/labels";
-import { ScrollTrigger, gsap, useScene } from "@/lib/gsap";
-import { useCalm } from "@/lib/calm";
-import { t } from "@/lib/i18n";
+import type { CatalogClass } from "@/shared/arena3/contracts";
+import { levelLabel, rruleLabel, sportLabel } from "@/shared/arena3/labels";
+import { ScrollTrigger, gsap, useScene } from "@/client/lib/gsap";
+import { useCalm } from "@/client/lib/calm";
+import { t } from "@/client/lib/i18n";
 
 /**
  * This week's classes, running past as a strip.

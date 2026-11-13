@@ -3,18 +3,22 @@ import { ArrowRight, ArrowUpRight } from "lucide-react";
 import { MotionPathPlugin } from "gsap/MotionPathPlugin";
 import { ScrambleTextPlugin } from "gsap/ScrambleTextPlugin";
 import { SplitText } from "gsap/SplitText";
-import { HeroVideo, useBootOpen } from "@/components/media";
-import { ButtonAnchor } from "@/components/ui";
-import { GLBackground, ShinyText } from "@/components/fx";
-import { money } from "@/components/shell";
-import { ScrollTrigger, gsap, registerGsap, useScene } from "@/lib/gsap";
-import { useCalm } from "@/lib/calm";
-import { t, useLang } from "@/lib/i18n";
-import { useSports } from "@/components/sports-ui";
+import { HeroVideo, useBootOpen } from "@/client/components/media";
+import { ButtonAnchor } from "@/client/components/ui";
+import { GLBackground, ShinyText } from "@/client/components/fx";
+import { money } from "@/client/components/shell";
+import { ScrollTrigger, gsap, registerGsap, useScene } from "@/client/lib/gsap";
+import { useCalm } from "@/client/lib/calm";
+import { t, useLang } from "@/client/lib/i18n";
+import { useSports } from "@/client/components/sports-ui";
 import { CountTo } from "./kit";
-import { mark, rich, useVenue } from "./util";
-import { hhmm } from "@/lib/venue";
-import type { CatalogCourt } from "@/lib/arena3/catalog";
+import { useVenue } from "./util";
+import { hhmm } from "@/client/lib/venue";
+import type { CatalogCourt } from "@/shared/arena3/contracts";
+import type { Court } from "@/client/components/court-grid";
+
+/** The first free hour on the grid, offered in the hero as the thing to take. */
+export type NextFree = { court: Court; hour: number; price: number | null };
 
 registerGsap(ScrollTrigger, SplitText, ScrambleTextPlugin, MotionPathPlugin);
 
@@ -33,19 +37,29 @@ registerGsap(ScrollTrigger, SplitText, ScrambleTextPlugin, MotionPathPlugin);
 export function Hero({
   isOpen,
   freeHours,
+  openClasses,
   day,
   cheapestHour,
+  next,
+  onHold,
 }: {
   isOpen: boolean | null;
   freeHours: number;
+  /** Classes taking enrolments now. When there are any, they lead the hero and courts follow. */
+  openClasses: number;
   day: string;
   cheapestHour: number;
+  next: NextFree | null;
+  onHold: (n: NextFree) => void;
 }) {
   const root = useRef<HTMLElement>(null);
   const calm = useCalm();
   // The intro plays once the boot cover lifts; run under the cover, nobody would see it.
   const open = useBootOpen();
   const venue = useVenue();
+  // Dials for the court shader: a fuller day lights the lines up, scrolling away lifts the camera.
+  const drive = useRef({ tilt: 0, glow: 0.8 });
+  drive.current.glow = Math.min(1, 0.35 + freeHours / 48);
   const status =
     isOpen == null
       ? t("Indoor sports centre")
@@ -113,6 +127,16 @@ export function Hero({
     // makes the smoother use this section as that effect's trigger and shift any other trigger on
     // it by the effect's offset; measured mid-intro, while the footage still scales, that shift was
     // hundreds of pixels and left the copy half faded at the very top of the page.
+    gsap.to(drive.current, {
+      tilt: 1,
+      ease: "none",
+      scrollTrigger: {
+        start: () => el.offsetTop,
+        end: () => el.offsetTop + el.offsetHeight,
+        scrub: 0.6,
+        invalidateOnRefresh: true,
+      },
+    });
     gsap.to(q("[data-copy]"), {
       yPercent: -18,
       autoAlpha: 0.15,
@@ -127,24 +151,20 @@ export function Hero({
   }, [open]);
 
   return (
-    <section ref={root} className="grain relative min-h-[88dvh] overflow-hidden">
+    <section ref={root} data-landing-hero className="landing-hero grain relative overflow-hidden">
       {/* Taller than the frame and slowed by the smoother, so the hall lags behind the copy. */}
       <div data-media data-speed="auto" className="absolute inset-x-0 -top-[8%] h-[116%]">
         <HeroVideo slot="landing.hero.video" posterSlot="landing.hero.image" priority />
+        {/* The pointer leaves a short wake through the footage, like air behind a shuttle. */}
+        <GLBackground variant="flow" />
       </div>
+      {/* The live court sits over the footage; the footage is what shows without WebGL or with motion off. */}
+      <GLBackground variant="court" drive={drive} className="pointer-events-none opacity-[0.16] mix-blend-screen" />
       <div className="hero-scrim pointer-events-none absolute inset-0" />
-      <GLBackground
-        variant="threads"
-        className="opacity-60 mix-blend-screen"
-        color="#e6eed9"
-        amplitude={1.2}
-        speed={0.55}
-        opacity={0.32}
-      />
 
-      <div className="relative mx-auto flex min-h-[88dvh] max-w-6xl flex-col justify-end px-4 pb-16 pt-24">
+      <div className="hero-layout relative mx-auto grid max-w-7xl gap-x-12 px-5 pb-12 pt-14 sm:px-8 lg:px-12 lg:pb-16 lg:pt-20">
         {/* No panel: the headline sits on the footage, the scrim and `.on-media` shadow carry it. */}
-        <div data-copy className="max-w-2xl text-on-media on-media">
+        <div data-copy className="hero-copy min-w-0 text-on-media on-media">
           <div data-enter data-status className="flex items-center gap-2.5">
             <span className="relative inline-flex size-2 text-on-media">
               {isOpen ? <span className="ping-ring" /> : null}
@@ -163,65 +183,66 @@ export function Hero({
 
           {/* One headline, two lines: the setup in white, the payoff tinted. */}
           <h1 data-enter className="mt-4">
-            <span key={t("Book courts and classes")} data-line1 className="block font-display text-4xl font-bold leading-[1.05] sm:text-6xl">
-              {t("Book courts and classes")}
+            <span key={t("Learn with a coach")} data-line1 className="display-xl block">
+              {t("Learn with a coach")}
             </span>
-            <span className="media-glow block font-display text-4xl font-bold leading-[1.05] sm:text-6xl">
-              <span data-line2 className="text-gradient-media inline-block py-[0.3em] -my-[0.3em]">
-                {t("at Lê Long Sport Center.")}
+            <span className="display-xl block">
+              <span data-line2 className="lime-glow-text inline-block py-[0.12em] -my-[0.12em]">
+                {t("at Lê Long Sport.")}
               </span>
             </span>
           </h1>
 
           <p data-enter data-sub className="mt-5 max-w-lg text-on-media-muted">
-            {t("Indoor sports centre. Open {open}-{close}, every day. Book a court online or at the front desk.", {
+            {t("Badminton, basketball and volleyball classes for every level, each led by a coach. Open {open}-{close}, every day, with courts to practise on between lessons.", {
               open: hhmm(venue.open),
               close: hhmm(venue.close),
             })}
           </p>
 
-          {/* The order is the funnel: see a free hour, take it, come back. Membership is the third visit. */}
+          {/* The order is the funnel: find a class first; a court to practise on is the second ask. */}
           <div data-enter data-cta className="mt-8 flex flex-wrap gap-3">
             <ButtonAnchor
-              href="#schedule"
+              href="#classes"
               size="lg"
-              className="group bg-volt text-night font-semibold shadow-[var(--shadow-soft)] hover:bg-volt/90 hover:shadow-[var(--shadow-soft)]"
+              className="group bg-accent text-accent-fg font-semibold shadow-[var(--shadow-accent-lg)] hover:bg-accent-hover"
             >
-              {t("Book a court")}
+              {t("See open classes")}
               <ArrowRight className="size-4 transition-transform duration-300 group-hover:translate-x-1" />
             </ButtonAnchor>
             <ButtonAnchor
-              href="#courts"
+              href="#schedule"
               variant="outline"
               size="lg"
               className="group border-on-media/40 bg-on-media/10 text-on-media shadow-none backdrop-blur-sm hover:border-on-media/70 hover:bg-on-media/20"
             >
-              {t("See courts & pricing")}
+              {t("Book a court")}
               <ArrowUpRight className="size-4 transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
             </ButtonAnchor>
           </div>
 
-          {/* The live number is the argument for the button above. */}
-          <p data-enter data-free className="mt-4 text-sm text-on-media-muted">
-            {rich(
-              t("{n} court hours free {day} · from {price}/hr · a slot you pick is held for {hold} minutes.", {
-                hold: venue.holdMinutes,
-                n: mark("n"),
-                day,
-                price: mark("price"),
-              }),
-              {
-                n: <LiveCount value={freeHours} className="text-on-media" />,
-                price: <span className="tabular-nums text-on-media">{money(cheapestHour)}</span>,
-              },
-            )}
-            <span className="mt-1 block">
-              <a href="#plans" className="link-underline hit text-on-media">
-                {t("Or see membership plans")}
-              </a>
+          {/* The live number is the argument for the button above, so it is the biggest thing here. */}
+          <p data-enter data-free-big className="mt-8 flex items-baseline gap-3">
+            <LiveCount
+              value={openClasses || freeHours}
+              className="hero-free-big font-display font-black leading-none text-accent [font-stretch:78%]"
+            />
+            <span className="kicker text-xs text-on-media-muted">
+              {openClasses ? t("classes open for enrolment") : t("court hours free {day}", { day })}
             </span>
           </p>
+          <p data-enter data-free className="mt-3 text-sm text-on-media-muted">
+            {openClasses
+              ? t("Seats go to whoever signs up first · {n} court hours free {day} for practice, from {price}/hr.", {
+                  n: freeHours, day, price: money(cheapestHour),
+                })
+              : t("From {price}/hr · held for {hold} minutes when you pick a slot.", {
+                  price: money(cheapestHour), hold: venue.holdMinutes,
+                })}
+          </p>
         </div>
+
+        <div data-shuttle-stage aria-hidden className="hero-stage pointer-events-none" />
       </div>
 
       {/* The shuttle that is served onto "Book a court". Decorative, so hidden from readers. */}
@@ -241,6 +262,59 @@ export function Hero({
         </div>
       )}
     </section>
+  );
+}
+
+/**
+ * The first free hour, as a ticket you can take. Its glow is the one thing on the hero that
+ * breathes, because it is the one thing that is live: the hour is free right now. Picking it opens
+ * the schedule with that hour already chosen, one step from the hold.
+ */
+function NextFreeCard({ next, day, onHold }: { next: NextFree; day: string; onHold: (n: NextFree) => void }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const open = useBootOpen();
+  // Its own entrance, not the hero timeline's: the card only exists once the client clock has
+  // ruled out finished hours, which is after that timeline has already been built.
+  useScene(
+    ref,
+    ({ motion }) => {
+      if (!motion || !open || !ref.current) return;
+      gsap.fromTo(ref.current, { autoAlpha: 0, y: 24, scale: 0.97 }, { autoAlpha: 1, y: 0, scale: 1, duration: 0.8, delay: 1.7, ease: "arena-out" });
+    },
+    [open],
+  );
+  const { sports } = useSports();
+  const lang = useLang();
+  const venue = useVenue();
+  const sport = sports.find((s) => s.code === next.court.sport);
+  const sportName = sport ? (lang === "vi" ? sport.name_vi : sport.name_en) : next.court.sport;
+  return (
+    <div
+      ref={ref}
+      data-next
+      className="hero-ticket relative w-full overflow-hidden rounded-2xl border border-on-media/25 bg-bg/80 p-5 backdrop-blur-xl sm:p-6"
+    >
+      <div className="flex items-center justify-between gap-3 text-xs text-muted">
+        <span className="font-mono uppercase tracking-wider">{t("Next free · {day}", { day })}</span>
+        <span className="rounded-md border border-line-strong bg-surface px-2.5 py-1 font-mono font-semibold text-fg">{next.court.court_code}</span>
+      </div>
+      <p className="mt-2 font-display text-6xl tabular-nums leading-none text-fg">{hhmm(next.hour)}</p>
+      <div className="mt-3 flex items-center justify-between gap-3 text-sm text-muted">
+        <span>{sportName}</span>
+        {next.price != null ? <span className="font-mono tabular-nums text-fg">{t("{price}/hr", { price: money(next.price) })}</span> : null}
+      </div>
+      <div className="mt-5 border-t border-dashed border-on-media/25 pt-4">
+      <p className="mb-3 text-xs text-muted">{t("Held for {hold} minutes after you choose", { hold: venue.holdMinutes })}</p>
+      <button
+        type="button"
+        onClick={() => onHold(next)}
+        className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-accent font-semibold text-accent-fg transition-colors hover:bg-accent-hover active:bg-accent-strong focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+      >
+        {t("Pick this hour")}
+        <ArrowRight className="size-4" />
+      </button>
+      </div>
+    </div>
   );
 }
 
@@ -323,10 +397,11 @@ function Shuttle() {
 
 /**
  * The band that earns the centre's credibility in three seconds: each figure carries the line
- * that makes it checkable, and the first is today's live count. The numbers count up as the band
- * arrives; the cells rise in one after another.
+ * that makes it checkable. Today's live count is not repeated here: the hero directly above owns
+ * it, and it is the one figure that glows. The numbers count up as the band arrives; the cells
+ * rise in one after another.
  */
-export function StatsBand({ freeHours, day, courts }: { freeHours: number; day: string; courts?: CatalogCourt[] }) {
+export function StatsBand({ courts }: { courts?: CatalogCourt[] }) {
   const venue = useVenue();
   const root = useRef<HTMLElement>(null);
   useScene(root, ({ motion }) => {
@@ -352,34 +427,36 @@ export function StatsBand({ freeHours, day, courts }: { freeHours: number; day: 
   const courtsNote = sportsSummary || t("All active courts and halls");
 
   const stats = [
-    { to: freeHours, suffix: "", label: t("Court hours free"), note: t("Live from the booking grid · {day}", { day }), href: "#schedule" },
+    { to: 4, suffix: "", label: t("Head coaches"), note: t("One head coach per sport"), href: "#coaches" },
     { to: totalCourts, suffix: "", label: t("Courts & bays"), note: courtsNote, href: "#courts" },
     { to: venue.close - venue.open, suffix: "h", label: t("Open every day"), note: t("{open}-{close}, every day", { open: hhmm(venue.open), close: hhmm(venue.close) }), href: "#schedule" },
-    { to: 4, suffix: "", label: t("Head coaches"), note: t("One head coach per sport"), href: "#coaches" },
   ];
   return (
-    <section ref={root} className="grain relative overflow-hidden bg-night text-on-media">
+    <section ref={root} className="grain relative overflow-hidden border-y border-line bg-bg text-fg">
       <GLBackground
         variant="aurora"
-        colors={["#3f7d20", "#8bc34a", "#b5e04a"]}
-        amplitude={1.15}
-        speed={0.85}
-        opacity={0.6}
-        fallback={<div className="wash wash-accent -left-24 -top-32 size-80 opacity-70" />}
+        colors={["#1d3a14", "#2f6fe0", "#d4f53c"]}
+        amplitude={1.1}
+        speed={0.6}
+        opacity={0.28}
+        fallback={<div className="wash wash-accent -left-24 -top-32 size-80 opacity-40" />}
       />
-      <div className="relative z-[1] grid grid-cols-2 gap-px bg-on-media/12 lg:grid-cols-4">
-        {stats.map((s) => (
+      {/* Three fixed facts: the court count takes the wide tile. The hairlines are the gap, not per-cell borders. */}
+      <div className="relative z-[1] mx-auto grid max-w-6xl grid-cols-2 gap-px bg-line/70 lg:grid-cols-[1.5fr_1fr_1fr]">
+        {stats.map((s, i) => (
           <a
             key={s.label}
             data-cell
             href={s.href}
-            className="group bg-night/72 px-5 py-8 text-center backdrop-blur-[2px] transition-colors duration-200 hover:bg-night/60 sm:py-11"
+            className={`group relative bg-bg/75 px-5 py-8 transition-colors duration-200 hover:bg-surface sm:px-8 sm:py-10 ${
+              i === 0 ? "bg-surface/75 lg:py-12" : ""
+            } ${i === 0 ? "col-span-2 lg:col-span-1" : ""}`}
           >
-            <p className="figure text-5xl tabular-nums sm:text-6xl">
+            <p className="font-display text-5xl tabular-nums leading-none sm:text-6xl">
               <CountTo value={s.to} suffix={s.suffix} />
             </p>
-            <p className="kicker mt-3 text-2xs text-on-media">{s.label}</p>
-            <p className="mx-auto mt-1.5 max-w-[16rem] text-xs leading-relaxed text-on-media-muted">{s.note}</p>
+            <p className="kicker mt-4 text-sm text-fg">{s.label}</p>
+            <p className="mt-1 max-w-[16rem] text-xs leading-relaxed text-muted">{s.note}</p>
           </a>
         ))}
       </div>
