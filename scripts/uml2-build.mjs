@@ -359,7 +359,7 @@ function activity(cells) {
 function classes(cells) {
   const specs = [
     ["user", "User", ["- memberCode : String", "- fullName : String", "- phone : String", "- role : UserRole", "- status : AccountStatus"], ["+ register(phone : String, name : String) : void", "+ signIn(phone : String, password : String) : void"]],
-    ["plan", "MembershipPlan", ["- name : String", "- sportScope : SportKind", "- durationDays : Integer", "- priceVnd : Integer", "- onSale : Boolean"], []],
+    ["plan", "MembershipPlan", ["- name : String", "- durationDays : Integer", "- priceVnd : Integer", "- onSale : Boolean"], []],
     ["court", "Court", ["- courtCode : String", "- sport : SportKind", "- status : CourtStatus"], ["+ holds(start : DateTime, end : DateTime) : Boolean"]],
     ["sub", "Subscription", ["- startOn : Date", "- endOn : Date", "- status : SubStatus", "- courtHoursLeft : Decimal", "- sessionLeft : Integer"], ["+ activate() : void"]],
     ["book", "CourtBooking", ["- code : String", "- member : User [0..1]", "- startAt : DateTime", "- endAt : DateTime", "- status : BookingStatus", "- priceVnd : Integer"], ["+ confirm() : void", "+ cancel() : Integer"]],
