@@ -1,6 +1,6 @@
 import { Globe } from "lucide-react";
-import { cn } from "@/lib/cn";
-import { setLang, t, useLang, type Lang } from "@/lib/i18n";
+import { cn } from "@/client/lib/cn";
+import { setLang, t, useLang, type Lang } from "@/client/lib/i18n";
 
 const OPTIONS: { value: Lang; short: string; full: string }[] = [
   { value: "en", short: "EN", full: "English" },

@@ -1,4 +1,4 @@
-import { locale } from "@/lib/i18n";
+import { locale } from "@/client/lib/i18n";
 import {
   AnimatePresence,
   MotionConfig,
@@ -25,15 +25,15 @@ import {
   type ElementType,
   type ReactNode,
 } from "react";
-import { cn } from "@/lib/cn";
-import { useCalm } from "@/lib/calm";
+import { cn } from "@/client/lib/cn";
+import { useCalm } from "@/client/lib/calm";
 
 /**
  * Shared motion vocabulary for Arena3.
  *
  * Every primitive here degrades to a plain, fully-visible element when the
  * visitor asks for reduced motion — content never depends on an animation
- * having run. (`useCalm()` in `@/lib/calm` follows the same device setting live
+ * having run. (`useCalm()` in `@/client/lib/calm` follows the same device setting live
  * without swapping elements: see `MotionProvider`.)
  */
 
