@@ -1,5 +1,5 @@
 import { Outlet, createFileRoute } from "@tanstack/react-router";
-import { Guard } from "@/components/shell";
+import { Guard } from "@/client/components/shell";
 
 export const Route = createFileRoute("/desk")({
   component: () => (
