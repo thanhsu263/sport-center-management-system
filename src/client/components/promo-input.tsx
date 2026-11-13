@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { Button, Input } from "@/components/ui";
-import { apiPost } from "@/lib/arena3/client";
-import { locale, t, tServer } from "@/lib/i18n";
+import { Button, Input } from "@/client/components/ui";
+import { apiPost } from "@/client/arena3/client";
+import { locale, t, tServer } from "@/client/lib/i18n";
 
 export type PromoQuote = {
   valid: boolean;

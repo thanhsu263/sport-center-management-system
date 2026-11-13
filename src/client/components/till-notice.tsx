@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import { ButtonLink, Card } from "@/components/ui";
-import { apiGet } from "@/lib/arena3/client";
-import { t } from "@/lib/i18n";
+import { ButtonLink, Card } from "@/client/components/ui";
+import { apiGet } from "@/client/arena3/client";
+import { t } from "@/client/lib/i18n";
 
 /**
  * Whether this person can take money right now. A receptionist can only post a payment while their
