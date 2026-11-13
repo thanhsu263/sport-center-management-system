@@ -2,11 +2,11 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState, type FormEvent, type ReactNode } from "react";
 import { Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
-import { Button, Card, Field, Input } from "@/components/ui";
-import { AnimatePresence, motion } from "@/components/motion";
-import { ApiClientError, apiPost } from "@/lib/arena3/client";
-import { LangSwitch } from "@/components/lang-switch";
-import { t, tServer } from "@/lib/i18n";
+import { Button, Card, Field, Input } from "@/client/components/ui";
+import { AnimatePresence, motion } from "@/client/components/motion";
+import { ApiClientError, apiPost } from "@/client/arena3/client";
+import { LangSwitch } from "@/client/components/lang-switch";
+import { t, tServer } from "@/client/lib/i18n";
 
 /**
  * Recover an account with a code sent to the email on file.
@@ -112,6 +112,9 @@ function Forgot() {
       <Card className="relative w-full p-6">
         <LangSwitch className="absolute right-4 top-4" />
         <h1 className="pr-28 font-display text-3xl">{t("Forgot your password")}</h1>
+        <p className="mt-1 text-xs font-medium tabular-nums text-muted">
+          {t("Step {n} of {total}", { n: step === "phone" ? 1 : 2, total: 2 })}
+        </p>
 
         <AnimatePresence mode="wait">
           {step === "phone" ? (
