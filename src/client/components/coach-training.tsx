@@ -1,15 +1,15 @@
 import { useEffect, useState } from "react";
-import { SectionTitle } from "@/components/section";
+import { SectionTitle } from "@/client/components/section";
 import { toast } from "sonner";
-import { Badge, Button, Card, EmptyState, DateField, Field, Input, LoadError, Select, Skeleton, Textarea } from "@/components/ui";
-import { Reveal } from "@/components/motion";
-import { hhmm } from "@/components/shell";
-import { sessionDay } from "@/components/class-detail";
-import { apiGet, apiPatch, apiPost, apiPut } from "@/lib/arena3/client";
-import { addDaysISO, formatDate } from "@/lib/arena3/labels";
-import { scrollBehavior } from "@/lib/calm";
-import { t, tk, tServer } from "@/lib/i18n";
-import { useRead } from "@/lib/use-read";
+import { Badge, Button, Card, EmptyState, DateField, Field, Input, LoadError, Select, Skeleton, Textarea } from "@/client/components/ui";
+import { Reveal } from "@/client/components/motion";
+import { hhmm } from "@/client/components/shell";
+import { sessionDay } from "@/client/components/class-detail";
+import { apiGet, apiPatch, apiPost, apiPut } from "@/client/arena3/client";
+import { addDaysISO, formatDate } from "@/shared/arena3/labels";
+import { scrollBehavior } from "@/client/lib/calm";
+import { t, tk, tServer } from "@/client/lib/i18n";
+import { useRead } from "@/client/lib/use-read";
 
 type Msg = (e: unknown) => string;
 const say: Msg = (e) => (e instanceof Error ? e.message : t("Something went wrong"));
@@ -18,6 +18,7 @@ export type TrainingSession = {
   id: string;
   class_id: string;
   start_at: string;
+  end_at?: string;
   sport: string;
   level: string;
   status: string;
@@ -223,7 +224,7 @@ type PlanRow = {
 };
 type Template = { id: string; title: string | null; payload: PlanPayload };
 type Version = { version: number; title: string | null; payload: PlanPayload; created_at: string };
-type PlanWarning = { message: string };
+type PlanWarning = { message: string; kind?: string };
 
 const INTENSITIES = [tk("light"), tk("medium"), tk("hard")] as const;
 const MAX_BLOCKS = 12;
@@ -286,11 +287,18 @@ export function PlanPanel({ session, f5 }: { session: TrainingSession; f5: boole
   const [note, setNote] = useState("");
   const [focus, setFocus] = useState("core technique");
   const [busy, setBusy] = useState(false);
+  const [aiPrompt, setAiPrompt] = useState("");
+  const [suggesting, setSuggesting] = useState(false);
   // The plan being changed. Its payload is carried so goal / sport / level survive an edit.
   const [editing, setEditing] = useState<PlanRow | null>(null);
   const [templateId, setTemplateId] = useState("");
   const [open, setOpen] = useState<Record<number, boolean>>({ 0: true });
   const [history, setHistory] = useState<{ plan: PlanRow; items: Version[] } | null>(null);
+
+  // Same rule as the server (FR-TRN-04): a hint, never a block on publishing.
+  const sessionMinutes = session.end_at
+    ? Math.round((new Date(session.end_at).getTime() - new Date(session.start_at).getTime()) / 60_000)
+    : null;
 
   function reset() {
     setBlocks([blank()]);
@@ -302,22 +310,29 @@ export function PlanPanel({ session, f5 }: { session: TrainingSession; f5: boole
   }
 
   function warn(warnings: PlanWarning[] | undefined) {
-    for (const w of warnings ?? []) toast.warning(tServer(w.message));
+    // The length check is shown live under the blocks, so a toast after saving only repeats it.
+    for (const w of warnings ?? []) if (w.kind !== "duration_mismatch") toast.warning(tServer(w.message));
   }
 
   async function suggest() {
+    setSuggesting(true);
     try {
-      const r = await apiPost<{ payload: PlanPayload }>("/training-plans/suggest", {
+      const r = await apiPost<{ payload: PlanPayload; ai?: boolean }>("/training-plans/suggest", {
         sport: session.sport,
         level: session.level,
         goal: focus,
+        prompt: aiPrompt.trim() || undefined,
       });
       // The suggestion writes its length into the title ("Net shots 10′"); the minutes box already says it.
       const next = fromPlanBlocks(r.payload.blocks);
       if (r.payload.blocks?.length) setBlocks(next);
-      toast.success(t("Suggestion added. Edit anything before you publish."));
+      if (r.payload.note) setNote(r.payload.note);
+      if (aiPrompt.trim() && !r.ai) toast.warning(t("The AI is not reachable, so these are the standard drills for this level."));
+      else toast.success(t("Suggestion added. Edit anything before you publish."));
     } catch (e) {
       toast.error(say(e));
+    } finally {
+      setSuggesting(false);
     }
   }
 
@@ -492,12 +507,26 @@ export function PlanPanel({ session, f5 }: { session: TrainingSession; f5: boole
                     <option value="match play">{t("Match play")}</option>
                   </Select>
                 </Field>
-                <Button variant="outline" onClick={suggest}>
-                  {t("Suggest")}
+                <Button variant="outline" disabled={suggesting} onClick={() => void suggest()}>
+                  {suggesting ? t("Thinking…") : t("Suggest")}
                 </Button>
               </div>
             ) : null}
           </div>
+          {f5 ? (
+            <Field label={t("Tell the AI what you want (optional)")}>
+              <textarea
+                className="min-h-[72px] w-full rounded-md border border-line bg-transparent px-3 py-2 text-sm placeholder:text-muted/70 focus:border-accent focus:outline-none"
+                maxLength={500}
+                placeholder={t("e.g. 60 minutes, focus on footwork, one student has a sore knee, end with a game")}
+                value={aiPrompt}
+                onChange={(e) => setAiPrompt(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && (e.ctrlKey || e.metaKey) && !suggesting) void suggest();
+                }}
+              />
+            </Field>
+          ) : null}
 
           {templates.length && !editing ? (
             <div className="grid grid-cols-[1fr_auto] items-end gap-2 md:max-w-md">
@@ -624,6 +653,11 @@ export function PlanPanel({ session, f5 }: { session: TrainingSession; f5: boole
               <span className="text-xs text-muted">
                 {t("{n} of {max} blocks · {min} min in total", { n: blocks.length, max: MAX_BLOCKS, min: planMinutes(blocks) })}
               </span>
+              {sessionMinutes && Math.abs(planMinutes(blocks) - sessionMinutes) > 15 ? (
+                <span className="text-xs text-hold">
+                  {t("The session is {m} min. You can still publish.", { m: sessionMinutes })}
+                </span>
+              ) : null}
             </div>
           </div>
 
