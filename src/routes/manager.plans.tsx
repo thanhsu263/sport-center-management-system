@@ -1,18 +1,17 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
+import { monthsLabel } from "@/shared/arena3/labels";
 import { toast } from "sonner";
-import { Cover, sportPhoto } from "@/components/media";
-import { Shell, money } from "@/components/shell";
-import { PageHero } from "@/components/page-hero";
-import { StatStrip } from "@/components/stat-strip";
-import { SportBadge, useSports } from "@/components/sports-ui";
-import { Badge, Button, Card, Check, EmptyState, Field, Input, LoadError, Modal, MoneyInput, Select, Skeleton } from "@/components/ui";
-import { Lift, Stagger, StaggerItem } from "@/components/motion";
-import { GlareHover, SpotlightCard } from "@/components/fx";
-import { ApiClientError, apiGet, apiPatch, apiPost } from "@/lib/arena3/client";
-import { sportLabel } from "@/lib/arena3/labels";
-import { t, tk, tServer, tData } from "@/lib/i18n";
-import { useRead } from "@/lib/use-read";
+import { Cover } from "@/client/components/media";
+import { Shell, money } from "@/client/components/shell";
+import { PageHero } from "@/client/components/page-hero";
+import { StatStrip } from "@/client/components/stat-strip";
+import { Badge, Button, Card, Check, EmptyState, Field, Input, LoadError, Modal, MoneyInput, Skeleton } from "@/client/components/ui";
+import { Lift, Stagger, StaggerItem } from "@/client/components/motion";
+import { GlareHover, SpotlightCard } from "@/client/components/fx";
+import { ApiClientError, apiGet, apiPatch, apiPost } from "@/client/arena3/client";
+import { t, tk, tServer, tData } from "@/client/lib/i18n";
+import { useRead } from "@/client/lib/use-read";
 
 export const Route = createFileRoute("/manager/plans")({
   component: Page,
@@ -21,27 +20,23 @@ export const Route = createFileRoute("/manager/plans")({
 type Plan = {
   id: string;
   name: string;
-  sport_scope: string;
   price_vnd: number;
   is_on_sale: boolean;
+  duration_months: number | null;
   duration_days: number | null;
-  session_quota: number | null;
-  court_hours: number;
-  court_discount_pct: number;
-  carry_over_hours: boolean;
 };
 
 const emptyForm = {
   name: "",
-  sport_scope: "all",
-  price_vnd: "800000",
-  duration_days: "30",
-  session_quota: "",
-  court_hours: "2",
-  court_discount_pct: "10",
+  price_vnd: "500000",
+  duration_months: "1",
   is_on_sale: true,
-  carry_over_hours: false,
 };
+
+/** Plans sold before months existed still carry days. */
+function lasts(p: Plan) {
+  return p.duration_months ?? Math.max(1, Math.round((p.duration_days ?? 30) / 30));
+}
 
 type Detail = {
   plan: Plan;
@@ -89,14 +84,9 @@ function Page() {
       // reaches the person who made it instead of quietly becoming a zero.
       await apiPost("/plans", {
         name: form.name.trim(),
-        sport_scope: form.sport_scope,
         price_vnd: form.price_vnd,
-        duration_days: form.duration_days,
-        session_quota: form.session_quota,
-        court_hours: form.court_hours,
-        court_discount_pct: form.court_discount_pct,
+        duration_months: form.duration_months,
         is_on_sale: form.is_on_sale,
-        carry_over_hours: form.carry_over_hours,
       });
       toast.success(t("Plan created"));
       setOpen(false);
@@ -110,7 +100,6 @@ function Page() {
     }
   }
 
-  const sports = useSports();
   const totalPlans = items?.length ?? 0;
   const onSalePlans = items?.filter((p) => p.is_on_sale).length ?? 0;
   const stoppedPlans = totalPlans - onSalePlans;
@@ -141,7 +130,7 @@ function Page() {
       ) : !items ? (
         <Skeleton className="h-48" />
       ) : !items.length ? (
-        <EmptyState title={t("No plans yet")} hint={t("Create the first plan so members can buy court hours and class sessions in the app.")}>
+        <EmptyState title={t("No plans yet")} hint={t("Create the first plan so members can buy a membership in the app.")}>
           <Button onClick={() => setOpen(true)}>{t("New plan")}</Button>
         </EmptyState>
       ) : null}
@@ -152,26 +141,16 @@ function Page() {
           <SpotlightCard className="h-full rounded-[var(--radius-xl)]" size={320} strength={0.1}>
           <Card interactive className="relative z-[2] flex h-full flex-col overflow-hidden p-0">
             <GlareHover>
-              <Cover slot={sportPhoto(p.sport_scope)} alt="" className="h-28">
-                <p className="absolute bottom-3 left-4 text-2xs text-on-media on-media">
-                  {sportLabel(p.sport_scope)}
-                </p>
-              </Cover>
+              <Cover slot="plan.default" alt="" className="h-28" />
             </GlareHover>
             <div className="flex flex-1 flex-col p-5">
               <div className="flex items-center gap-2">
                 <Badge tone={p.is_on_sale ? "accent" : "muted"}>{p.is_on_sale ? t("On sale") : t("Not for sale")}</Badge>
-                {p.sport_scope && p.sport_scope !== "all" ? (
-                  <SportBadge sport={p.sport_scope} />
-                ) : null}
               </div>
               <h2 className="mt-2 font-display text-2xl">{tData(p.name)}</h2>
               <p className="mt-2 font-display text-3xl tabular-nums">{money(p.price_vnd)}</p>
               <p className="mt-2 text-sm text-muted">
-                {p.duration_days ? t("{n} days", { n: p.duration_days }) : t("Per session")}
-                {p.session_quota ? ` · ${t("{n} class sessions", { n: p.session_quota })}` : ""}
-                {p.court_hours > 0 ? ` · ${t("{n} court hours", { n: p.court_hours })}` : ""}
-                {p.court_discount_pct > 0 ? ` · ${t("{pct}% off courts", { pct: p.court_discount_pct })}` : ""}
+                {monthsLabel(lasts(p))}
               </p>
               <div className="mt-auto flex gap-2 pt-4">
                 <Button variant="outline" onClick={() => void openDetail(p.id)}>
@@ -209,53 +188,18 @@ function Page() {
             <Input
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
-              placeholder={t("Basketball 30 days")}
+              placeholder={t("3 months")}
             />
-          </Field>
-          <Field label={t("Sport")} hint={bad("sport_scope")}>
-            <Select
-              value={form.sport_scope}
-              onChange={(e) => setForm({ ...form, sport_scope: e.target.value })}
-            >
-              <option value="all">{t("All sports")}</option>
-              {sports.map((s) => (
-                <option key={s.code} value={s.code}>
-                  {s.name}
-                </option>
-              ))}
-            </Select>
           </Field>
           <div className="grid grid-cols-2 gap-3">
             <Field label={t("Price (đ)")} hint={bad("price_vnd")}>
               <MoneyInput value={form.price_vnd} onChange={(v) => setForm({ ...form, price_vnd: v })} />
             </Field>
-            <Field label={t("Duration (days)")} hint={bad("duration_days")}>
+            <Field label={t("Duration (months)")} hint={bad("duration_months")}>
               <Input
                 inputMode="numeric"
-                value={form.duration_days}
-                onChange={(e) => setForm({ ...form, duration_days: e.target.value })}
-                placeholder={t("Leave blank for per-session")}
-              />
-            </Field>
-            <Field label={t("Class sessions")} hint={bad("session_quota")}>
-              <Input
-                inputMode="numeric"
-                value={form.session_quota}
-                onChange={(e) => setForm({ ...form, session_quota: e.target.value })}
-              />
-            </Field>
-            <Field label={t("Court hours")} hint={bad("court_hours")}>
-              <Input
-                inputMode="numeric"
-                value={form.court_hours}
-                onChange={(e) => setForm({ ...form, court_hours: e.target.value })}
-              />
-            </Field>
-            <Field label={t("Court discount %")} hint={bad("court_discount_pct")}>
-              <Input
-                inputMode="numeric"
-                value={form.court_discount_pct}
-                onChange={(e) => setForm({ ...form, court_discount_pct: e.target.value })}
+                value={form.duration_months}
+                onChange={(e) => setForm({ ...form, duration_months: e.target.value })}
               />
             </Field>
           </div>
@@ -263,11 +207,6 @@ function Page() {
             checked={form.is_on_sale}
             onChange={(e) => setForm({ ...form, is_on_sale: e.target.checked })}
             label={t("Put it on sale now (members see it in the app)")}
-          />
-          <Check
-            checked={form.carry_over_hours}
-            onChange={(e) => setForm({ ...form, carry_over_hours: e.target.checked })}
-            label={t("Carry unused court hours over on renewal")}
           />
         </div>
       </Modal>
@@ -300,18 +239,8 @@ function Page() {
               </dd>
               <dt className="text-muted">{t("Price")}</dt>
               <dd className="tabular-nums">{money(detail.plan.price_vnd)}</dd>
-              <dt className="text-muted">{t("Sport")}</dt>
-              <dd>{sportLabel(detail.plan.sport_scope)}</dd>
               <dt className="text-muted">{t("Lasts")}</dt>
-              <dd>{detail.plan.duration_days ? t("{n} days", { n: detail.plan.duration_days }) : t("Per session")}</dd>
-              <dt className="text-muted">{t("Court hours")}</dt>
-              <dd className="tabular-nums">{detail.plan.court_hours}</dd>
-              <dt className="text-muted">{t("Class sessions")}</dt>
-              <dd className="tabular-nums">{detail.plan.session_quota ?? t("Not included")}</dd>
-              <dt className="text-muted">{t("Court discount")}</dt>
-              <dd className="tabular-nums">{detail.plan.court_discount_pct}%</dd>
-              <dt className="text-muted">{t("Unused hours")}</dt>
-              <dd>{detail.plan.carry_over_hours ? t("Carried over on renewal") : t("Reset on renewal")}</dd>
+              <dd>{monthsLabel(lasts(detail.plan))}</dd>
             </dl>
             <p className="rounded-[var(--radius-md)] bg-wood px-3 py-2">
               <span className="font-medium tabular-nums">{detail.holders.active}</span> {t("active")} ·{" "}
