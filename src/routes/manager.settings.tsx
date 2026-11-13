@@ -1,15 +1,16 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { SectionTitle } from "@/components/section";
+import { SectionTitle } from "@/client/components/section";
 import { useState } from "react";
 import { toast } from "sonner";
-import { Shell } from "@/components/shell";
-import { PageHero } from "@/components/page-hero";
-import { StatStrip } from "@/components/stat-strip";
-import { Button, Card, Check, Field, Input, LoadError, MoneyInput, Skeleton } from "@/components/ui";
-import { Reveal, Stagger, StaggerItem, motion } from "@/components/motion";
-import { ApiClientError, apiPatch } from "@/lib/arena3/client";
-import { t, tk, tServer } from "@/lib/i18n";
-import { useRead } from "@/lib/use-read";
+import { Shell } from "@/client/components/shell";
+import { MenuSettings } from "@/client/components/menu-settings";
+import { PageHero } from "@/client/components/page-hero";
+import { StatStrip } from "@/client/components/stat-strip";
+import { Button, Card, Check, Field, Input, LoadError, MoneyInput, Skeleton } from "@/client/components/ui";
+import { Reveal, Stagger, StaggerItem, motion } from "@/client/components/motion";
+import { ApiClientError, apiPatch } from "@/client/arena3/client";
+import { t, tk, tServer } from "@/client/lib/i18n";
+import { useRead } from "@/client/lib/use-read";
 
 export const Route = createFileRoute("/manager/settings")({
   component: Page,
@@ -35,8 +36,8 @@ const SETTINGS_FORM_KEYS = [
   "self_checkin_enabled",
   "freeze_max_days_year",
   "waitlist_offer_hours",
-  "deposit_pct",
-  "deposit_peak_only",
+  "max_active_classes",
+  "member_court_fee_vnd",
   "series_min_weeks",
   "series_max_weeks",
   "series_discount_pct",
@@ -44,7 +45,6 @@ const SETTINGS_FORM_KEYS = [
   "loyalty_redeem_vnd",
 ];
 
-type Tier = { hours: number | string; refund_pct: number | string };
 
 function Page() {
   const read = useRead<Record<string, unknown>>("/settings");
@@ -72,7 +72,6 @@ function Page() {
       </Shell>
     );
   }
-  const tiers = (Array.isArray(s.cancel_tiers) ? s.cancel_tiers : []) as Tier[];
   /** One input of the Centre details form; the server's message for it shows underneath. */
   function f(key: string, label: string, type: "text" | "number" | "time" | "money" = "text") {
     const raw = s![key];
@@ -195,53 +194,9 @@ function Page() {
         {f("at_risk_idle_days", t("At-risk after no visit for (days)"), "number")}
         {f("freeze_max_days_year", t("Freeze cap (days per year)"), "number")}
         {f("waitlist_offer_hours", t("Waitlist offer window (hours)"), "number")}
-        <p className="mt-2 font-medium md:col-span-2">{t("Deposit and late-cancel fee")}</p>
-        {f("deposit_pct", t("Deposit when booking online (%)"), "number")}
-        <Check
-          checked={s.deposit_peak_only === true}
-          onChange={(e) => setS({ ...s, deposit_peak_only: e.target.checked })}
-          label={t("Ask for a deposit on peak hours only")}
-        />
-        <div className="md:col-span-2">
-          <p className="mb-1 text-sm">{t("Refund by how early they cancel")}</p>
-          {fieldErrors.cancel_tiers ? <p role="alert" className="mb-1 text-xs text-danger">{fieldErrors.cancel_tiers}</p> : null}
-          <div className="grid gap-2">
-            {tiers.map((tier, i) => (
-              <div key={i} className="flex flex-wrap items-center gap-2 text-sm">
-                <span>{t("Cancelled at least")}</span>
-                <Input
-                  className="w-20"
-                  inputMode="numeric"
-                  aria-label={t("Hours before start")}
-                  value={String(tier.hours)}
-                  onChange={(e) => setS({ ...s, cancel_tiers: tiers.map((x, j) => (j === i ? { ...x, hours: e.target.value } : x)) })}
-                />
-                <span>{t("hours before start → refund")}</span>
-                <Input
-                  className="w-20"
-                  inputMode="numeric"
-                  aria-label={t("Refund percent")}
-                  value={String(tier.refund_pct)}
-                  onChange={(e) => setS({ ...s, cancel_tiers: tiers.map((x, j) => (j === i ? { ...x, refund_pct: e.target.value } : x)) })}
-                />
-                <span>%</span>
-                {tiers.length > 1 ? (
-                  <Button size="sm" variant="outline" onClick={() => setS({ ...s, cancel_tiers: tiers.filter((_, j) => j !== i) })}>
-                    {t("Remove")}
-                  </Button>
-                ) : null}
-              </div>
-            ))}
-            {tiers.length < 6 ? (
-              <div>
-                <Button size="sm" variant="outline" onClick={() => setS({ ...s, cancel_tiers: [...tiers, { hours: 0, refund_pct: 0 }] })}>
-                  {t("Add a step")}
-                </Button>
-              </div>
-            ) : null}
-          </div>
-          <p className="mt-1 text-xs text-muted">{t("The last step must be 0 hours: that is the refund for cancelling at the last minute.")}</p>
-        </div>
+        {f("max_active_classes", t("Most classes a member can be in at once"), "number")}
+        <p className="mt-2 font-medium md:col-span-2">{t("Membership")}</p>
+        {f("member_court_fee_vnd", t("Member court fee per hour"), "money")}
         <p className="mt-2 font-medium md:col-span-2">{t("Fixed weekly bookings and points")}</p>
         {f("series_min_weeks", t("Fixed booking: fewest weeks"), "number")}
         {f("series_max_weeks", t("Fixed booking: most weeks"), "number")}
@@ -272,7 +227,6 @@ function Page() {
                 // input that is wrong, so a blank never becomes a silent null.
                 const body: Record<string, unknown> = {};
                 for (const k of SETTINGS_FORM_KEYS) body[k] = s[k] ?? "";
-                body.cancel_tiers = tiers.map((x) => ({ hours: Number(x.hours), refund_pct: Number(x.refund_pct) }));
                 body.open_time = String(s.open_time ?? "").slice(0, 5);
                 body.close_time = String(s.close_time ?? "").slice(0, 5);
                 setS(await apiPatch("/settings", body));
@@ -294,6 +248,8 @@ function Page() {
         </div>
       </Card>
       </Reveal>
+
+      <MenuSettings />
     </Shell>
   );
 }
