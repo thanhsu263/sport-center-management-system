@@ -1,10 +1,10 @@
-import { when } from "@/components/shell";
-import { Badge, Card, EmptyState, LoadError, Skeleton } from "@/components/ui";
-import { levelLabel, sportLabel } from "@/lib/arena3/labels";
-import { SectionTitle } from "@/components/section";
+import { when } from "@/client/components/shell";
+import { Badge, Card, EmptyState, LoadError, Skeleton } from "@/client/components/ui";
+import { levelLabel, sportLabel } from "@/shared/arena3/labels";
+import { SectionTitle } from "@/client/components/section";
 import { ClipboardCheck } from "lucide-react";
-import { t, tk } from "@/lib/i18n";
-import { useRead } from "@/lib/use-read";
+import { t, tk } from "@/client/lib/i18n";
+import { useRead } from "@/client/lib/use-read";
 
 type Row = {
   session_id: string;
