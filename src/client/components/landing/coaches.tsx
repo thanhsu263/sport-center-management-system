@@ -1,15 +1,19 @@
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Flip } from "gsap/Flip";
-import { Cover, MediaCaption } from "@/components/media";
-import { Button, ButtonAnchor, Card, Modal, Seg } from "@/components/ui";
-import { GlareHover, SpotlightCard } from "@/components/fx";
-import { initials } from "@/components/shell";
-import { COACHES, type CoachCard } from "@/lib/arena3/coaches";
-import { sportLabel } from "@/lib/arena3/labels";
-import { gsap, motionOff, registerGsap, useScene } from "@/lib/gsap";
-import { useCalm } from "@/lib/calm";
-import { t, useLang } from "@/lib/i18n";
-import { useSports } from "@/components/sports-ui";
+import { Cover, MediaCaption } from "@/client/components/media";
+import { Button, ButtonAnchor, Card, Modal, Seg } from "@/client/components/ui";
+import { GlareHover, SpotlightCard } from "@/client/components/fx";
+import { initials } from "@/client/components/shell";
+import { COACHES, type CoachCard } from "@/shared/arena3/coaches";
+import { sportLabel } from "@/shared/arena3/labels";
+import { gsap, motionOff, registerGsap, useScene } from "@/client/lib/gsap";
+import { useCalm } from "@/client/lib/calm";
+import { t, useLang } from "@/client/lib/i18n";
+import { useSports } from "@/client/components/sports-ui";
+import { Award } from "lucide-react";
+import { certificationLine, type Certification } from "@/client/components/coach-certifications";
+import { useRead } from "@/client/lib/use-read";
+import { useLimits } from "@/client/lib/use-centre";
 import { SplitHeading } from "./kit";
 import { rise } from "./tweens";
 
@@ -43,6 +47,7 @@ export function CoachesScene({
       if (match) {
         return {
           ...match,
+          sport: match.sport ?? dbc.sports[0] ?? "",
           userId: dbc.id,
           slot: `coach.${dbc.id}`,
         };
@@ -52,7 +57,7 @@ export function CoachesScene({
         name: dbc.name,
         sport: sp,
         title: `${sportLabel(sp)} Coach`,
-        blurb: "Dedicated coach at Lê Long Sport Center.",
+        blurb: "Dedicated coach at Lê Long Sport.",
         creds: dbc.sports.map((s) => sportLabel(s)),
         userId: dbc.id,
         slot: `coach.${dbc.id}`,
@@ -60,7 +65,17 @@ export function CoachesScene({
     });
   }, [dbCoaches]);
 
-  const coaches = allCoaches.filter((c) => !sport || c.sport === sport);
+  // Certifications the centre has on record and that still hold; the dialog lists them under the bio.
+  const certRead = useRead<{ items: Certification[] }>("/coaches/certifications");
+  const certsOf = (userId?: string) => (userId ? (certRead.data?.items ?? []).filter((x) => x.coach_id === userId) : []);
+
+  // Only sports still on offer, and only as many coaches as the manager chose to show.
+  const { sports } = useSports();
+  const limits = useLimits();
+  const offered = sports.length ? allCoaches.filter((c) => !c.sport || sports.some((s) => s.code === c.sport)) : allCoaches;
+  const featured = offered.slice(0, limits.landing_coaches);
+  const coaches = featured.filter((c) => !sport || c.sport === sport);
+  const filterSports = sports.filter((s) => featured.some((c) => c.sport === s.code));
 
   useScene(root, ({ motion }) => {
     if (motion && root.current) rise(root.current);
@@ -104,7 +119,6 @@ export function CoachesScene({
     };
   }, [sport]);
 
-  const { sports } = useSports();
   const lang = useLang();
 
   return (
@@ -116,7 +130,7 @@ export function CoachesScene({
         <SplitHeading text={t("Our coaches")} stagger={0.05} />
       </h2>
       <p data-rise className="mt-3 max-w-lg text-muted">
-        {t("One head coach per sport. After you join a class, its sessions appear in the app.")}
+        {t("One head coach per sport, teaching from first footwork to match play. Join a class and its sessions appear in your schedule.")}
       </p>
 
       <div data-rise className="mt-6">
@@ -125,12 +139,13 @@ export function CoachesScene({
           onChange={choose}
           options={[
             { value: "", label: t("All") },
-            ...sports.map((s) => ({ value: s.code, label: lang === "vi" ? s.name_vi : s.name_en })),
+            ...filterSports.map((s) => ({ value: s.code, label: lang === "vi" ? s.name_vi : s.name_en })),
           ]}
         />
       </div>
 
-      <div ref={grid} className="relative mt-7 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      {/* Five coaches sit in one row rather than leaving one card alone under four. */}
+      <div ref={grid} className={`relative mt-7 grid gap-4 sm:grid-cols-2 ${coaches.length === 5 ? "lg:grid-cols-5" : "lg:grid-cols-4"}`}>
         {coaches.map((c) => (
           <div key={c.name} data-coach data-flip-id={c.name} data-rise className="h-full">
             <SpotlightCard className="h-full rounded-[var(--radius-xl)]">
@@ -142,7 +157,7 @@ export function CoachesScene({
                     initialsClassName="text-3xl font-bold"
                     alt={c.name}
                     scrim="none"
-                    className="aspect-[3/4]"
+                    className="aspect-[4/5]"
                     imgClassName="transition-transform duration-[900ms] ease-[var(--ease-smooth)] group-hover:scale-105"
                   >
                     <MediaCaption>
@@ -153,6 +168,14 @@ export function CoachesScene({
                 </GlareHover>
                 <div className="flex flex-1 flex-col p-4">
                   <p className="flex-1 text-sm font-medium">{t(c.title)}</p>
+                  {certsOf(c.userId).length ? (
+                    <p className="mt-2 flex items-center gap-1.5 text-xs text-muted">
+                      <Award className="size-3.5 text-accent-2" aria-hidden />
+                      {certsOf(c.userId).length === 1
+                        ? t("1 certification")
+                        : t("{n} certifications", { n: certsOf(c.userId).length })}
+                    </p>
+                  ) : null}
                   <Button size="sm" variant="outline" className="mt-3 w-full" onClick={() => setOpen(c)}>
                     {t("View details")}
                   </Button>
@@ -200,6 +223,24 @@ export function CoachesScene({
                   </li>
                 ))}
               </ul>
+              {certsOf(open.userId).length ? (
+                <div className="mt-5">
+                  <p className="kicker text-2xs text-muted">{t("Certifications")}</p>
+                  <ul className="mt-2 grid gap-2">
+                    {certsOf(open.userId).map((x) => (
+                      <li key={x.id} className="flex gap-2 text-sm">
+                        <Award className="mt-0.5 size-4 shrink-0 text-accent-2" aria-hidden />
+                        <span>
+                          <span className="font-medium">{x.name}</span>
+                          {certificationLine(x) ? (
+                            <span className="block text-xs text-muted">{certificationLine(x)}</span>
+                          ) : null}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
             </div>
           </div>
         ) : null}

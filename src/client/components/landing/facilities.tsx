@@ -1,12 +1,12 @@
 import { useRef } from "react";
-import { Cover, MediaCaption } from "@/components/media";
-import { GlareHover } from "@/components/fx";
-import { cn } from "@/lib/cn";
-import { gsap, useScene } from "@/lib/gsap";
-import { useCalm } from "@/lib/calm";
-import { t, useLang } from "@/lib/i18n";
-import { useSports } from "@/components/sports-ui";
-import type { CatalogCourt } from "@/lib/arena3/catalog";
+import { Cover, MediaCaption } from "@/client/components/media";
+import { GlareHover } from "@/client/components/fx";
+import { cn } from "@/client/lib/cn";
+import { gsap, useScene } from "@/client/lib/gsap";
+import { useCalm } from "@/client/lib/calm";
+import { t, useLang } from "@/client/lib/i18n";
+import { useSports } from "@/client/components/sports-ui";
+import type { CatalogCourt } from "@/shared/arena3/contracts";
 import { rise } from "./tweens";
 
 /**
@@ -114,7 +114,7 @@ export function FacilitiesScene({ courts }: { courts?: CatalogCourt[] } = {}) {
             <GlareHover className="h-full rounded-[var(--radius-xl)]" duration={1.1}>
               <Cover
                 slot="landing.facilities.hall"
-                alt={t("The main hall at Lê Long Sport Center")}
+                alt={t("The main hall at Lê Long Sport")}
                 className={cn(
                   "group rounded-[var(--radius-xl)] shadow-[var(--shadow-border)]",
                   still ? "aspect-[16/9] sm:aspect-[16/7]" : "aspect-[16/9] md:aspect-auto md:h-[26rem]",

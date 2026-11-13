@@ -1,5 +1,5 @@
-import { money } from "@/components/shell";
-import { ScrollTrigger, gsap, registerGsap } from "@/lib/gsap";
+import { money } from "@/client/components/shell";
+import { ScrollTrigger, gsap, registerGsap } from "@/client/lib/gsap";
 
 registerGsap(ScrollTrigger);
 

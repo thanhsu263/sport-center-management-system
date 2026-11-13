@@ -1,19 +1,19 @@
 import { useRef } from "react";
 import { SplitText } from "gsap/SplitText";
-import { ScrollTrigger, gsap, registerGsap, useScene } from "@/lib/gsap";
-import { t } from "@/lib/i18n";
+import { ScrollTrigger, gsap, registerGsap, useScene } from "@/client/lib/gsap";
+import { t } from "@/client/lib/i18n";
 
 registerGsap(ScrollTrigger, SplitText);
 
 /**
- * The one paragraph on the page worth slowing down for. Its words resolve out of a blur at
- * whatever pace the reader scrolls (scrubbed, not triggered), and finish well before the text
- * leaves so the last words stay readable for a while.
+ * The one paragraph on the page worth slowing down for, set on a blue court seen from the
+ * baseline. Its words resolve out of a blur at whatever pace the reader scrolls (scrubbed, not
+ * triggered), and finish well before the text leaves so the last words stay readable for a while.
  */
 export function Manifesto() {
   const root = useRef<HTMLElement>(null);
   const text = t(
-    "Pick a free hour online and it is held for you. Then pay for the court, any class and any equipment together at the front desk.",
+    "Every class here has a coach, a level and a fixed timetable. Pick the one that fits, enrol in the app, and each session lands in your schedule. The courts are yours to practise on in between.",
   );
   useScene(
     root,
@@ -42,10 +42,17 @@ export function Manifesto() {
     [text],
   );
   return (
-    <section ref={root} aria-label={t("What Lê Long Sport Center is for")} className="mx-auto max-w-4xl px-4 py-24">
-      <p key={text} className="font-display text-3xl leading-snug sm:text-[2.6rem] sm:leading-[1.25]">
-        {text}
-      </p>
+    <section
+      ref={root}
+      aria-label={t("What Lê Long Sport is for")}
+      className="relative overflow-hidden bg-gradient-to-b from-[#1d58c4] to-court text-white"
+    >
+      <div aria-hidden className="court-perspective opacity-70" />
+      <div className="relative mx-auto max-w-4xl px-4 py-24 sm:py-32">
+        <p key={text} className="font-display text-3xl leading-snug sm:text-[2.6rem] sm:leading-[1.2]">
+          {text}
+        </p>
+      </div>
     </section>
   );
 }
