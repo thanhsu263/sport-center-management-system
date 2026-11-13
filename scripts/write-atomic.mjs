@@ -4,7 +4,7 @@
  *
  *   node scripts/write-atomic.mjs /workspace/.grok/og.jpg.tmp public/og.jpg
  *
- * The brand-asset task writes public/og.jpg and src/lib/og/site.json while the
+ * The brand-asset task writes public/og.jpg and src/server/og/site.json while the
  * parent may be mid-`npm run build`, so an in-place write can be read
  * half-finished. rename(2) is atomic within one filesystem: a reader sees the
  * old bytes or the new ones. /workspace is one filesystem, so a staged file

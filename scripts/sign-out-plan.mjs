@@ -1,6 +1,6 @@
 // @ts-check
 /**
- * The sign-out sequence used by `src/lib/auth/client.ts`, kept here as a pure
+ * The sign-out sequence used by `src/client/auth/client.ts`, kept here as a pure
  * module so its effects can be unit-tested (`node --test` only covers
  * `scripts/`), the same split `migration-plan.mjs` uses for the two appliers.
  *
