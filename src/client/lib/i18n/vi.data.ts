@@ -9,7 +9,7 @@ export const VI_DATA_EXACT: Record<string, string> = {
   "Shuttle tube": "Ống cầu lông",
   Basketball: "Bóng rổ",
   Volleyball: "Bóng chuyền",
-  "Lê Long Sport Center Manager": "Quản lý Lê Long Sport Center",
+  "Lê Long Sport Manager": "Quản lý Lê Long Sport",
   "Front Desk 1": "Lễ tân 1",
   "Front Desk 2": "Lễ tân 2",
   "Coach Minh Quan": "HLV Minh Quân",
@@ -20,7 +20,7 @@ export const VI_DATA_EXACT: Record<string, string> = {
   "Advanced badminton, prepping for the in-house tournament": "Cầu lông nâng cao, đang chuẩn bị cho giải nội bộ",
   "Intermediate basketball": "Bóng rổ trình độ trung bình",
   "New to volleyball": "Mới chơi bóng chuyền",
-  "Lê Long Sport Center": "Lê Long Sport Center",
+  "Lê Long Sport": "Lê Long Sport",
   "Ho Chi Minh City": "TP. Hồ Chí Minh",
 };
 

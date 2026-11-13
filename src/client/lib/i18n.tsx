@@ -1,13 +1,13 @@
 import { Fragment, useEffect, useSyncExternalStore, type ReactNode } from "react";
-import { VI } from "@/lib/i18n/vi";
-import { viData } from "@/lib/i18n/vi.data";
-import { VI_SERVER_EXACT, VI_SERVER_PATTERNS } from "@/lib/i18n/vi.srv";
+import { VI } from "@/client/lib/i18n/vi";
+import { viData } from "@/client/lib/i18n/vi.data.ts";
+import { VI_SERVER_EXACT, VI_SERVER_PATTERNS } from "@/client/lib/i18n/vi.srv.ts";
 
 /**
  * English first, Vietnamese as the second language, with English as the source text.
  *
  * `t("Open shift")` returns the English string unchanged in English and the Vietnamese entry
- * from `src/lib/i18n/vi.*.ts` in Vietnamese; a missing entry falls back to the English so a
+ * from `src/client/lib/i18n/vi.*.ts` in Vietnamese; a missing entry falls back to the English so a
  * forgotten string shows up as English rather than as a blank. `{name}` placeholders are filled
  * from the second argument.
  *
@@ -29,7 +29,7 @@ const subscribers = new Set<() => void>();
 const fill = (s: string, vars?: Vars) =>
   vars ? s.replace(/\{(\w+)\}/g, (m, k: string) => (k in vars ? String(vars[k]) : m)) : s;
 
-import { registerTranslator } from "./arena3/translator.ts";
+import { registerTranslator } from "../../shared/arena3/translator.ts";
 
 export function t(en: string, vars?: Vars): string {
   return fill(current === "vi" ? (VI[en] ?? en) : en, vars);
