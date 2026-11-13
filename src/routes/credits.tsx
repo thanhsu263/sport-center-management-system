@@ -1,8 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, useMemo } from "react";
-import { useRead } from "@/lib/use-read";
-import { t } from "@/lib/i18n";
-import { PageHero } from "@/components/page-hero";
+import { useRead } from "@/client/lib/use-read";
+import { t } from "@/client/lib/i18n";
+import { PageHero } from "@/client/components/page-hero";
 import { ArrowLeft, ExternalLink, Search } from "lucide-react";
 
 export const Route = createFileRoute("/credits")({
@@ -159,7 +159,7 @@ function CreditsPage() {
                   <div className="mt-4 flex flex-col gap-2 border-t border-line/60 pt-3 text-xs">
                     <div className="flex items-center justify-between">
                       <span className="text-muted">{t("Credit")}:</span>
-                      <span className="font-medium text-fg">{item.credit || "Lê Long Sport Center Studio"}</span>
+                      <span className="font-medium text-fg">{item.credit || "Lê Long Sport Studio"}</span>
                     </div>
 
                     <div className="flex items-center justify-between">
