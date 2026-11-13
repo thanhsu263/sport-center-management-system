@@ -1,15 +1,18 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Shell } from "@/components/shell";
-import { PageHero } from "@/components/page-hero";
-import { StatStrip } from "@/components/stat-strip";
-import { SportBadge, useSports } from "@/components/sports-ui";
-import { Badge, Button, Card, EmptyState, FilterChip, Input, LoadError, Pagination, Select, Skeleton, StatusBadge } from "@/components/ui";
-import { formatDate } from "@/lib/arena3/labels";
-import { cn } from "@/lib/cn";
-import { locale, t, tk, tData } from "@/lib/i18n";
-import { useRead } from "@/lib/use-read";
-import { usePageState } from "@/lib/use-page-state";
+import { Shell } from "@/client/components/shell";
+import { PageHero } from "@/client/components/page-hero";
+import { StatStrip } from "@/client/components/stat-strip";
+import { useSports } from "@/client/components/sports-ui";
+import { Badge, Button, Card, EmptyState, FilterChip, Input, LoadError, Pagination, Select, Skeleton, StatusBadge } from "@/client/components/ui";
+import { formatDate } from "@/shared/arena3/labels";
+import { cn } from "@/client/lib/cn";
+import { ageYears } from "@/shared/arena3/time";
+import { locale, t, tk, tData } from "@/client/lib/i18n";
+import { UserAvatar } from "@/client/components/user-avatar";
+import { MessageButton } from "@/client/components/message-button";
+import { useRead } from "@/client/lib/use-read";
+import { usePageState } from "@/client/lib/use-page-state";
 
 export const Route = createFileRoute("/manager/members")({
   component: Page,
@@ -21,8 +24,9 @@ type Row = {
   full_name: string;
   phone: string;
   status: string;
+  date_of_birth: string | null;
+  avatar_url?: string | null;
   plan_name: string | null;
-  sport_scope: string | null;
   end_on: string | null;
   plan_state: "active" | "expiring" | "expired" | "none";
   classes: number;
@@ -86,10 +90,10 @@ function Page() {
 
       <StatStrip
         stats={[
-          { label: tk("Total members"), value: total },
-          { label: tk("Plan active"), value: activeCount },
-          { label: tk("Ends within a week"), value: expiringCount },
-          { label: tk("No plan"), value: noPlanCount },
+          { label: term || status || sport || plan ? t("Matching members") : t("Total members"), value: data ? total : "…" },
+          { label: t("Plan active"), value: data ? activeCount : "…", detail: t("On this page") },
+          { label: t("Ends within a week"), value: data ? expiringCount : "…", detail: t("On this page") },
+          { label: t("No plan"), value: data ? noPlanCount : "…", detail: t("On this page") },
         ]}
         className="mb-6"
       />
@@ -153,8 +157,9 @@ function Page() {
             {total === 1 ? t("1 member") : t("{n} members", { n: total.toLocaleString(locale()) })}
           </p>
           <Card className="overflow-hidden p-0">
-            <div className="hidden grid-cols-[minmax(0,1.6fr)_minmax(0,1.3fr)_minmax(0,1.4fr)_5rem] gap-4 border-b border-line bg-wood/50 px-4 py-2 text-xs font-medium text-muted md:grid">
+            <div className="hidden grid-cols-[minmax(0,1.6fr)_4rem_minmax(0,1.3fr)_minmax(0,1.4fr)_7.5rem] gap-4 border-b border-line bg-wood/50 px-4 py-2 text-xs font-medium text-muted md:grid">
               <span>{t("Member")}</span>
+              <span>{t("Age")}</span>
               <span>{t("Phone")}</span>
               <span>{t("Plan")}</span>
               <span className="text-right">{t("Classes")}</span>
@@ -165,23 +170,31 @@ function Page() {
                   <Link
                     to="/desk/member/$id"
                     params={{ id: m.id }}
-                    className="grid gap-x-4 gap-y-0.5 px-4 py-2.5 transition-colors duration-150 hover:bg-wood/60 md:grid-cols-[minmax(0,1.6fr)_minmax(0,1.3fr)_minmax(0,1.4fr)_5rem] md:items-center"
+                    className="grid gap-x-4 gap-y-0.5 px-4 py-2.5 transition-colors duration-150 hover:bg-wood/60 md:grid-cols-[minmax(0,1.6fr)_4rem_minmax(0,1.3fr)_minmax(0,1.4fr)_7.5rem] md:items-center"
                   >
-                    <div className="min-w-0">
-                      <p className="flex flex-wrap items-center gap-2 font-medium">
-                        <span className="break-words">{m.full_name}</span>
-                        {m.status !== "active" ? <StatusBadge status={m.status} /> : null}
-                      </p>
-                      <p className="text-xs tabular-nums text-muted">{m.member_code ?? "-"}</p>
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="size-8 shrink-0">
+                        <UserAvatar name={m.full_name} url={m.avatar_url} />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="flex flex-wrap items-center gap-2 font-medium">
+                          <span className="break-words">{m.full_name}</span>
+                          {m.status !== "active" ? <StatusBadge status={m.status} /> : null}
+                        </p>
+                        <p className="text-xs tabular-nums text-muted">
+                          {m.member_code ?? "-"}
+                          {m.date_of_birth ? ` · ${t("{age} yrs", { age: ageYears(m.date_of_birth) })}` : ""}
+                        </p>
+                      </div>
                     </div>
+                    <p className="hidden text-sm tabular-nums text-muted md:block">
+                      {m.date_of_birth ? ageYears(m.date_of_birth) : "-"}
+                    </p>
                     <p className="text-sm tabular-nums text-muted">{m.phone}</p>
                     <div className="flex flex-wrap items-center gap-2 text-sm">
                       <Badge tone={m.plan_state === "active" ? "accent" : m.plan_state === "expiring" ? "hold" : "muted"}>
                         {t(PLAN_LABEL[m.plan_state])}
                       </Badge>
-                      {m.sport_scope ? (
-                        <SportBadge sport={m.sport_scope} />
-                      ) : null}
                       {m.plan_name ? (
                         <span className="break-words text-xs text-muted">
                           {tData(m.plan_name)}
@@ -189,9 +202,12 @@ function Page() {
                         </span>
                       ) : null}
                     </div>
-                    <p className="text-sm tabular-nums text-muted md:text-right">
-                      {m.classes === 1 ? t("1 class") : t("{n} classes", { n: m.classes })}
-                    </p>
+                    <div className="flex items-center gap-2 md:justify-end">
+                      <p className="text-sm tabular-nums text-muted">
+                        {m.classes === 1 ? t("1 class") : t("{n} classes", { n: m.classes })}
+                      </p>
+                      {m.status === "active" ? <MessageButton userId={m.id} compact /> : null}
+                    </div>
                   </Link>
                 </li>
               ))}
