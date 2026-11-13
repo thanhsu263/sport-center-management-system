@@ -6,7 +6,7 @@
  */
 
 import { z } from "zod";
-import { CONNECTOR_TOKEN_READY_EVENT } from "./app-data/types";
+import { CONNECTOR_TOKEN_READY_EVENT } from "../../shared/app-data/types";
 import { resolveParentEmbedderOrigin } from "./preview-embedder-origin";
 
 export {

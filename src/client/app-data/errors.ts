@@ -1,5 +1,5 @@
-import type { CallToolResult } from "./types.ts";
-import { isConnectorPending, isLoginRequired } from "./login.ts";
+import type { CallToolResult } from "../../shared/app-data/types.ts";
+import { isConnectorPending, isLoginRequired } from "../../shared/app-data/login.ts";
 
 export type CallToolErrorKind =
   | "pending"

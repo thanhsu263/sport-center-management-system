@@ -24,8 +24,8 @@ import {
   Wallet,
   Zap,
 } from "lucide-react";
-import { cn } from "@/lib/cn";
-import { t, tk } from "@/lib/i18n";
+import { cn } from "@/client/lib/cn";
+import { t, tk } from "@/client/lib/i18n";
 
 /**
  * Every section heading gets a small icon and, where the screen does not already explain the

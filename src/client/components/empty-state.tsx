@@ -1,9 +1,9 @@
 import { type ComponentType, type ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
-import { cn } from "@/lib/cn";
+import { cn } from "@/client/lib/cn";
 import { Spot, type SpotName } from "./illustrations";
 import { useAsset } from "./media";
-import { t } from "@/lib/i18n";
+import { t } from "@/client/lib/i18n";
 
 export type EmptyStateAction = {
   label: string;

@@ -1,5 +1,5 @@
 import { type ReactNode } from "react";
-import { cn } from "@/lib/cn";
+import { cn } from "@/client/lib/cn";
 
 export function ContextLayout({
   children,
@@ -21,18 +21,18 @@ export function ContextLayout({
   return (
     <div
       className={cn(
-        "flex flex-col gap-6 xl:flex-row xl:items-start xl:gap-8",
+        "flex w-full min-w-0 flex-col gap-6 xl:flex-row xl:items-start xl:gap-8",
         reverseOnMobile && "flex-col-reverse",
         className,
       )}
     >
       {/* Main column: expands to fill remaining width */}
-      <div className="min-w-0 flex-1">{children}</div>
+      <div className="w-full min-w-0 flex-1">{children}</div>
 
       {/* Context column: fixed 320-360px on desktop (>=1280px), full width below 1280px */}
       <aside
         className={cn(
-          "w-full shrink-0 xl:w-[340px] xl:max-w-[360px] flex flex-col gap-5",
+          "flex w-full min-w-0 shrink-0 flex-col gap-5 xl:w-[340px] xl:max-w-[360px]",
           contextClassName,
         )}
       >
