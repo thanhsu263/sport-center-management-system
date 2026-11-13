@@ -17,7 +17,7 @@ function listRel(dir, base = "") {
 }
 
 test("MEDIA_FILES matches public/media", () => {
-  const source = fs.readFileSync("src/lib/arena3/media-files.ts", "utf8");
+  const source = fs.readFileSync("src/server/data/media-files.ts", "utf8");
   const listed = [...source.matchAll(/^\s*"([^"]+)",$/gm)].map((m) => m[1]).sort();
   const onDisk = listRel("public/media");
   assert.deepEqual(listed, onDisk);
