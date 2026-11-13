@@ -1,12 +1,23 @@
 /**
  * Server messages (errors, warnings, notification bodies) that reach the screen in English.
  *
- * The API answers in English; `tServer()` (src/lib/i18n.tsx) looks the message up here when the UI
+ * The API answers in English; `tServer()` (src/client/lib/i18n.tsx) looks the message up here when the UI
  * is in Vietnamese. Exact messages first, then the patterns for messages that carry numbers or names.
- * Anything not listed is shown as it arrived. Sources: src/lib/arena3/{errors,validate,rules,promos,
- * pricing,checkin,helpers,ratelimit,session,flags,router}.ts and src/lib/arena3/handlers/*.ts.
+ * Anything not listed is shown as it arrived. Sources: src/server/controllers/{errors,validate,helpers,ratelimit,session,router}.ts,
+ * src/server/services/{rules,promos,pricing,checkin,flags}.ts and src/server/controllers/handlers/*.ts.
  */
 export const VI_SERVER_EXACT: Record<string, string> = {
+  "The minimum must be a whole number from 1 up to the capacity.": "Mức tối thiểu phải là số nguyên từ 1 đến sĩ số tối đa.",
+  "Capacity cannot go below the class's minimum.": "Sĩ số tối đa không được thấp hơn mức tối thiểu của lớp.",
+  "No such certification.": "Không tìm thấy chứng chỉ.",
+  "Only a manager or the coach can change these certifications.": "Chỉ quản lý hoặc chính huấn luyện viên mới được sửa các chứng chỉ này.",
+  "Name the certification (120 characters at most).": "Hãy nhập tên chứng chỉ (tối đa 120 ký tự).",
+  "The issuer is 120 characters at most.": "Đơn vị cấp tối đa 120 ký tự.",
+  "Pick the date it was issued.": "Hãy chọn ngày cấp.",
+  "Pick the date it expires.": "Hãy chọn ngày hết hạn.",
+  "It cannot expire before it was issued.": "Ngày hết hạn không được trước ngày cấp.",
+  "The class is not over yet.": "Lớp chưa kết thúc.",
+  "No certificate has that code.": "Không có chứng nhận nào mang mã này.",
   // ── errors.ts (defaults and database errors)
   "Please sign in.": "Vui lòng đăng nhập.",
   "You do not have permission.": "Bạn không có quyền thực hiện thao tác này.",
@@ -25,6 +36,10 @@ export const VI_SERVER_EXACT: Record<string, string> = {
   "That value is not allowed.": "Giá trị này không được phép.",
   "Something went wrong on our side.": "Đã có lỗi phía chúng tôi. Vui lòng thử lại.",
   "Request failed": "Yêu cầu không thành công.",
+  "Choose a photo to upload.": "Hãy chọn một ảnh để tải lên.",
+  "The photo must be 2 MB or smaller.": "Ảnh phải từ 2 MB trở xuống.",
+  "Use a JPEG, PNG or WebP photo.": "Hãy dùng ảnh JPEG, PNG hoặc WebP.",
+  "The photo must be between 64 and 4096 pixels on each side.": "Mỗi cạnh của ảnh phải từ 64 đến 4096 điểm ảnh.",
   // Raised by the browser-side client, not the server: no answer at all, or the host's own error page.
   "Could not reach the server. Check your connection and try again.": "Không kết nối được máy chủ. Hãy kiểm tra mạng rồi thử lại.",
   "The server is busy or restarting. Try again in a moment.": "Máy chủ đang bận hoặc đang khởi động lại. Hãy thử lại sau ít phút.",
@@ -65,7 +80,6 @@ export const VI_SERVER_EXACT: Record<string, string> = {
   "That code is not valid.": "Mã này không hợp lệ.",
   "That code is not active yet.": "Mã này chưa có hiệu lực.",
   "That code has expired.": "Mã này đã hết hạn.",
-  "That code does not apply to plans.": "Mã này không áp dụng cho gói tập.",
   "That code does not apply to courts.": "Mã này không áp dụng cho đặt sân.",
   "That code is for a different plan.": "Mã này dành cho gói tập khác.",
   "That code cannot be combined with your plan's court discount.": "Mã này không dùng chung được với ưu đãi sân của gói tập.",
@@ -75,7 +89,6 @@ export const VI_SERVER_EXACT: Record<string, string> = {
   "That code gives no discount on this order.": "Mã này không giảm giá cho đơn này.",
   "That promo code no longer exists.": "Mã khuyến mãi này không còn tồn tại.",
   "That date is not valid.": "Ngày không hợp lệ.",
-  "Pick plans, courts or both.": "Chọn gói tập, sân hoặc cả hai.",
   "Use 3–24 letters, digits, - or _ (no spaces).": "Dùng 3-24 chữ cái, chữ số, - hoặc _ (không có dấu cách).",
   "Give the code a name.": "Vui lòng đặt tên cho mã.",
   "The name must be at most 120 characters.": "Tên tối đa 120 ký tự.",
@@ -89,7 +102,6 @@ export const VI_SERVER_EXACT: Record<string, string> = {
   "Status is active or paused.": "Trạng thái chỉ có thể là đang hoạt động hoặc tạm dừng.",
   "A code that has been used keeps its name — pause it and create a new one.": "Mã đã được dùng thì giữ nguyên tên, hãy tạm dừng và tạo mã mới.",
   "Nothing to change.": "Không có gì để thay đổi.",
-  "scope must be plan or court.": "Phạm vi phải là gói tập hoặc sân.",
 
   // ── checkin.ts (QR token) and handlers/checkin.ts
   "That code has expired — ask the member to refresh it.": "Mã này đã hết hạn, hãy nhờ hội viên làm mới mã.",
@@ -98,7 +110,6 @@ export const VI_SERVER_EXACT: Record<string, string> = {
   "member_id is not valid.": "Mã hội viên không hợp lệ.",
   "More than one member matches — pick one.": "Có nhiều hội viên trùng khớp, vui lòng chọn một người.",
   "No member matches that.": "Không có hội viên nào khớp.",
-  "No active membership.": "Chưa có gói tập đang hiệu lực.",
   "Choose why the code was not used.": "Vui lòng chọn lý do không dùng mã.",
   "Choose why this member may come in.": "Vui lòng chọn lý do cho hội viên này vào.",
   "That is the desk code — a member scans it, reception does not.": "Đây là mã của quầy, hội viên quét mã này, lễ tân không quét.",
@@ -131,6 +142,11 @@ export const VI_SERVER_EXACT: Record<string, string> = {
   "That phone number already has an account.": "Số điện thoại này đã có tài khoản.",
   "Enter your login and password.": "Vui lòng nhập tên đăng nhập và mật khẩu.",
   "Wrong login or password.": "Sai tên đăng nhập hoặc mật khẩu.",
+  "Google sign-in is not set up.": "Chưa cấu hình đăng nhập bằng Google.",
+  "The Google sign-in did not return a token.": "Google không trả về mã đăng nhập.",
+  "Google could not confirm who you are. Please try again.": "Google chưa xác nhận được bạn là ai. Vui lòng thử lại.",
+  "This Google account is not linked to an Arena3 account. Sign in with your password, then link Google in Account settings.": "Tài khoản Google này chưa được liên kết với tài khoản Arena3 nào. Hãy đăng nhập bằng mật khẩu, rồi liên kết Google trong Cài đặt tài khoản.",
+  "That Google account is already linked to another Arena3 account.": "Tài khoản Google này đã được liên kết với một tài khoản Arena3 khác.",
   "This account is locked for 15 minutes.": "Tài khoản bị khóa 15 phút.",
   "5 wrong passwords — locked for 15 minutes.": "Sai mật khẩu 5 lần, khóa 15 phút.",
   "That notification id is not valid.": "Mã thông báo không hợp lệ.",
@@ -160,7 +176,6 @@ export const VI_SERVER_EXACT: Record<string, string> = {
   "Guardian name must be at most 120 characters.": "Tên người giám hộ tối đa 120 ký tự.",
   "That guardian phone number is not valid.": "Số điện thoại người giám hộ không hợp lệ.",
   "Unknown status.": "Trạng thái không hợp lệ.",
-  "Unknown plan state.": "Trạng thái gói tập không hợp lệ.",
   "Choose receptionist or coach.": "Chọn lễ tân hoặc HLV.",
   "That account does not exist.": "Tài khoản này không tồn tại.",
   "You cannot change your own account here.": "Bạn không thể sửa tài khoản của chính mình tại đây.",
@@ -170,14 +185,7 @@ export const VI_SERVER_EXACT: Record<string, string> = {
   "Pick at least one sport this coach can teach.": "Chọn ít nhất một môn HLV này có thể dạy.",
   "Use active or locked.": "Chỉ dùng đang hoạt động hoặc khóa.",
   "This coach still has classes running. Reassign them before changing the role.": "HLV này vẫn đang phụ trách lớp. Hãy chuyển lớp cho người khác trước khi đổi vai trò.",
-  "A plan name is at most 80 characters.": "Tên gói tập tối đa 80 ký tự.",
-  "A plan needs a name.": "Vui lòng đặt tên cho gói tập.",
   "Choose a sport.": "Vui lòng chọn môn thể thao.",
-  "No such plan.": "Không có gói tập này.",
-  "plan_id is required.": "Thiếu mã gói tập.",
-  "That plan is no longer on sale.": "Gói tập này đã ngừng bán.",
-  "Your plan is frozen — unfreeze it before buying more.": "Gói tập của bạn đang tạm khóa, hãy mở lại trước khi mua thêm.",
-  "Pay to renew on your current contract.": "Thanh toán để gia hạn theo hợp đồng hiện tại.",
 
   // ── bookings.ts
   "No such court.": "Không có sân này.",
@@ -197,8 +205,7 @@ export const VI_SERVER_EXACT: Record<string, string> = {
   "Someone just took that slot.": "Vừa có người đặt khung giờ này.",
   "Pay online, or pay at the front desk — a booking cannot be marked paid from the app.": "Hãy thanh toán trực tuyến hoặc tại quầy lễ tân, không thể đánh dấu đã thanh toán ngay trong ứng dụng.",
   "That booking is no longer on hold.": "Lượt đặt này không còn được giữ.",
-  "Reception is already checking the bank for this one.": "Lễ tân đang kiểm tra ngân hàng cho lượt đặt này.",
-  "You have no court hours left on your plan.": "Gói tập của bạn đã hết giờ sân.",
+  "Reception is already checking the bank for this one.": "Lễ tân đang kiểm tra ngân hàng cho khoản này.",
   "No transfer was requested for this booking.": "Lượt đặt này chưa yêu cầu chuyển khoản.",
   "A booking in this state cannot be cancelled.": "Lượt đặt ở trạng thái này không thể hủy.",
   "Pick the new time.": "Vui lòng chọn giờ mới.",
@@ -219,7 +226,6 @@ export const VI_SERVER_EXACT: Record<string, string> = {
   "Court code already exists.": "Mã sân này đã tồn tại.",
   "Invalid court code format. Use 2-4 uppercase letters, hyphen, 2 digits (e.g. CL-01).": "Định dạng mã sân không hợp lệ. Vui lòng dùng 2-4 chữ hoa, dấu gạch nối và 2 chữ số (ví dụ: CL-01).",
   "Cannot change court sport while it has upcoming bookings or classes.": "Không thể đổi môn thi đấu khi sân còn lượt đặt hoặc lớp học.",
-  "Cannot retire the only court for a sport with active plans.": "Không thể ngừng sân duy nhất của môn đang có gói hội viên hoạt động.",
 
   // ── classes.ts / ops.ts (waitlist, gear, registers, support)
   "Class details are incomplete.": "Thông tin lớp chưa đầy đủ.",
@@ -227,7 +233,6 @@ export const VI_SERVER_EXACT: Record<string, string> = {
   "That coach is not assigned to this sport.": "HLV này chưa được phân công môn này.",
   "That class is cancelled.": "Lớp này đã bị hủy.",
   "That class is not open yet.": "Lớp này chưa mở đăng ký.",
-  "You need an active plan covering this sport.": "Bạn cần có gói tập đang hiệu lực áp dụng cho môn này.",
   "You have no sessions left.": "Bạn đã hết buổi tập.",
   "This clashes with another class you are in.": "Lịch này trùng với một lớp khác của bạn.",
   "Another class already uses this court on those days and hours.": "Sân này đã có lớp khác vào cùng ngày và giờ đó.",
@@ -256,9 +261,6 @@ export const VI_SERVER_EXACT: Record<string, string> = {
   "Give a reason for cancelling this class.": "Vui lòng nêu lý do hủy lớp này.",
   "That offer has expired.": "Đề nghị này đã hết hạn.",
   "The class just filled up.": "Lớp vừa đủ chỗ.",
-  "Freeze length must be 1–90 days.": "Thời gian tạm khóa phải từ 1 đến 90 ngày.",
-  "Only an active plan can be frozen.": "Chỉ gói tập đang hiệu lực mới tạm khóa được.",
-  "That plan is not frozen.": "Gói tập này không ở trạng thái tạm khóa.",
   "Choose the gear to rent out.": "Vui lòng chọn dụng cụ cho mượn.",
   "That member account was not found.": "Không tìm thấy tài khoản hội viên.",
   "That member account is not active.": "Tài khoản hội viên này không hoạt động.",
@@ -279,9 +281,6 @@ export const VI_SERVER_EXACT: Record<string, string> = {
   "ref_type, ref_id, method and amount_vnd are required.": "Thiếu loại, mã tham chiếu, phương thức hoặc số tiền.",
   "Enter an amount above zero, in whole đồng.": "Nhập số tiền lớn hơn 0, tính theo đồng.",
   "The front desk needs an open shift.": "Lễ tân cần mở ca trước.",
-  "This plan is frozen — unfreeze it before taking payment.": "Gói tập này đang tạm khóa, hãy mở lại trước khi thu tiền.",
-  "That plan is not waiting for payment.": "Gói tập này không ở trạng thái chờ thanh toán.",
-  "This plan order is already paid for.": "Đơn gói tập này đã được thanh toán.",
   "amount_vnd must not be zero.": "Số tiền không được bằng 0.",
   "That row is already a refund.": "Dòng này đã là khoản hoàn tiền.",
   "This payment has already been refunded in full.": "Khoản thanh toán này đã được hoàn tiền đủ.",
@@ -296,12 +295,15 @@ export const VI_SERVER_EXACT: Record<string, string> = {
   "items[] is required.": "Thiếu danh sách dòng giá.",
   "Unknown person.": "Người này không hợp lệ.",
   "That booking no longer exists.": "Lượt đặt này không còn tồn tại.",
-  "That plan order no longer exists.": "Đơn gói tập này không còn tồn tại.",
   "Online payment is not switched on for this centre.": "Trung tâm chưa bật thanh toán trực tuyến.",
   "ref_id is required.": "Thiếu mã tham chiếu.",
   "That booking is not waiting for payment.": "Lượt đặt này không chờ thanh toán.",
-  "Ask the front desk to take payment for a plan.": "Vui lòng nhờ lễ tân thu tiền gói tập.",
-  "Online payment covers courts and plans.": "Thanh toán trực tuyến áp dụng cho sân và gói tập.",
+  "This class is not open for sale yet.": "Lớp này chưa mở bán.",
+  "This seat hold has expired.": "Thời gian giữ chỗ đã hết.",
+  "That seat is not on hold, so there is nothing to pay.": "Chỗ này không còn được giữ nên không có gì cần thanh toán.",
+  "You are no longer on the waitlist for this class.": "Bạn không còn trong danh sách chờ của lớp này.",
+  "Enrollment does not exist.": "Lượt đăng ký này không tồn tại.",
+  "Price must be a whole number of dong, or empty.": "Giá phải là số đồng nguyên, hoặc để trống.",
   "There is nothing to pay.": "Không có gì cần thanh toán.",
   "Could not start the online payment. Take it at the desk instead.": "Không thể bắt đầu thanh toán trực tuyến. Vui lòng thanh toán tại quầy.",
   "That payment was not taken online.": "Khoản thanh toán này không phải thanh toán trực tuyến.",
@@ -375,10 +377,11 @@ export const VI_SERVER_EXACT: Record<string, string> = {
 
 /** For messages that carry numbers or names: [regex over the English, Vietnamese with $1, $2…]. */
 const P: [RegExp, string][] = [
+  [/^Attend at least (\d+)% of the sessions to earn this certificate\.$/, "Cần tham gia ít nhất $1% số buổi để nhận chứng nhận này."],
   [/^That pass is only valid on (\d{4}-\d{2}-\d{2})\.$/, "Vé này chỉ dùng được vào ngày $1."],
   [/^Redeem at least (\d+) points\.$/, "Hãy đổi ít nhất $1 điểm."],
   [/^A fixed booking runs (\d+)–(\d+) weeks\.$/, "Đặt cố định kéo dài từ $1 đến $2 tuần."],
-  // ── rules.ts price rows (src/lib/arena3/rules.ts)
+  // ── rules.ts price rows (src/server/services/rules.ts)
   [/^Row (\d+): unknown sport\.$/, "Dòng $1: môn thể thao không hợp lệ."],
   [/^Row (\d+): day kind must be weekday, weekend or holiday\.$/, "Dòng $1: loại ngày phải là ngày thường, cuối tuần hoặc ngày lễ."],
   [/^Row (\d+): times must be HH:MM\.$/, "Dòng $1: giờ phải có dạng HH:MM."],
@@ -418,7 +421,9 @@ const P: [RegExp, string][] = [
   [/^status must be one of (.+)\.$/, "Trạng thái phải là một trong: $1."],
   [/^This session starts in under (\d+) hours — give a reason to move it\.$/, "Buổi này bắt đầu trong chưa đầy $1 giờ, vui lòng nêu lý do dời buổi."],
   [/^(\d+) members are already enrolled — capacity cannot go below that\.$/, "Đã có $1 hội viên đăng ký, sức chứa không thể thấp hơn số này."],
+  [/^Cancel at least (\d+) hours before the next session\.$/, "Vui lòng hủy trước buổi tiếp theo ít nhất $1 giờ."],
   [/^Over the limit of (\d+) freeze days a year\.$/, "Vượt giới hạn $1 ngày tạm khóa mỗi năm."],
+  [/^Your session plan starts on (\S+)\.$/, "Gói tập theo buổi của bạn bắt đầu từ ngày $1."],
   [/^Only (\d+) (.+) left — you asked for (\d+)\.$/, "Chỉ còn $1 $2, bạn yêu cầu $3."],
   [/^A renewal is one full period: ([\d,]+)đ\.$/, "Gia hạn là một kỳ đầy đủ: $1đ."],
   [/^A plan is paid in full: ([\d,]+)đ\. Partial payments are not taken\.$/, "Gói tập thanh toán đủ một lần: $1đ. Không nhận thanh toán một phần."],

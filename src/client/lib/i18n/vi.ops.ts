@@ -9,8 +9,6 @@ export const ops: Record<string, string> = {
   "Cancelling…": "Đang hủy…",
   "Yes, cancel": "Đồng ý hủy",
   "Nothing has been paid on this booking, so nothing is charged.": "Lượt đặt này chưa thanh toán gì nên không bị tính phí.",
-  "Your plan hour goes back to your balance.": "Giờ trong gói của bạn sẽ được trả lại.",
-  "Too close to the start: the plan hour is not given back.": "Sát giờ chơi quá: giờ trong gói không được trả lại.",
   "Starts in {h} hours. You paid {paid}.": "Còn {h} giờ nữa là đến giờ chơi. Bạn đã trả {paid}.",
   "Late-cancel fee kept": "Phí hủy muộn giữ lại",
   "Fee waived": "Đã miễn phí hủy",
@@ -190,10 +188,6 @@ export const ops: Record<string, string> = {
   "Balance collected": "Đã thu nốt phần còn lại",
   "Collect balance (cash)": "Thu nốt (tiền mặt)",
   "Deposit (of {total})": "Tiền cọc, trên tổng {total}",
-  // ── membership pass card
-  "Membership pass": "Thẻ hội viên",
-  "Includes": "Gồm có",
-  "Valid through": "Có hiệu lực đến",
   // ── payment kinds, audit log
   "Day pass": "Vé ngày",
   "Equipment hire": "Thuê dụng cụ",
