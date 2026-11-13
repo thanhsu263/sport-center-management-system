@@ -1,7 +1,7 @@
 import { useRef, type ElementType } from "react";
 import { SplitText } from "gsap/SplitText";
-import { ScrollTrigger, gsap, registerGsap, useScene } from "@/lib/gsap";
-import { cn } from "@/lib/cn";
+import { ScrollTrigger, gsap, registerGsap, useScene } from "@/client/lib/gsap";
+import { cn } from "@/client/lib/cn";
 import { countText } from "./tweens";
 
 registerGsap(ScrollTrigger, SplitText);

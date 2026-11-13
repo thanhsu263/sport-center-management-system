@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useRef, type ReactNode } from "react";
 import { ScrollSmoother } from "gsap/ScrollSmoother";
-import { ScrollTrigger, motionOff, registerGsap } from "@/lib/gsap";
-import { useCalm } from "@/lib/calm";
+import { ScrollTrigger, motionOff, registerGsap } from "@/client/lib/gsap";
+import { useCalm } from "@/client/lib/calm";
 
 registerGsap(ScrollTrigger, ScrollSmoother);
 
@@ -41,7 +41,7 @@ export function LandingSmoother({ header, children }: { header: ReactNode; child
     else el.scrollIntoView({ behavior: motionOff(calmRef.current) ? "auto" : "smooth", block: "start" });
   }, []);
 
-  // In-page links (#schedule, #plans…) anywhere on the page, the header included.
+  // In-page links (#schedule, #courts…) anywhere on the page, the header included.
   useEffect(() => {
     const onClick = (e: MouseEvent) => {
       if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
@@ -108,7 +108,7 @@ function SmootherBoot({ calm, smoother }: { calm: boolean; smoother: { current: 
       s.scrollTo(el, true, "center center");
     };
     content.addEventListener("focusin", onFocus);
-    // Arriving on /#plans should land on the plans, not on the hero.
+    // Arriving on a URL with an in-page hash (/#schedule, /#courts) should land on that section, not on the hero.
     const id = location.hash.slice(1);
     if (id && document.getElementById(id)) {
       requestAnimationFrame(() => s.scrollTo(`#${id}`, false, `top ${HEADER_OFFSET}px`));
