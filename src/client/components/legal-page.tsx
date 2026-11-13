@@ -1,9 +1,9 @@
 import { Link } from "@tanstack/react-router";
-import { ArenaMark } from "@/components/mark";
-import { LangSwitch } from "@/components/lang-switch";
-import { formatDate } from "@/lib/arena3/labels";
-import { t, useLang } from "@/lib/i18n";
-import { LEGAL_DRAFT, LEGAL_UPDATED, type LegalDoc } from "@/lib/legal";
+import { ArenaMark } from "@/client/components/mark";
+import { LangSwitch } from "@/client/components/lang-switch";
+import { formatDate } from "@/shared/arena3/labels";
+import { t, useLang } from "@/client/lib/i18n";
+import { LEGAL_DRAFT, LEGAL_UPDATED, type LegalDoc } from "@/client/lib/legal";
 
 export function LegalBody({
   doc,
@@ -46,9 +46,9 @@ export function LegalPage({ doc, other }: { doc: Record<"en" | "vi", LegalDoc>; 
   return (
     <div className="min-h-dvh bg-bg text-fg">
       <header className="mx-auto flex max-w-3xl items-center justify-between gap-3 px-4 py-4 sm:px-6">
-        <Link to="/" className="inline-flex items-center gap-2" aria-label={t("Lê Long Sport Center home")}>
+        <Link to="/" className="inline-flex items-center gap-2" aria-label={t("Lê Long Sport home")}>
           <ArenaMark className="size-8" />
-          <span className="font-display text-xl">Lê Long Sport Center</span>
+          <span className="font-display text-xl">Lê Long Sport</span>
         </Link>
         <LangSwitch />
       </header>
