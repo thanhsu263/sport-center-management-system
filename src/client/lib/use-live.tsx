@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { getToken } from "./arena3/client";
+import { getToken } from "../arena3/client";
 
 type Listener = () => void;
 

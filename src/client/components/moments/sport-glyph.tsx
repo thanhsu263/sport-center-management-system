@@ -1,7 +1,7 @@
 import { useRef } from "react";
 import { MorphSVGPlugin } from "gsap/MorphSVGPlugin";
-import { gsap, motionOff, registerGsap, useGSAP } from "@/lib/gsap";
-import { useCalm } from "@/lib/calm";
+import { gsap, motionOff, registerGsap, useGSAP } from "@/client/lib/gsap";
+import { useCalm } from "@/client/lib/calm";
 
 registerGsap(MorphSVGPlugin);
 
