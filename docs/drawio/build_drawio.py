@@ -160,7 +160,7 @@ def mx(pages):
 SPECS = {}
 
 SPECS["01-Public-Auth"] = dict(name="Public and Authentication", center={1}, rowgap=36, cols=[
-    [N("LAND", "Landing Page (/)", [N("L_COACH", "Coach Profile Modal")])],
+    [N("LAND", "Landing Page (/)", [N("L_COACH", "Coach Profile Modal")]), N("VERIFY", "Verify Certificate Screen\n(/verify/:code)")],
     [N("REG", "Register Screen (/register)", [N("R_FORM", "Registration Form"), N("R_OTP", "OTP Verification Step")], cols=2),
      N("LOGIN", "Login Screen\n(/login)"),
      N("FORGOT", "Forgot Password Screen (/forgot)", [N("F_REQ", "Request Code Step"), N("F_RESET", "Code + New Password Step")], cols=2)],
@@ -185,13 +185,14 @@ SPECS["02-Member"] = dict(name="Member", cols=[
         N("B_CLASH", "Clash Confirmation"), N("B_ALT", "Alternative Slots"),
         N("B_MOVE", "Change Time Mode"), N("B_PAY", "Scan-to-Pay Modal")]),
      N("CLASSES", "Classes Screen (/app/classes)", [N("C_OFFER", "Waitlist Offer Card"), N("C_ATT", "My Attendance Panel")]),
-     N("PLANS", "Plans Screen\n(/app/plans)"), N("TRAIN", "Progress Screen\n(/app/train)"),
+     N("PLANS", "Plans Screen\n(/app/plans)"), N("TRAIN", "Progress Screen (/app/train)", [N("T_CERT", "Certificates Panel")]),
+            N("PASS", "Member Pass Screen\n(/app/pass)"), N("POINTS", "Points Screen\n(/app/points)"),
      N("ASSIST", "Assistant Screen\n(/app/assistant)"),
      N("NOTIF", "Notifications Screen (/app/notifications)", [N("N_DETAIL", "Notification Detail Modal")]),
      N("ACCOUNT", "Account Settings Screen (/account)", [
          N("A_PROFILE", "Profile Tab"), N("A_REC", "Receipts Tab"), N("A_SEC", "Security Tab"), N("A_SUP", "Support Tab")])],
     [N("PAYRET", "Payment Return Screen\n(/pay/return)"), N("RECEIPT", "Receipt PDF\n(new tab)")],
-], edges=[E("LOGIN", "HOME")] + [E("HOME", t) for t in ("BOOK", "CLASSES", "PLANS", "TRAIN", "ASSIST", "NOTIF", "ACCOUNT")] + [
+], edges=[E("LOGIN", "HOME")] + [E("HOME", t) for t in ("BOOK", "CLASSES", "PLANS", "TRAIN", "PASS", "POINTS", "ASSIST", "NOTIF", "ACCOUNT")] + [
     E("B_PAY", "PAYRET"), E("A_REC", "RECEIPT"),
 ])
 
@@ -205,11 +206,12 @@ SPECS["03-Receptionist-Desk"] = dict(name="Receptionist (Desk)", cols=[
      N("CLASSES", "Classes Screen (/desk/classes)", [N("CL_DETAIL", "Class Detail Modal\n(read-only)")]),
      N("PAY", "Payments Screen (/desk/payments)", [N("P_TRANS", "Transfers to Check"), N("P_WAIT", "Waiting for Payment"),
                                                    N("P_REF", "Refund Queue"), N("P_REC", "Receipts List"), N("P_QR", "Scan-to-Pay Modal")]),
-     N("GEAR", "Gear Screen\n(/desk/gear)"), N("ALERTS", "Alerts Screen\n(/alerts)"),
+     N("GEAR", "Gear Screen\n(/desk/gear)"), N("ATRISK", "At-risk Members Screen (/desk/at-risk)", [N("AR_LOG", "Log Contact Form")]),
+            N("SERIES", "Recurring Bookings Screen\n(/desk/series)"), N("MAINT", "Maintenance Screen\n(/desk/maintenance)"), N("ALERTS", "Alerts Screen\n(/alerts)"),
      N("ACCOUNT", "Account Settings Screen\n(/account)")],
-    [N("MEMBER", "Member Profile Screen (/desk/member/:id)", [N("M_EDIT", "Edit Profile Modal"), N("M_REFUND", "Raise Refund Modal")]),
+    [N("MEMBER", "Member Profile Screen (/desk/member/:id)", [N("M_EDIT", "Edit Profile Modal"), N("M_REFUND", "Raise Refund Modal"), N("M_FREEZE", "Freeze / Unfreeze Plan"), N("M_PLAN", "Sell Plan Form"), N("M_ENROL", "Enrol / Cancel Class Form")]),
      N("RECEIPT", "Receipt PDF\n(new tab)")],
-], edges=[E("LOGIN", "HOME")] + [E("HOME", t) for t in ("GATE", "COURTS", "CLASSES", "PAY", "GEAR", "ALERTS", "ACCOUNT")] + [
+], edges=[E("LOGIN", "HOME")] + [E("HOME", t) for t in ("GATE", "COURTS", "CLASSES", "PAY", "GEAR", "ATRISK", "SERIES", "MAINT", "ALERTS", "ACCOUNT")] + [
     E("GATE", "MEMBER"), E("PAY", "MEMBER"), E("P_REC", "RECEIPT"),
 ])
 
@@ -218,10 +220,11 @@ SPECS["04-Coach"] = dict(name="Coach", cols=[
     [N("SCHEDULE", "Coach Schedule Screen\n(/coach)")],
     [N("ATT", "Attendance Screen (/coach/attendance)", [N("A_RES", "Results Panel"), N("A_REG", "Session Register"),
                                                         N("A_PLAN", "Session Plan Panel"), N("A_HW", "Homework Panel")]),
+            N("CCLASSES", "My Classes Screen\n(/coach/classes)"), N("EARN", "Earnings Screen\n(/coach/earnings)"), N("CATRISK", "At-risk Members Screen\n(/desk/at-risk)"),
      N("ALERTS", "Alerts Screen\n(/alerts)"), N("ACCOUNT", "Account Settings Screen\n(/account)")],
     [N("STUDENT", "Student Profile Screen (/coach/student/:id)", [N("S_LEVEL", "Level"), N("S_REVIEW", "Progress Review"),
-                                                                 N("S_NOTES", "Coach Notes"), N("S_HW", "Homework History")])],
-], edges=[E("LOGIN", "SCHEDULE"), E("SCHEDULE", "ATT"), E("SCHEDULE", "ALERTS"), E("SCHEDULE", "ACCOUNT"),
+                                                                 N("S_NOTES", "Coach Notes"), N("S_HW", "Homework History"), N("S_SUGGEST", "Suggest Workout Plan")])],
+], edges=[E("LOGIN", "SCHEDULE"), E("SCHEDULE", "ATT"), E("SCHEDULE", "CCLASSES"), E("SCHEDULE", "EARN"), E("SCHEDULE", "CATRISK"), E("SCHEDULE", "ALERTS"), E("SCHEDULE", "ACCOUNT"),
           E("A_REG", "STUDENT")])
 
 SPECS["05-Manager"] = dict(name="Manager", cols=[
@@ -238,10 +241,12 @@ SPECS["05-Manager"] = dict(name="Manager", cols=[
      N("STAFF", "Staff Screen (/manager/staff)", [N("ST_ADD", "Add Staff Modal"), N("ST_ROLE", "Role Modal"),
                                                   N("ST_PASS", "Hand-over Password Modal")]),
      N("PRICES", "Pricing Screen\n(/manager/prices)"), N("AUDIT", "Audit Screen\n(/manager/audit)"),
-     N("SETTINGS", "Settings Screen (/manager/settings)"),
+     N("SETTINGS", "Settings Screen (/manager/settings)"), N("SPORTS", "Sports Screen\n(/manager/sports)"),
+            N("COURTSM", "Courts Screen\n(/manager/courts)"), N("INVOICES", "Invoices Screen\n(/manager/invoices)"), N("MATT", "Attendance Screen\n(/manager/attendance)"),
+            N("COMM", "Commission Screen\n(/manager/commission)"), N("PROMOS", "Promotions Screen\n(/manager/promos)"), N("MEDIA", "Media Screen\n(/manager/media)"), N("MATRISK", "At-risk Members Screen\n(/desk/at-risk)"),
      N("ALERTS", "Alerts Screen\n(/alerts)"), N("ACCOUNT", "Account Settings Screen\n(/account)")],
     [N("MPROFILE", "Member Profile Screen\n(/desk/member/:id)")],
-], edges=[E("LOGIN", "REPORTS")] + [E("REPORTS", t) for t in ("CLASSES", "MEMBERS", "PLANS", "PAYMENTS", "STAFF", "PRICES", "AUDIT", "SETTINGS", "ALERTS", "ACCOUNT")] + [
+], edges=[E("LOGIN", "REPORTS")] + [E("REPORTS", t) for t in ("CLASSES", "MEMBERS", "PLANS", "PAYMENTS", "STAFF", "PRICES", "AUDIT", "SETTINGS", "SPORTS", "COURTSM", "INVOICES", "MATT", "COMM", "PROMOS", "MEDIA", "MATRISK", "ALERTS", "ACCOUNT")] + [
     E("MEMBERS", "MPROFILE")])
 
 if __name__ == "__main__":
