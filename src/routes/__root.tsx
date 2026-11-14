@@ -1,19 +1,20 @@
+import { THEME_BOOT } from "@/client/lib/theme";
 import { createRootRoute, HeadContent, Outlet, Scripts, useRouterState } from "@tanstack/react-router";
-import { AuthProvider } from "@/lib/auth/provider";
-import { useRetryKey } from "@/lib/connection";
-import { LangProvider, t } from "@/lib/i18n";
-import { ClickSpark } from "@/components/fx";
-import { PreviewHostBridge } from "@/components/preview-host-bridge";
+import { AuthProvider } from "@/client/auth/provider";
+import { useRetryKey } from "@/client/lib/connection";
+import { LangProvider, t } from "@/client/lib/i18n";
+import { ClickSpark } from "@/client/components/fx";
+import { PreviewHostBridge } from "@/client/components/preview-host-bridge";
 import { Toaster } from "sonner";
 import { createServerFn } from "@tanstack/react-start";
-import { SiteAssetsProvider, type PublicSiteAsset } from "@/components/media";
+import { SiteAssetsProvider, type PublicSiteAsset } from "@/client/components/media";
 import appCss from "../styles.css?url";
 
-const APP_NAME = "Lê Long Sport Center";
+const APP_NAME = "Lê Long Sport";
 
 export const getRootAssets = createServerFn({ method: "GET" }).handler(async () => {
   try {
-    const { getSql } = await import("@/lib/db");
+    const { getSql } = await import("@/server/data/db");
     const sql = await getSql();
     const rows = await sql.query<{
       slot: string;
@@ -84,7 +85,7 @@ export const Route = createRootRoute({
       {
         name: "description",
         content:
-          "Lê Long Sport Center: book badminton, basketball and volleyball courts, coached classes and memberships at an indoor sports centre in Ho Chi Minh City.",
+          "Lê Long Sport: book badminton, basketball and volleyball courts, coached classes and memberships at an indoor sports centre in Ho Chi Minh City.",
       },
     ],
     links: [
@@ -103,6 +104,7 @@ function RootComponent() {
     <html lang="en" className="antialiased" suppressHydrationWarning>
       <head>
         <HeadContent />
+        <script dangerouslySetInnerHTML={{ __html: THEME_BOOT }} />
       </head>
       <body className="bg-bg text-fg">
         <PreviewHostBridge />
