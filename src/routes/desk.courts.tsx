@@ -1,21 +1,22 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
-import { CourtGrid, DateStrip, freeHours, sportLabel, useNowMinute, type Court, type OccSlot } from "@/components/court-grid";
-import { Shell, money } from "@/components/shell";
-import { PageHero } from "@/components/page-hero";
-import { StatStrip } from "@/components/stat-strip";
-import { Button, Card, DateField, Field, Input, LoadError, Select, Seg, Skeleton } from "@/components/ui";
+import { CourtGrid, DateStrip, freeHours, sportLabel, useNowMinute, type Court, type OccSlot } from "@/client/components/court-grid";
+import { Shell, money } from "@/client/components/shell";
+import { PageHero } from "@/client/components/page-hero";
+import { StatStrip } from "@/client/components/stat-strip";
+import { Button, Card, DateField, Field, Input, LoadError, Select, Seg, Skeleton } from "@/client/components/ui";
 import { AnimatePresence, motion } from "motion/react";
-import { SpotlightCard, StarBorder } from "@/components/fx";
-import { ClassDetailModal, OccupancyDetailModal } from "@/components/class-detail";
-import { apiPost, openInvoice } from "@/lib/arena3/client";
-import { todayISO } from "@/lib/arena3/labels";
-import { t, tServer } from "@/lib/i18n";
-import { useRead } from "@/lib/use-read";
-import { hoursOf, venueFrom, type VenueRaw } from "@/lib/venue";
-import { useSports } from "@/components/sports-ui";
-import { useLive } from "@/lib/use-live";
+import { SpotlightCard, StarBorder } from "@/client/components/fx";
+import { ClassDetailModal, OccupancyDetailModal } from "@/client/components/class-detail";
+import { apiPost, openInvoice } from "@/client/arena3/client";
+import type { WalkInResponse } from "@/shared/arena3/contracts";
+import { todayISO } from "@/shared/arena3/labels";
+import { t, tServer } from "@/client/lib/i18n";
+import { useRead } from "@/client/lib/use-read";
+import { hoursOf, venueFrom, type VenueRaw } from "@/client/lib/venue";
+import { useSports } from "@/client/components/sports-ui";
+import { useLive } from "@/client/lib/use-live";
 
 export const Route = createFileRoute("/desk/courts")({
   component: Page,
@@ -126,7 +127,7 @@ function Page() {
               <Button
                 onClick={async () => {
                   try {
-                    const res = await apiPost<{ payment: { amount_vnd: number; code: string }; invoice_id: string }>(
+                    const res = await apiPost<WalkInResponse>(
                       "/walk-in",
                       { court_id: pick.court.id, start_at: isoAt(pick.hour), ...form },
                       true,
