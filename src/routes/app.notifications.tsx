@@ -1,12 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { NotificationList, type Notification } from "@/components/notifications";
-import { Shell } from "@/components/shell";
-import { Button, EmptyState, LoadError, Pagination, Skeleton } from "@/components/ui";
-import { t } from "@/lib/i18n";
-import { usePageState } from "@/lib/use-page-state";
-import { useRead } from "@/lib/use-read";
-import { useLive } from "@/lib/use-live";
+import { NotificationList, type Notification } from "@/client/components/notifications";
+import { Shell } from "@/client/components/shell";
+import { Button, EmptyState, LoadError, Pagination, Skeleton } from "@/client/components/ui";
+import { t } from "@/client/lib/i18n";
+import { usePageState } from "@/client/lib/use-page-state";
+import { useRead } from "@/client/lib/use-read";
+import { useLive } from "@/client/lib/use-live";
 
 export const Route = createFileRoute("/app/notifications")({
   component: Page,
