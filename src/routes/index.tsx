@@ -1,29 +1,31 @@
 import { Navigate, createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { freeHours, useNowMinute } from "@/components/court-grid";
-import { ClassTicker } from "@/components/landing/ticker";
-import { ClassesScene, PlansScene } from "@/components/landing/plans";
-import { ClosingCta, SiteFooter } from "@/components/landing/closing";
-import { CoachesScene } from "@/components/landing/coaches";
-import { CourtsScene } from "@/components/landing/courts";
-import { FacilitiesScene } from "@/components/landing/facilities";
-import { Hero, StatsBand } from "@/components/landing/hero";
-import { LandingSmoother, useLandingScroll } from "@/components/landing/smoother";
-import { Manifesto } from "@/components/landing/manifesto";
-import { PricingScene } from "@/components/landing/pricing";
-import { ScheduleScene, type Picked } from "@/components/landing/schedule";
-import { GalleryScene } from "@/components/landing/gallery";
-import { SiteHeader } from "@/components/landing/header";
-import { StepsScene } from "@/components/landing/steps";
-import { Testimonials } from "@/components/landing/testimonials";
-import { VenueProvider, useVenueHour, wdLabel } from "@/components/landing/util";
-import { hoursOf, venueFrom } from "@/lib/venue";
-import { getStoredUser, getToken, homeFor } from "@/lib/arena3/client";
-import { getPublicAvailability, getPublicCatalog } from "@/lib/arena3/catalog";
-import { addDaysISO } from "@/lib/arena3/labels";
-import { BootGate } from "@/components/media";
-import { useSports } from "@/components/sports-ui";
-import { t } from "@/lib/i18n";
+import { freeHours, useNowMinute } from "@/client/components/court-grid";
+import { ClassTicker } from "@/client/components/landing/ticker";
+import { ClassesScene } from "@/client/components/landing/plans";
+import { ClosingCta, SiteFooter } from "@/client/components/landing/closing";
+import { CoachesScene } from "@/client/components/landing/coaches";
+import { CourtsScene } from "@/client/components/landing/courts";
+import { FacilitiesScene } from "@/client/components/landing/facilities";
+import { Hero, StatsBand } from "@/client/components/landing/hero";
+import { LandingSmoother, useLandingScroll } from "@/client/components/landing/smoother";
+import { Manifesto } from "@/client/components/landing/manifesto";
+import { PricingScene } from "@/client/components/landing/pricing";
+import { ScheduleScene, type Picked } from "@/client/components/landing/schedule";
+import type { NextFree } from "@/client/components/landing/hero";
+import { GalleryScene } from "@/client/components/landing/gallery";
+import { SiteHeader } from "@/client/components/landing/header";
+import { ShuttleScene } from "@/client/components/landing/shuttle3d";
+import { StepsScene } from "@/client/components/landing/steps";
+import { Testimonials } from "@/client/components/landing/testimonials";
+import { VenueProvider, priceFor, useVenueHour, wdLabel } from "@/client/components/landing/util";
+import { hoursOf, venueFrom } from "@/client/lib/venue";
+import { getStoredUser, getToken, homeFor } from "@/client/arena3/client";
+import { getPublicAvailability, getPublicCatalog } from "@/server/services/catalog";
+import { addDaysISO } from "@/shared/arena3/labels";
+import { BootGate } from "@/client/components/media";
+import { useSports } from "@/client/components/sports-ui";
+import { t } from "@/client/lib/i18n";
 
 export const Route = createFileRoute("/")({
   // Today's schedule loads with the page rather than behind a sign-in wall:
@@ -42,11 +44,16 @@ export const Route = createFileRoute("/")({
 function Home() {
   const token = getToken();
   const u = getStoredUser();
+  const { availability } = Route.useLoaderData();
+  const now = useNowMinute();
+  // The shuttle's rim light follows how much of today's court is free.
+  const free = freeHours(availability.courts, availability.slots, availability.date, now, true).length;
+  const glow = Math.min(1, 0.35 + free / 48);
   if (token && u) return <Navigate to={homeFor(u.role)} />;
   return (
     <BootGate>
       <main id="main-content" tabIndex={-1} className="min-h-dvh overflow-x-clip text-fg">
-        <LandingSmoother header={<SiteHeader />}>
+        <LandingSmoother header={<><SiteHeader /><ShuttleScene glow={glow} /></>}>
           <Landing />
         </LandingSmoother>
       </main>
@@ -62,7 +69,7 @@ function Home() {
  * its own scene with its own GSAP timeline, and none of them use `motion`.
  */
 function Landing() {
-  const { plans, classes, prices, availability, venue: venueRaw, coaches: dbCoaches } = Route.useLoaderData();
+  const { classes, prices, availability, venue: venueRaw, coaches: dbCoaches } = Route.useLoaderData();
   // The centre's own hours and hold length, for every section's copy and the grid.
   const venue = useMemo(() => venueFrom(venueRaw), [venueRaw]);
   const { scrollToId } = useLandingScroll();
@@ -101,10 +108,20 @@ function Landing() {
     };
   }, [schedDate, sched.date]);
 
-  const freeBySport = (s: string) =>
-    freeHours(sched.courts.filter((c) => c.sport === s), sched.slots, sched.date, now, true, hoursOf(venue)).length;
   // Guests book like members: an hour that has started is no longer on offer (BR-07).
-  const schedFree = freeHours(sched.courts, sched.slots, sched.date, now, true, hoursOf(venue)).length;
+  const schedFreeList = freeHours(sched.courts, sched.slots, sched.date, now, true, hoursOf(venue));
+  const freeCounts = new Map<string, number>();
+  for (const { court } of schedFreeList) {
+    freeCounts.set(court.sport, (freeCounts.get(court.sport) ?? 0) + 1);
+  }
+  const freeBySport = (sport: string) => freeCounts.get(sport) ?? 0;
+  const schedFree = schedFreeList.length;
+  // Hours come out earliest first, so the first one is the next you could play. Until the clock
+  // arrives (now = 0) nothing has been ruled out yet, so the offer waits for it.
+  const first = now ? schedFreeList[0] : undefined;
+  const nextFree: NextFree | null = first
+    ? { ...first, price: priceFor(prices, first.court.sport, sched.date, first.hour) }
+    : null;
   const schedDay =
     sched.date === availability.date
       ? t("today")
@@ -136,10 +153,25 @@ function Landing() {
     scrollToId("schedule");
   };
 
+  /** The hero's free hour, picked on the schedule so the next step is the hold. */
+  const holdNext = (n: NextFree) => {
+    setSchedSport(n.court.sport);
+    setPicked({ court: n.court, hour: n.hour });
+    scrollToId("schedule");
+  };
+
   return (
     <VenueProvider value={venue}>
-      <Hero isOpen={isOpen} freeHours={schedFree} day={schedDay} cheapestHour={cheapestHour} />
-      <StatsBand freeHours={schedFree} day={schedDay} courts={sched.courts} />
+      <Hero
+        isOpen={isOpen}
+        freeHours={schedFree}
+        openClasses={classes.length}
+        day={schedDay}
+        cheapestHour={cheapestHour}
+        next={nextFree}
+        onHold={holdNext}
+      />
+      <StatsBand courts={sched.courts} />
       <CourtsScene weekday={weekday} freeBySport={freeBySport} day={schedDay} onShowTimes={showTimes} courts={sched.courts} />
       <ScheduleScene
         sched={sched}
@@ -158,7 +190,6 @@ function Landing() {
       <CoachesScene dbCoaches={dbCoaches} />
       <FacilitiesScene courts={sched.courts} />
       <PricingScene weekday={weekday} />
-      <PlansScene plans={plans} />
       <ClassesScene classes={classes} />
       <Testimonials />
       <GalleryScene />
