@@ -1,16 +1,18 @@
 import { createFileRoute, useNavigate, useSearch } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
-import { AlertCircle, ArrowLeft, Check, CheckCheck, Clock, MessageSquare, RefreshCw, Send, ShieldCheck, Zap } from "lucide-react";
+import { AlertCircle, ArrowLeft, PenSquare, Check, CheckCheck, Clock, MessageSquare, RefreshCw, Send } from "lucide-react";
 import { toast } from "sonner";
-import { Guard, Shell, initials, roleLabel, useSessionUser } from "@/components/shell";
-import { Badge, Button, Card, EmptyState, Input, LoadError, Skeleton } from "@/components/ui";
-import { Cover } from "@/components/media";
-import { apiGet, apiPost } from "@/lib/arena3/client";
-import { locale, t, tServer } from "@/lib/i18n";
-import { HighlightBadge, useLive } from "@/lib/use-live";
-import { useRead } from "@/lib/use-read";
-import { P2PRoom } from "@/lib/multiplayer/p2p";
-import { cn } from "@/lib/cn";
+import { Guard, Shell, roleLabel, useSessionUser } from "@/client/components/shell";
+import { Badge, Button, EmptyState, Input, LoadError, Skeleton } from "@/client/components/ui";
+import { UserAvatar } from "@/client/components/user-avatar";
+import { NewChat } from "@/client/components/new-chat";
+import { apiGet, apiPost, getToken } from "@/client/arena3/client";
+import { locale, t, tServer } from "@/client/lib/i18n";
+import { HighlightBadge, useLive } from "@/client/lib/use-live";
+import { useRead } from "@/client/lib/use-read";
+import { P2PRoom } from "@/client/lib/multiplayer/p2p";
+import { cn } from "@/client/lib/cn";
+import { scrollBehavior } from "@/client/lib/calm";
 
 export const Route = createFileRoute("/chat")({
   validateSearch: (search: Record<string, unknown>): { conv?: string } => ({
@@ -29,6 +31,14 @@ export interface ConversationItem {
   peer_name: string;
   peer_role: string;
   peer_phone: string | null;
+  peer_avatar_url?: string | null;
+  peer?: {
+    id: string;
+    full_name: string;
+    role: string;
+    member_code: string | null;
+    avatar_url: string | null;
+  };
   last_message: {
     id: string;
     sender_id: string;
@@ -69,7 +79,9 @@ function ChatPage() {
   const activeConvId = search.conv;
 
   const { data: convsData, error: convsErr, reload: reloadConvs } = useRead<{ conversations: ConversationItem[] }>("/conversations");
-  useLive("chat", reloadConvs);
+  // There is no "chat" topic: `filterAllowedTopics` only ever allowed
+  // "chat:<id>", so subscribing to the bare name was dropped on the server and
+  // this list has always been kept current by `notifications` alone.
   useLive("notifications", reloadConvs);
 
   const [activeConv, setActiveConv] = useState<ConversationItem | null>(null);
@@ -80,6 +92,7 @@ function ChatPage() {
   const [isP2PDirect, setIsP2PDirect] = useState(false);
   const [peerTyping, setPeerTyping] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [composing, setComposing] = useState(false);
 
   const p2pRef = useRef<P2PRoom | null>(null);
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -157,6 +170,15 @@ function ChatPage() {
       room: activeConvId,
       selfId: user.id,
       name: user.full_name,
+      // `/rtc` goes through `authFromRequest` like every other route, and these
+      // calls carried no token at all — so every poll, signal and leave came
+      // back 401 and the room never connected to anybody. Passed as a getter so
+      // the leave fired during teardown still uses a current token.
+      getAuthToken: getToken,
+      // Messages still go through the server relay, so there is nothing to tell
+      // the member — but the badge must not keep implying a direct link is
+      // being negotiated when the relay has shut us out.
+      onAuthError: () => setIsP2PDirect(false),
       onPeersChanged: (peers) => {
         const isConnected = peers.some((p) => p.connectionState === "connected");
         setIsP2PDirect(isConnected);
@@ -215,9 +237,17 @@ function ChatPage() {
     }
   });
 
-  // Scroll to bottom on new messages
+  // Keep the newest message in view.
+  //
+  // Unlike the assistant's thread, this column is `flex-1` with no height cap:
+  // it grows with the conversation and the scrolling happens on the document,
+  // so there is no inner scrollport to move. `block: "nearest"` is what stops
+  // the jumping — it scrolls only when the foot of the thread is actually out
+  // of view, and only as far as it must, where `block: "end"` (the default)
+  // re-aligned the page on every message. `behavior` was hardcoded "smooth",
+  // which animated regardless of `prefers-reduced-motion`.
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    messagesEndRef.current?.scrollIntoView({ block: "nearest", behavior: scrollBehavior() });
   }, [messages, peerTyping]);
 
   // Handle typing notification
@@ -309,19 +339,36 @@ function ChatPage() {
           {/* Left Column: Conversations List */}
           <div
             className={cn(
-              "flex flex-col border-r border-line bg-surface/50 lg:col-span-5 xl:col-span-4",
+              "flex min-h-0 flex-col border-r border-line bg-surface/50 lg:col-span-5 xl:col-span-4",
               activeConvId ? "hidden lg:flex" : "flex",
             )}
           >
+            {composing ? (
+              <NewChat
+                onClose={() => setComposing(false)}
+                onOpen={(id) => {
+                  setComposing(false);
+                  reloadConvs();
+                  navigate({ to: "/chat", search: { conv: id } });
+                }}
+              />
+            ) : (
+            <>
             {/* Conversations Header */}
             <div className="border-b border-line p-3.5">
               <div className="mb-2.5 flex items-center justify-between">
                 <h2 className="text-base font-semibold text-fg">{t("Conversations")}</h2>
+                <div className="flex items-center gap-2">
+                <Button size="sm" onClick={() => setComposing(true)}>
+                  <PenSquare className="size-4" />
+                  {t("New message")}
+                </Button>
                 <Badge tone="accent">
                   <HighlightBadge value={conversations.reduce((acc, c) => acc + (Number(c.unread_count) || 0), 0)}>
                     {t("{n} unread", { n: conversations.reduce((acc, c) => acc + (Number(c.unread_count) || 0), 0) })}
                   </HighlightBadge>
                 </Badge>
+                </div>
               </div>
               <Input
                 value={searchQuery}
@@ -344,7 +391,7 @@ function ChatPage() {
               ) : filteredConvs.length === 0 ? (
                 <EmptyState
                   title={t("No conversations")}
-                  hint={t("Your conversations with coaches and members will appear here.")}
+                  hint={t("Tap New message to chat with anyone at the centre.")}
                 />
               ) : (
                 <ul className="grid gap-1">
@@ -363,9 +410,9 @@ function ChatPage() {
                           )}
                         >
                           <div className="relative shrink-0">
-                            <Cover
-                              slot={`avatar.${conv.peer_id}`}
-                              fallbackInitials={initials(conv.peer_name)}
+                            <UserAvatar
+                              url={conv.peer_avatar_url}
+                              name={conv.peer_name}
                               className="size-11 rounded-full border border-line"
                               initialsClassName="text-xs font-bold"
                               alt={conv.peer_name}
@@ -406,19 +453,21 @@ function ChatPage() {
                 </ul>
               )}
             </div>
+            </>
+            )}
           </div>
 
           {/* Right Column: Chat Box */}
           <div
             className={cn(
-              "flex flex-col bg-surface lg:col-span-7 xl:col-span-8",
+              "flex min-h-0 flex-col bg-surface lg:col-span-7 xl:col-span-8",
               activeConvId ? "flex" : "hidden lg:flex",
             )}
           >
             {activeConv ? (
               <>
                 {/* Active Chat Header */}
-                <div className="flex h-16 items-center justify-between border-b border-line px-4">
+                <div className="flex h-16 shrink-0 items-center justify-between border-b border-line px-4">
                   <div className="flex items-center gap-3">
                     <button
                       type="button"
@@ -428,9 +477,9 @@ function ChatPage() {
                     >
                       <ArrowLeft className="size-5" />
                     </button>
-                    <Cover
-                      slot={`avatar.${activeConv.peer_id}`}
-                      fallbackInitials={initials(activeConv.peer_name)}
+                    <UserAvatar
+                      url={activeConv.peer_avatar_url}
+                      name={activeConv.peer_name}
                       className="size-10 rounded-full border border-line"
                       initialsClassName="text-xs font-bold"
                       alt={activeConv.peer_name}
@@ -468,7 +517,7 @@ function ChatPage() {
                 </div>
 
                 {/* Message Stream */}
-                <div className="flex-1 overflow-y-auto p-4">
+                <div className="min-h-0 flex-1 overflow-y-auto p-4">
                   {hasMore ? (
                     <div className="mb-3 text-center">
                       <Button
@@ -560,7 +609,7 @@ function ChatPage() {
                 </div>
 
                 {/* Message Input Box */}
-                <form onSubmit={handleSend} className="border-t border-line p-3">
+                <form onSubmit={handleSend} className="shrink-0 border-t border-line p-3">
                   <div className="flex items-center gap-2">
                     <Input
                       value={inputText}
@@ -591,7 +640,7 @@ function ChatPage() {
                   </div>
                   <h3 className="text-base font-semibold text-fg">{t("Select a conversation")}</h3>
                   <p className="text-xs text-muted">
-                    {t("Choose a chat from the left sidebar or click 'Message coach' in any class to start a conversation.")}
+                    {t("Choose a chat on the left, or tap New message to start one with anyone.")}
                   </p>
                 </div>
               </div>
