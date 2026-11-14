@@ -1,278 +1,36 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
-import {
-  AlertTriangle,
-  Check,
-  ChevronRight,
-  Flame,
-  LayoutGrid,
-  Palette,
-  Plus,
-  RefreshCw,
-  Search,
-  Sparkles,
-  Trophy,
-  Undo2,
-  Trash2,
-  X,
-} from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { AlertTriangle, Camera, ChevronRight, Plus, Search, Undo2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import { CardTitle, SectionTitle } from "@/components/section";
-import { Shell } from "@/components/shell";
-import {
-  Badge,
-  Button,
-  Card,
-  EmptyState,
-  Input,
-  LoadError,
-  Modal,
-  PageHero,
-  Select,
-  Skeleton,
-  Stat,
-} from "@/components/ui";
-import { SportDot, SportThumbnail, invalidateSportsCache } from "@/components/sports-ui";
-import { apiDelete, apiPatch, apiPost } from "@/lib/arena3/client";
-import { sportLabel } from "@/lib/arena3/labels";
-import { cn } from "@/lib/cn";
-import { t, tk, tServer } from "@/lib/i18n";
-import { useRead } from "@/lib/use-read";
+import { Shell } from "@/client/components/shell";
+import { Badge, Button, Card, EmptyState, Input, LoadError, Modal, PageHero, Select, Skeleton } from "@/client/components/ui";
+import { SportDot, SportThumbnail } from "@/client/components/sports-ui";
+import { useRefreshAssets } from "@/client/components/media";
+import { apiPost } from "@/client/arena3/client";
+import { cn } from "@/client/lib/cn";
+import { t, tServer } from "@/client/lib/i18n";
+import { useManagerSports, type ManagerSport, COLOR_KEYS, GLYPH_KEYS, PHOTO_TYPES, photoProblem, uploadSportPhoto } from "@/client/lib/pages/manager.sports";
+
+export { type ManagerSport } from "@/client/lib/pages/manager.sports";
+
 
 export const Route = createFileRoute("/manager/sports")({
   component: Page,
 });
 
-export type ManagerSport = {
-  code: string;
-  name_en: string;
-  name_vi: string;
-  court_prefix: string | null;
-  color_key: string;
-  glyph_key: string;
-  is_scope_all: boolean;
-  max_players: number;
-  slot_duration_min: number;
-  sort_order: number;
-  enabled: boolean;
-  retired_at: string | null;
-  created_at: string;
-  updated_at: string;
-  active_courts_count: number;
-  future_bookings_count: number;
-  future_classes_count: number;
-  active_plans_count: number;
-  photo_url: string;
-};
-
-const COLOR_KEYS = [
-  { key: "leaf", label: tk("Leaf (Green)") },
-  { key: "clay", label: tk("Clay (Terracotta)") },
-  { key: "sun", label: tk("Sun (Amber)") },
-  { key: "sky", label: tk("Sky (Blue)") },
-  { key: "plum", label: tk("Plum (Purple)") },
-  { key: "slate", label: tk("Slate (Grey)") },
-  { key: "moss", label: tk("Moss (Olive)") },
-  { key: "dune", label: tk("Dune (Sand)") },
-] as const;
-
-const GLYPH_KEYS = [
-  { key: "generic", label: tk("Generic Sport") },
-  { key: "badminton", label: tk("Shuttlecock") },
-  { key: "basketball", label: tk("Basketball") },
-  { key: "volleyball", label: tk("Volleyball") },
-] as const;
-
 function Page() {
-  const read = useRead<{ items: ManagerSport[] }>("/manager/sports");
-  const [items, setItems] = useState<ManagerSport[] | null>(null);
-  const [query, setQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"" | "active" | "retired">("");
-
-  // Create state
-  const [creating, setCreating] = useState(false);
-  const [createStep, setCreateStep] = useState<1 | 2>(1);
-  const [cCode, setCCode] = useState("");
-  const [cNameEn, setCNameEn] = useState("");
-  const [cNameVi, setCNameVi] = useState("");
-  const [cPrefix, setCPrefix] = useState("");
-  const [cColor, setCColor] = useState("leaf");
-  const [cGlyph, setCGlyph] = useState("generic");
-  const [cMaxPlayers, setCMaxPlayers] = useState("4");
-  const [cWeekdayPrice, setCWeekdayPrice] = useState("100000");
-  const [cWeekdayPeak, setCWeekdayPeak] = useState("150000");
-  const [cWeekendPrice, setCWeekendPrice] = useState("120000");
-  const [cWeekendPeak, setCWeekendPeak] = useState("180000");
-  const [cSubmitting, setCSubmitting] = useState(false);
-
-  // Edit state
-  const [editing, setEditing] = useState<ManagerSport | null>(null);
-  const [eNameEn, setENameEn] = useState("");
-  const [eNameVi, setENameVi] = useState("");
-  const [ePrefix, setEPrefix] = useState("");
-  const [eColor, setEColor] = useState("leaf");
-  const [eGlyph, setEGlyph] = useState("generic");
-  const [eSortOrder, setESortOrder] = useState("100");
-  const [eEnabled, setEEnabled] = useState(true);
-  const [eSubmitting, setESubmitting] = useState(false);
-
-  // Retire / Delete confirmation states
-  const [retiring, setRetiring] = useState<ManagerSport | null>(null);
-  const [retireBlockers, setRetireBlockers] = useState<string[] | null>(null);
-  const [retireSubmitting, setRetireSubmitting] = useState(false);
-
-  const [deleting, setDeleting] = useState<ManagerSport | null>(null);
-  const [deleteSubmitting, setDeleteSubmitting] = useState(false);
-
-  useEffect(() => {
-    if (read.data?.items) {
-      setItems(read.data.items);
-    }
-  }, [read.data]);
-
-  const allList = items ?? [];
-  const playableList = allList.filter((s) => !s.is_scope_all);
-
-  const filtered = playableList.filter((s) => {
-    if (statusFilter === "active" && (!s.enabled || s.retired_at)) return false;
-    if (statusFilter === "retired" && !s.retired_at) return false;
-    if (!query) return true;
-    const q = query.toLowerCase();
-    return (
-      s.code.toLowerCase().includes(q) ||
-      s.name_en.toLowerCase().includes(q) ||
-      s.name_vi.toLowerCase().includes(q) ||
-      (s.court_prefix && s.court_prefix.toLowerCase().includes(q))
-    );
-  });
-
-  const totalCourts = playableList.reduce((acc, s) => acc + (s.active_courts_count || 0), 0);
-  const activeSports = playableList.filter((s) => s.enabled && !s.retired_at).length;
-
-  function openCreate() {
-    setCCode("");
-    setCNameEn("");
-    setCNameVi("");
-    setCPrefix("");
-    setCColor("leaf");
-    setCGlyph("generic");
-    setCMaxPlayers("4");
-    setCWeekdayPrice("100000");
-    setCWeekdayPeak("150000");
-    setCWeekendPrice("120000");
-    setCWeekendPeak("180000");
-    setCreateStep(1);
-    setCreating(true);
-  }
-
-  function openEdit(sport: ManagerSport) {
-    setEditing(sport);
-    setENameEn(sport.name_en);
-    setENameVi(sport.name_vi);
-    setEPrefix(sport.court_prefix ?? "");
-    setEColor(sport.color_key);
-    setEGlyph(sport.glyph_key);
-    setESortOrder(String(sport.sort_order));
-    setEEnabled(sport.enabled);
-  }
-
-  async function handleCreate() {
-    setCSubmitting(true);
-    try {
-      const res = await apiPost<{ ok: boolean; sport: ManagerSport }>("/manager/sports", {
-        code: cCode.trim().toLowerCase(),
-        name_en: cNameEn.trim(),
-        name_vi: cNameVi.trim(),
-        court_prefix: cPrefix.trim().toUpperCase(),
-        color_key: cColor,
-        glyph_key: cGlyph,
-        max_players: Number(cMaxPlayers) || 4,
-        weekday_price_vnd: Number(cWeekdayPrice) || 100000,
-        weekday_peak_price_vnd: Number(cWeekdayPeak) || 150000,
-        weekend_price_vnd: Number(cWeekendPrice) || 120000,
-        weekend_peak_price_vnd: Number(cWeekendPeak) || 180000,
-      });
-      toast.success(t("Sport {name} created", { name: res.sport.name_en }));
-      invalidateSportsCache();
-      setCreating(false);
-      read.reload();
-    } catch (e) {
-      toast.error(tServer((e as Error).message));
-    } finally {
-      setCSubmitting(false);
-    }
-  }
-
-  async function handleEdit() {
-    if (!editing) return;
-    setESubmitting(true);
-    try {
-      const res = await apiPatch<{ ok: boolean; sport: ManagerSport }>(`/manager/sports/${editing.code}`, {
-        name_en: eNameEn.trim(),
-        name_vi: eNameVi.trim(),
-        court_prefix: ePrefix.trim().toUpperCase() || undefined,
-        color_key: eColor,
-        glyph_key: eGlyph,
-        sort_order: Number(eSortOrder) || 100,
-        enabled: eEnabled,
-      });
-      toast.success(t("Sport updated"));
-      invalidateSportsCache();
-      setEditing(null);
-      read.reload();
-    } catch (e) {
-      toast.error(tServer((e as Error).message));
-    } finally {
-      setESubmitting(false);
-    }
-  }
-
-  async function handleRetire(sport: ManagerSport) {
-    setRetireSubmitting(true);
-    setRetireBlockers(null);
-    try {
-      await apiPost(`/manager/sports/${sport.code}/retire`, {});
-      toast.success(t("Sport retired"));
-      invalidateSportsCache();
-      setRetiring(null);
-      read.reload();
-    } catch (e: any) {
-      if (e.status === 409 && e.body?.reasons) {
-        setRetireBlockers(e.body.reasons);
-      } else {
-        toast.error(tServer(e.message));
-        setRetiring(null);
-      }
-    } finally {
-      setRetireSubmitting(false);
-    }
-  }
-
-  async function handleRestore(sport: ManagerSport) {
-    try {
-      await apiPost(`/manager/sports/${sport.code}/restore`, {});
-      toast.success(t("Sport restored"));
-      invalidateSportsCache();
-      read.reload();
-    } catch (e) {
-      toast.error(tServer((e as Error).message));
-    }
-  }
-
-  async function handleDelete(sport: ManagerSport) {
-    setDeleteSubmitting(true);
-    try {
-      await apiDelete(`/manager/sports/${sport.code}`);
-      toast.success(t("Sport deleted"));
-      invalidateSportsCache();
-      setDeleting(null);
-      read.reload();
-    } catch (e) {
-      toast.error(tServer((e as Error).message));
-    } finally {
-      setDeleteSubmitting(false);
-    }
-  }
+  const {
+    read, items, query, setQuery, statusFilter, setStatusFilter, creating, setCreating, createStep,
+    setCreateStep, cCode, setCCode, cNameEn, setCNameEn, cNameVi, setCNameVi, cPrefix, setCPrefix,
+    cColor, setCColor, cGlyph, setCGlyph, cMaxPlayers, setCMaxPlayers, cWeekdayPrice,
+    setCWeekdayPrice, cWeekdayPeak, setCWeekdayPeak, cWeekendPrice, setCWeekendPrice, cWeekendPeak,
+    setCWeekendPeak, cPhoto, setCPhoto, cSubmitting, editing, setEditing, eNameEn, setENameEn,
+    eNameVi, setENameVi, ePrefix, setEPrefix, eColor, setEColor, eGlyph, setEGlyph, eSortOrder,
+    setESortOrder, eEnabled, setEEnabled, eSubmitting, retiring, setRetiring, retireBlockers,
+    retireSubmitting, deleting, setDeleting, deleteSubmitting, playableList, filtered, totalCourts,
+    activeSports, openCreate, openEdit, handleCreate, handleEdit, handleRetire, handleRestore,
+    handleDelete,
+  } = useManagerSports();
 
   return (
     <Shell role="manager">
@@ -344,11 +102,22 @@ function Page() {
                 <div>
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-3">
-                      <SportThumbnail
-                        sport={s.code}
-                        colorKey={s.color_key}
-                        className="size-12 shrink-0 rounded-[var(--radius-lg)]"
-                      />
+                      <button
+                        type="button"
+                        onClick={() => openEdit(s)}
+                        aria-label={t("Change the photo of {name}", { name: s.name_en })}
+                        title={t("Change the photo of {name}", { name: s.name_en })}
+                        className="group relative shrink-0 rounded-[var(--radius-lg)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                      >
+                        <SportThumbnail
+                          sport={s.code}
+                          colorKey={s.color_key}
+                          className="size-12 shrink-0 rounded-[var(--radius-lg)]"
+                        />
+                        <span className="absolute -bottom-1 -right-1 grid size-5 place-items-center rounded-full border border-line bg-surface text-muted shadow-[var(--shadow-border)] transition-colors group-hover:text-fg">
+                          <Camera aria-hidden="true" className="size-3" />
+                        </span>
+                      </button>
                       <div>
                         <div className="flex items-center gap-1.5">
                           <h3 className="font-semibold text-fg text-base">{s.name_en}</h3>
@@ -386,10 +155,6 @@ function Page() {
                     <div>
                       <span className="text-muted block text-2xs">{t("Active classes")}</span>
                       <span className="font-semibold text-fg">{s.future_classes_count}</span>
-                    </div>
-                    <div>
-                      <span className="text-muted block text-2xs">{t("Active plans")}</span>
-                      <span className="font-semibold text-fg">{s.active_plans_count}</span>
                     </div>
                   </div>
                 </div>
@@ -552,6 +317,8 @@ function Page() {
                 </div>
               </div>
 
+              <NewSportPhotoField file={cPhoto} onFile={setCPhoto} />
+
               <div className="mt-6 flex justify-end gap-2 border-t border-line pt-4">
                 <Button variant="ghost" onClick={() => setCreating(false)}>
                   {t("Cancel")}
@@ -640,6 +407,8 @@ function Page() {
         <p className="text-xs text-muted font-mono mb-4">{editing?.code}</p>
 
           <div className="mt-4 space-y-4">
+            {editing ? <SportPhotoField sport={editing} /> : null}
+
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-medium text-muted mb-1">{t("English name")}</label>
@@ -827,5 +596,141 @@ function Page() {
         </div>
       </Modal>
     </Shell>
+  );
+}
+
+/**
+ * The sport's photo (site asset `sport.<code>`), shown on its cards and booking screens. A picked
+ * photo is saved at once; the form's Save is for the rest. The server's own limits are checked here
+ * first so the reason reads in the manager's language.
+ */
+function SportPhotoField({ sport }: { sport: ManagerSport }) {
+  const refresh = useRefreshAssets();
+  const input = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState(false);
+  const [problem, setProblem] = useState<string | null>(null);
+  const slot = `sport.${sport.code}`;
+
+  async function pick(file: File) {
+    setProblem(null);
+    const why = await photoProblem(file);
+    if (why) return setProblem(why);
+    setBusy(true);
+    try {
+      await uploadSportPhoto(sport.code, file);
+      await refresh();
+      toast.success(t("Photo changed"));
+    } catch (e) {
+      setProblem(e instanceof Error ? tServer(e.message) : t("Something went wrong"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function reset() {
+    setProblem(null);
+    setBusy(true);
+    try {
+      await apiPost(`/manager/site-assets/${encodeURIComponent(slot)}/reset`);
+      await refresh();
+      toast.success(t("Photo put back as shipped"));
+    } catch (e) {
+      setProblem(e instanceof Error ? tServer(e.message) : t("Something went wrong"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="flex items-center gap-4 rounded-[var(--radius-md)] border border-line bg-surface p-3">
+      <SportThumbnail sport={sport.code} colorKey={sport.color_key} className="size-20 rounded-[var(--radius-lg)]" />
+      <div className="grid min-w-0 gap-1.5">
+        <span className="text-xs font-medium text-muted">{t("Photo")}</span>
+        <div className="flex flex-wrap gap-2">
+          <Button size="sm" variant="outline" disabled={busy} onClick={() => input.current?.click()}>
+            <Camera aria-hidden="true" className="mr-1 size-3.5" />
+            {busy ? t("Uploading…") : t("Change photo")}
+          </Button>
+          <Button size="sm" variant="ghost" disabled={busy} onClick={() => void reset()}>
+            {t("Use the shipped photo")}
+          </Button>
+        </div>
+        <p className={problem ? "text-2xs text-danger" : "text-2xs text-muted"} role={problem ? "alert" : undefined}>
+          {problem ?? t("JPEG, PNG or WebP, up to 2 MB, 400 px or more on the shorter side. Saved as soon as you pick it.")}
+        </p>
+        <input
+          ref={input}
+          type="file"
+          accept={PHOTO_TYPES.join(",")}
+          className="hidden"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            e.target.value = "";
+            if (file) void pick(file);
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
+/** A photo for a sport that does not exist yet: checked now, uploaded once the sport is saved. */
+function NewSportPhotoField({ file, onFile }: { file: File | null; onFile: (f: File | null) => void }) {
+  const input = useRef<HTMLInputElement>(null);
+  const [problem, setProblem] = useState<string | null>(null);
+  const [preview, setPreview] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!file) return setPreview(null);
+    const url = URL.createObjectURL(file);
+    setPreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [file]);
+
+  async function pick(f: File) {
+    setProblem(null);
+    const why = await photoProblem(f);
+    if (why) return setProblem(why);
+    onFile(f);
+  }
+
+  return (
+    <div className="flex items-center gap-4 rounded-[var(--radius-md)] border border-line bg-surface p-3">
+      {preview ? (
+        <img src={preview} alt="" className="size-20 shrink-0 rounded-[var(--radius-lg)] object-cover" />
+      ) : (
+        <span className="grid size-20 shrink-0 place-items-center rounded-[var(--radius-lg)] border border-dashed border-line text-subtle">
+          <Camera aria-hidden="true" className="size-5" />
+        </span>
+      )}
+      <div className="grid min-w-0 gap-1.5">
+        <span className="text-xs font-medium text-muted">{t("Photo (optional)")}</span>
+        <div className="flex flex-wrap gap-2">
+          <Button size="sm" variant="outline" onClick={() => input.current?.click()}>
+            <Camera aria-hidden="true" className="mr-1 size-3.5" />
+            {file ? t("Change photo") : t("Choose a photo")}
+          </Button>
+          {file ? (
+            <Button size="sm" variant="ghost" onClick={() => onFile(null)}>
+              {t("Remove")}
+            </Button>
+          ) : null}
+        </div>
+        <p className={problem ? "text-2xs text-danger" : "text-2xs text-muted"} role={problem ? "alert" : undefined}>
+          {problem ?? t("JPEG, PNG or WebP, up to 2 MB, 400 px or more on the shorter side. Saved with the sport.")}
+        </p>
+        <input
+          ref={input}
+          type="file"
+          accept={PHOTO_TYPES.join(",")}
+          className="hidden"
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            e.target.value = "";
+            if (f) void pick(f);
+          }}
+        />
+      </div>
+    </div>
   );
 }
