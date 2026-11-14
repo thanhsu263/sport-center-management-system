@@ -1,15 +1,15 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
-import { Shell, money } from "@/components/shell";
-import { PageHero } from "@/components/page-hero";
-import { StatStrip } from "@/components/stat-strip";
-import { SportBadge, useSports } from "@/components/sports-ui";
-import { Badge, Button, Card, Check, EmptyState, Field, Input, LoadError, Modal, MoneyInput, Select, Skeleton } from "@/components/ui";
-import { ApiClientError, apiGet, apiPatch, apiPost } from "@/lib/arena3/client";
-import { formatDate, sportLabel } from "@/lib/arena3/labels";
-import { t, tk, tServer, tData } from "@/lib/i18n";
-import { useRead } from "@/lib/use-read";
+import { Shell, money } from "@/client/components/shell";
+import { PageHero } from "@/client/components/page-hero";
+import { StatStrip } from "@/client/components/stat-strip";
+import { SportBadge, useSports } from "@/client/components/sports-ui";
+import { Badge, Button, Card, Check, EmptyState, Field, Input, LoadError, Modal, MoneyInput, Select, Skeleton } from "@/client/components/ui";
+import { ApiClientError, apiGet, apiPatch, apiPost } from "@/client/arena3/client";
+import { formatDate, sportLabel } from "@/shared/arena3/labels";
+import { t, tk, tServer, tData } from "@/client/lib/i18n";
+import { useRead } from "@/client/lib/use-read";
 
 export const Route = createFileRoute("/manager/promos")({ component: Page });
 
@@ -77,6 +77,7 @@ const empty = {
   max_per_member: "1",
   plan: true,
   court: true,
+  class: true,
   sport: "",
   plan_id: "",
 };
@@ -110,7 +111,7 @@ function Page() {
     setBusy(true);
     setFe(null);
     try {
-      const applies = [form.plan ? "plan" : "", form.court ? "court" : ""].filter(Boolean);
+      const applies = [form.plan ? "plan" : "", form.court ? "court" : "", form.class ? "class" : ""].filter(Boolean);
       await apiPost("/promotions", {
         code: form.code,
         name: form.name,
@@ -218,7 +219,7 @@ function Page() {
                 {p.min_order_vnd > 0 ? <span className="text-muted"> · {t("from {amount}", { amount: money(p.min_order_vnd) })}</span> : null}
               </p>
               <p className="text-xs text-muted">
-                {p.applies_to.map((a) => (a === "plan" ? t("plans") : t("courts"))).join(" + ")}
+                {p.applies_to.map((a) => (a === "plan" ? t("plans") : a === "class" ? t("classes") : t("courts"))).join(" + ")}
                 {p.sport ? ` · ${sportLabel(p.sport)}` : ""}
                 {p.plan_name ? ` · ${t("{name} only", { name: tData(p.plan_name) })}` : ""}
                 {p.starts_at ? ` · ${t("from {date}", { date: formatDate(p.starts_at) })}` : ""}
@@ -327,10 +328,11 @@ function Page() {
             <legend className="mb-1 text-xs text-muted">{t("Applies to")} {bad("applies_to") ? `: ${bad("applies_to")}` : ""}</legend>
             <Check checked={form.plan} onChange={(e) => setForm({ ...form, plan: e.target.checked })} label={t("Membership plans")} />
             <Check checked={form.court} onChange={(e) => setForm({ ...form, court: e.target.checked })} label={t("Court bookings")} />
+            <Check checked={form.class} onChange={(e) => setForm({ ...form, class: e.target.checked })} label={t("Class tuition")} />
           </fieldset>
         </div>
         <p className="mt-3 text-xs text-muted">
-          {t("Class sign-ups carry no price here, so a code can't apply to them. One code per order. Percentages round to the nearest 1,000đ, and an order is never discounted below 1,000đ.")}
+          {t("On a class a code lowers the tuition only. Member court fees take no code. One code per order. Percentages round to the nearest 1,000đ, and an order is never discounted below 1,000đ.")}
         </p>
       </Modal>
 

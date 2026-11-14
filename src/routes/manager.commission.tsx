@@ -1,13 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { SectionTitle } from "@/components/section";
-import { Shell, money, when } from "@/components/shell";
-import { Badge, Button, Card, EmptyState, Field, LoadError, MoneyInput, Skeleton, Stat } from "@/components/ui";
-import { Reveal } from "@/components/motion";
-import { apiPatch, apiPost } from "@/lib/arena3/client";
-import { t, tServer } from "@/lib/i18n";
-import { useRead } from "@/lib/use-read";
+import { SectionTitle } from "@/client/components/section";
+import { Shell, money, when } from "@/client/components/shell";
+import { Badge, Button, Card, EmptyState, Field, LoadError, MoneyInput, Skeleton, Stat } from "@/client/components/ui";
+import { Reveal } from "@/client/components/motion";
+import { apiPatch, apiPost } from "@/client/arena3/client";
+import { t, tServer } from "@/client/lib/i18n";
+import { useRead } from "@/client/lib/use-read";
 
 export const Route = createFileRoute("/manager/commission")({ component: Page });
 

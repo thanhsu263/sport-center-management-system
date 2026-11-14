@@ -1,10 +1,10 @@
 import { createFileRoute, useSearch } from "@tanstack/react-router";
-import { PaidMark } from "@/components/moments/paid";
+import { PaidMark } from "@/client/components/moments/paid";
 import { useEffect, useState } from "react";
-import { Shell, money } from "@/components/shell";
-import { ButtonLink, Card, Skeleton } from "@/components/ui";
-import { apiPost } from "@/lib/arena3/client";
-import { t } from "@/lib/i18n";
+import { Shell, money } from "@/client/components/shell";
+import { ButtonLink, Card, Skeleton } from "@/client/components/ui";
+import { apiPost } from "@/client/arena3/client";
+import { t } from "@/client/lib/i18n";
 
 /**
  * Where payOS sends the customer back to.

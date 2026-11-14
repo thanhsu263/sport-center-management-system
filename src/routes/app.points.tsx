@@ -1,15 +1,15 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { SectionTitle } from "@/components/section";
-import { Shell, money, when } from "@/components/shell";
-import { Badge, Button, Card, EmptyState, Field, Input, LoadError, PageHero, Pagination, Skeleton } from "@/components/ui";
-import { Tilt } from "@/components/motion";
-import { GlareHover } from "@/components/fx";
-import { cn } from "@/lib/cn";
-import { ApiClientError, apiPost } from "@/lib/arena3/client";
-import { t, tServer } from "@/lib/i18n";
-import { usePageState } from "@/lib/use-page-state";
-import { useRead } from "@/lib/use-read";
+import { SectionTitle } from "@/client/components/section";
+import { Shell, money, when } from "@/client/components/shell";
+import { Badge, Button, Card, EmptyState, Field, Input, LoadError, PageHero, Pagination, Skeleton } from "@/client/components/ui";
+import { Tilt } from "@/client/components/motion";
+import { GlareHover } from "@/client/components/fx";
+import { cn } from "@/client/lib/cn";
+import { ApiClientError, apiPost } from "@/client/arena3/client";
+import { t, tServer } from "@/client/lib/i18n";
+import { usePageState } from "@/client/lib/use-page-state";
+import { useRead } from "@/client/lib/use-read";
 
 export const Route = createFileRoute("/app/points")({ component: Page });
 
