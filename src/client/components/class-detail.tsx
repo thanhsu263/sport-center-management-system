@@ -2,15 +2,17 @@ import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { MessageSquare } from "lucide-react";
 import { toast } from "sonner";
-import { Badge, Button, Field, Input, LoadError, Modal, Select, Skeleton, StatusBadge } from "@/components/ui";
-import { hhmm, initials, money, useSessionUser, when } from "@/components/shell";
-import { Cover } from "@/components/media";
-import { apiPatch, apiPost } from "@/lib/arena3/client";
-import { formatDate, kindLabel, levelLabel, rruleLabel, sportLabel } from "@/lib/arena3/labels";
-import { scrollBehavior } from "@/lib/calm";
-import { locale, t, tk, tServer } from "@/lib/i18n";
-import { useRead } from "@/lib/use-read";
-import { HighlightBadge, useLive } from "@/lib/use-live";
+import { Badge, Button, Field, Input, LoadError, Modal, Select, Skeleton, StatusBadge, Textarea } from "@/client/components/ui";
+import { hhmm, initials, money, useSessionUser, when } from "@/client/components/shell";
+import { UserAvatar } from "@/client/components/user-avatar";
+import { MinSizeBadge } from "@/client/components/class-extras";
+import { Cover } from "@/client/components/media";
+import { apiPatch, apiPost } from "@/client/arena3/client";
+import { formatDate, kindLabel, levelLabel, rruleLabel, sportLabel } from "@/shared/arena3/labels";
+import { scrollBehavior } from "@/client/lib/calm";
+import { locale, t, tk, tServer } from "@/client/lib/i18n";
+import { useRead } from "@/client/lib/use-read";
+import { HighlightBadge, useLive } from "@/client/lib/use-live";
 
 /** "Tue 21 Oct" in the centre's timezone. */
 export function sessionDay(iso: string) {
@@ -30,6 +32,12 @@ type ClassDetail = {
     level: string;
     status: string;
     capacity: number;
+    price_vnd?: number | null;
+    min_enrolled?: number | null;
+    description?: string | null;
+    syllabus?: string | null;
+    who_for?: string | null;
+    bring?: string | null;
     enrolled_count: number;
     rrule: string;
     duration_min: number;
@@ -48,13 +56,23 @@ type ClassDetail = {
     court_code: string;
     headcount: number;
   }>;
-  roster: Array<{ id: string; full_name: string; member_code: string | null; phone: string; status: string }>;
+  roster: Array<{
+    id: string;
+    full_name: string;
+    member_code: string | null;
+    phone: string;
+    status: string;
+    waitlist_pos?: number | null;
+    offer_pending?: boolean;
+    offer_expires_at?: string | null;
+    avatar_url?: string | null;
+  }>;
 };
 
 /** What the manager is in the middle of doing to the class. */
 type Action =
   | { kind: "cancel-session" | "move-session"; sessionId: string; label: string; startAt: string }
-  | { kind: "coach" | "capacity" | "cancel-class" };
+  | { kind: "coach" | "capacity" | "price" | "about" | "cancel-class" };
 
 /** A `datetime-local` value is the centre's wall clock, which is always UTC+7. */
 const toIctIso = (local: string) => `${local}:00+07:00`;
@@ -153,6 +171,7 @@ export function ClassDetailModal({
                     {t("{n}/{cap} enrolled", { n: c.enrolled_count, cap: c.capacity })}
                   </HighlightBadge>
                 </Badge>
+                <MinSizeBadge enrolled={c.enrolled_count} min={c.min_enrolled} status={c.status} />
               </div>
               <p className="text-muted">
                 {t("Coach {name}", { name: c.coach_name })}
@@ -234,8 +253,13 @@ export function ClassDetailModal({
             {confirmed.length ? (
               <ul className="mt-2 grid max-h-48 gap-1 overflow-y-auto text-sm">
                 {confirmed.map((r) => (
-                  <li key={r.id} className="flex flex-wrap justify-between gap-2 px-1">
-                    <span className="font-medium">{r.full_name}</span>
+                  <li key={r.id} className="flex flex-wrap items-center justify-between gap-2 px-1">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="size-8 shrink-0">
+                        <UserAvatar name={r.full_name} url={r.avatar_url} />
+                      </div>
+                      <span className="font-medium">{r.full_name}</span>
+                    </div>
                     <span className="tabular-nums text-muted">
                       {r.member_code ?? "-"} · {r.phone}
                     </span>
@@ -246,7 +270,34 @@ export function ClassDetailModal({
               <p className="mt-2 text-sm text-muted">{t("Nobody has enrolled yet.")}</p>
             )}
             {waiting.length ? (
-              <p className="mt-2 text-sm text-muted">{t("Waiting list: {names}", { names: waiting.map((r) => r.full_name).join(", ") })}</p>
+              <div className="mt-3 border-t border-line/60 pt-2.5">
+                <h4 className="text-2xs font-medium text-muted">
+                  {t("Waiting list · {n}", { n: waiting.length })}
+                </h4>
+                <ul className="mt-1.5 grid max-h-36 gap-1 overflow-y-auto text-sm">
+                  {waiting.map((r) => (
+                    <li key={r.id} className="flex flex-wrap items-center justify-between gap-2 px-1">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="tabular-nums text-muted text-xs">#{r.waitlist_pos ?? "-"}</span>
+                        <div className="size-8 shrink-0">
+                          <UserAvatar name={r.full_name} url={r.avatar_url} />
+                        </div>
+                        <span className="font-medium">{r.full_name}</span>
+                      </div>
+                      <span className="flex items-center gap-2">
+                        {r.offer_pending && r.offer_expires_at ? (
+                          <Badge tone="accent" className="text-2xs">
+                            {t("Offer sent, expires {time}", { time: hhmm(r.offer_expires_at) })}
+                          </Badge>
+                        ) : null}
+                        <span className="tabular-nums text-muted">
+                          {r.member_code ?? "-"} · {r.phone}
+                        </span>
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             ) : null}
           </section>
 
@@ -264,6 +315,12 @@ export function ClassDetailModal({
                       </Button>
                       <Button size="sm" variant="outline" onClick={() => setAction({ kind: "capacity" })}>
                         {t("Edit capacity")}
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => setAction({ kind: "price" })}>
+                        {t("Edit price")}
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => setAction({ kind: "about" })}>
+                        {t("Edit description")}
                       </Button>
                     </>
                   ) : null}
@@ -284,7 +341,9 @@ const ACTION_COPY = {
   "cancel-session": { title: tk("Cancel this session"), go: tk("Cancel session"), needsReason: true },
   "move-session": { title: tk("Move this session"), go: tk("Move session"), needsReason: false },
   coach: { title: tk("Change the coach for every session still to come"), go: tk("Change coach"), needsReason: false },
-  capacity: { title: tk("Edit capacity"), go: tk("Save capacity"), needsReason: false },
+  capacity: { title: tk("Edit capacity and minimum"), go: tk("Save capacity"), needsReason: false },
+  price: { title: tk("Edit price"), go: tk("Save price"), needsReason: false },
+  about: { title: tk("Edit what members read about this class"), go: tk("Save description"), needsReason: false },
   "cancel-class": { title: tk("Cancel the whole class"), go: tk("Cancel class"), needsReason: true },
 } as const;
 
@@ -308,6 +367,14 @@ function ActionForm({
   const coaches = (coachRead.data?.items ?? []).filter((x) => x.id !== classData.coach_id);
   const [coachId, setCoachId] = useState("");
   const [capacity, setCapacity] = useState(String(classData.capacity));
+  const [minEnrolled, setMinEnrolled] = useState(classData.min_enrolled == null ? "" : String(classData.min_enrolled));
+  const [price, setPrice] = useState(classData.price_vnd == null ? "" : String(classData.price_vnd));
+  const [about, setAbout] = useState({
+    description: classData.description ?? "",
+    syllabus: classData.syllabus ?? "",
+    who_for: classData.who_for ?? "",
+    bring: classData.bring ?? "",
+  });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<{ field?: string; message: string } | null>(null);
 
@@ -332,11 +399,24 @@ function ActionForm({
         await apiPost(`/classes/${classData.id}/coach`, { coach_id: coachId, ...(reason ? { reason } : {}) });
         toast.success(t("Coach changed"));
       } else if (action.kind === "capacity") {
-        await apiPatch(`/classes/${classData.id}`, { capacity: Number(capacity) });
+        await apiPatch(`/classes/${classData.id}`, {
+          capacity: Number(capacity),
+          min_enrolled: minEnrolled.trim() === "" ? null : Number(minEnrolled),
+        });
         toast.success(t("Capacity saved"));
+      } else if (action.kind === "price") {
+        await apiPatch(`/classes/${classData.id}`, { price_vnd: price.trim() === "" ? null : Number(price) });
+        toast.success(t("Price saved"));
+      } else if (action.kind === "about") {
+        await apiPatch(`/classes/${classData.id}`, about);
+        toast.success(t("Description saved"));
       } else {
-        await apiPatch(`/classes/${classData.id}`, { status: "cancelled", reason });
-        toast.success(t("Class cancelled: everyone enrolled was told"));
+        const res = await apiPatch<{ refunded?: number; refunded_vnd?: number }>(`/classes/${classData.id}`, { status: "cancelled", reason });
+        toast.success(
+          res.refunded
+            ? t("Class cancelled. {n} members can collect {amount} in cash at the desk.", { n: res.refunded, amount: money(res.refunded_vnd ?? 0) })
+            : t("Class cancelled: everyone enrolled was told"),
+        );
       }
       onDone();
     } catch (e) {
@@ -391,12 +471,36 @@ function ActionForm({
         <Field label={t("Capacity ({n} enrolled)", { n: classData.enrolled_count })} hint={at("capacity")}>
           <Input type="number" min={1} max={200} value={capacity} onChange={(e) => setCapacity(e.target.value)} />
         </Field>
+      ) : null}
+      {action.kind === "capacity" ? (
+        <Field label={t("Minimum to run")} hint={at("min_enrolled") ?? t("Leave empty for no minimum. Below it the class is only flagged.")}>
+          <Input type="number" min={1} max={200} value={minEnrolled} onChange={(e) => setMinEnrolled(e.target.value)} />
+        </Field>
+      ) : action.kind === "price" ? (
+        <Field label={t("Price (VND)")} hint={at("price_vnd") ?? t("Leave empty to close the class to new sign-ups.")}>
+          <Input type="number" min={0} step={1000} inputMode="numeric" value={price} onChange={(e) => setPrice(e.target.value)} />
+        </Field>
+      ) : action.kind === "about" ? (
+        <>
+          <Field label={t("Description")} hint={at("description")}>
+            <Textarea rows={4} maxLength={2000} value={about.description} onChange={(e) => setAbout({ ...about, description: e.target.value })} />
+          </Field>
+          <Field label={t("Syllabus")} hint={at("syllabus") ?? t("One line per session or topic.")}>
+            <Textarea rows={5} maxLength={2000} value={about.syllabus} onChange={(e) => setAbout({ ...about, syllabus: e.target.value })} />
+          </Field>
+          <Field label={t("Who it is for")} hint={at("who_for")}>
+            <Input maxLength={300} value={about.who_for} onChange={(e) => setAbout({ ...about, who_for: e.target.value })} />
+          </Field>
+          <Field label={t("What to bring")} hint={at("bring")}>
+            <Input maxLength={300} value={about.bring} onChange={(e) => setAbout({ ...about, bring: e.target.value })} />
+          </Field>
+        </>
       ) : (
         <Field label={reasonLabel} hint={at("reason")}>
           <Input value={reason} maxLength={300} onChange={(e) => setReason(e.target.value)} />
         </Field>
       )}
-      {error && !["start_at", "coach_id", "capacity", "reason"].includes(error.field ?? "") ? (
+      {error && !["start_at", "coach_id", "capacity", "min_enrolled", "price_vnd", "reason", "description", "syllabus", "who_for", "bring"].includes(error.field ?? "") ? (
         <p role="alert" className="text-sm text-danger">
           {error.message}
         </p>
