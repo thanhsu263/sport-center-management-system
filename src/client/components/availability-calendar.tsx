@@ -1,15 +1,15 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { apiGet } from "@/lib/arena3/client";
-import { cn } from "@/lib/cn";
-import { addDaysISO, todayISO } from "@/lib/arena3/labels";
-import { locale, t, tk } from "@/lib/i18n";
+import { apiGet } from "@/client/arena3/client";
+import { cn } from "@/client/lib/cn";
+import { addDaysISO, todayISO } from "@/shared/arena3/labels";
+import { locale, t, tk } from "@/client/lib/i18n";
 
 /**
  * One day of the calendar: how many court-slots are still free (M-03), and for a member how many
- * courts they already hold that day against the daily cap (BR-05).
+ * courts they already have that day.
  */
-export type DayAvail = { date: string; free: number; total: number; bookable: boolean; mine?: number; cap?: number };
+export type DayAvail = { date: string; free: number; total: number; bookable: boolean; mine?: number };
 export type AvailMap = Record<string, DayAvail>;
 
 const SPAN_DAYS = 62;
@@ -24,9 +24,9 @@ export function useAvailability(sport: string, refreshKey: unknown): AvailMap | 
   useEffect(() => {
     let live = true;
     const q = sport ? `&sport=${encodeURIComponent(sport)}` : "";
-    void apiGet<{ days: DayAvail[]; cap?: number }>(`/availability?from=${todayISO()}&days=${SPAN_DAYS}${q}`)
+    void apiGet<{ days: DayAvail[] }>(`/availability?from=${todayISO()}&days=${SPAN_DAYS}${q}`)
       .then((r) => {
-        if (live) setMap(Object.fromEntries(r.days.map((d) => [d.date, { ...d, cap: r.cap }])));
+        if (live) setMap(Object.fromEntries(r.days.map((d) => [d.date, d])));
       })
       .catch(() => {
         // The calendar is a convenience: without counts the day buttons still work.
@@ -40,12 +40,10 @@ export function useAvailability(sport: string, refreshKey: unknown): AvailMap | 
 }
 
 /**
- * "12 free" / "Full" / "You have 2" / nothing, for a day the member cannot book yet. "Full" means
- * the hall is full; a member at their own daily cap is told that instead (B-3, BR-05).
+ * "12 free" / "Full" / nothing, for a day the member cannot book yet.
  */
 export function availLabel(a: DayAvail | undefined): string {
   if (!a || !a.bookable) return "";
-  if (a.cap != null && a.mine != null && a.mine >= a.cap) return t("You have {n}", { n: a.mine });
   return a.free > 0 ? t("{n} free", { n: a.free }) : t("Full");
 }
 

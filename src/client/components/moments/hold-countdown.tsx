@@ -2,10 +2,10 @@ import { useEffect, useRef, useState } from "react";
 import { CustomEase } from "gsap/CustomEase";
 import { CustomWiggle } from "gsap/CustomWiggle";
 import { DrawSVGPlugin } from "gsap/DrawSVGPlugin";
-import { gsap, motionOff, registerGsap, useGSAP } from "@/lib/gsap";
-import { useCalm } from "@/lib/calm";
-import { cn } from "@/lib/cn";
-import { t } from "@/lib/i18n";
+import { gsap, motionOff, registerGsap, useGSAP } from "@/client/lib/gsap";
+import { useCalm } from "@/client/lib/calm";
+import { cn } from "@/client/lib/cn";
+import { t } from "@/client/lib/i18n";
 
 registerGsap(CustomEase, CustomWiggle, DrawSVGPlugin);
 
@@ -28,10 +28,13 @@ export function HoldCountdown({
   until,
   onExpire,
   className,
+  label,
 }: {
   until: string;
   onExpire?: () => void;
   className?: string;
+  /** What is being held; defaults to the court wording. */
+  label?: string;
 }) {
   const root = useRef<HTMLDivElement>(null);
   const calm = useCalm();
@@ -120,7 +123,7 @@ export function HoldCountdown({
         <span className={cn("size-1.5 rounded-full", urgent ? "bg-danger" : "bg-accent")} />
       </span>
       <div className="min-w-0">
-        <span className="kicker block text-2xs text-muted">{urgent ? t("Hold expiring") : t("Holding your court")}</span>
+        <span className="kicker block text-2xs text-muted">{urgent ? t("Hold expiring") : (label ?? t("Holding your court"))}</span>
         <span
           className={cn("font-display text-xl tabular-nums", urgent ? "text-danger" : "text-accent-2")}
           role="timer"
