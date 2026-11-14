@@ -1,19 +1,20 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Send } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { AssistantMark } from "@/components/mark";
-import { Shell } from "@/components/shell";
-import { Button, LoadError } from "@/components/ui";
+import { AssistantMark } from "@/client/components/mark";
+import { Shell, useSessionUser } from "@/client/components/shell";
+import { Button, LoadError } from "@/client/components/ui";
 import { AnimatePresence, motion } from "motion/react";
-import { GLBackground, Magnet, ShinyText } from "@/components/fx";
-import { apiPost } from "@/lib/arena3/client";
-import { cn } from "@/lib/cn";
-import { scrollBehavior } from "@/lib/calm";
-import { t, tk } from "@/lib/i18n";
+import { GLBackground, Magnet, ShinyText } from "@/client/components/fx";
+import { apiPost } from "@/client/arena3/client";
+import { type ChatMsg, useChatLog } from "@/client/lib/chat-log";
+import { cn } from "@/client/lib/cn";
+import { scrollBehavior } from "@/client/lib/calm";
+import { t, tk } from "@/client/lib/i18n";
 
 export const Route = createFileRoute("/app/assistant")({ component: Page });
 
-type Msg = { role: "me" | "bot"; text: string; source?: "gemini" | "xai" | "rules" };
+type Msg = ChatMsg;
 
 /**
  * The longest question the assistant will read.
@@ -32,7 +33,7 @@ const COUNTER_FROM = MAX_CHARS - 120;
 // The chip's English text is what gets sent to the assistant; only the label drawn is translated.
 const CHIPS = [
   tk("What are your opening hours?"),
-  tk("Which plans are on sale?"),
+  tk("What do courts and classes cost?"),
   tk("Who coaches badminton?"),
   tk("How do I cancel a court?"),
 ];
@@ -40,7 +41,7 @@ const CHIPS = [
 const WELCOME: Msg = {
   role: "bot",
   text: tk(
-    "Ask about the timetable, plans, coaches, cancelling, or waitlists. Every answer is grounded in the centre's own data. Type «ticket: …» to send a note to the desk.",
+    "Ask about the timetable, prices, coaches, cancelling, or waitlists. Every answer is grounded in the centre's own data. Start a message with ticket: to send a note to the desk.",
   ),
 };
 
@@ -53,15 +54,26 @@ function sourceLabel(s?: Msg["source"]) {
 
 function Page() {
   const [q, setQ] = useState("");
-  const [log, setLog] = useState<Msg[]>([WELCOME]);
+  // Shared with the corner widget and kept across reloads (localStorage, per member).
+  const user = useSessionUser();
+  const { log: saved, append, clear } = useChatLog(user?.id);
+  const log: Msg[] = [WELCOME, ...saved];
   const [busy, setBusy] = useState(false);
   // The question that got no answer, and why. Kept in the thread rather than in a toast that fades, so
   // the member can see what was asked and ask it again without typing it out a second time.
   const [failure, setFailure] = useState<{ message: string; reason: string } | null>(null);
-  const bottom = useRef<HTMLDivElement>(null);
+  const thread = useRef<HTMLDivElement>(null);
 
+  // Scroll the thread, not the document.
+  //
+  // `scrollIntoView` walks every scrollable ancestor, the page included, so
+  // aligning a sentinel to `block: "end"` moved the whole window as well — the
+  // page jumped on each send even though the panel it was scrolling inside was
+  // already fully visible.
   useEffect(() => {
-    bottom.current?.scrollIntoView({ behavior: scrollBehavior(), block: "end" });
+    const el = thread.current;
+    if (!el) return;
+    el.scrollTo({ top: el.scrollHeight, behavior: scrollBehavior() });
   }, [log, busy, failure]);
 
   /** Asks the server about `message`, which is already the last line of `thread`. */
@@ -69,12 +81,15 @@ function Page() {
     setBusy(true);
     setFailure(null);
     try {
+      // Only what the member typed. The server drops anything else anyway —
+      // a browser must not get to write the assistant's side of the thread —
+      // so sending the bot's turns would just be bytes it throws away.
       const history = thread
-        .filter((m) => m !== WELCOME)
+        .filter((m) => m !== WELCOME && m.role === "me")
         .slice(0, -1)
         .map((m) => ({ role: m.role, text: m.text }));
       const r = await apiPost<{ reply: string; source?: Msg["source"] }>("/assistant", { message, history });
-      setLog((l) => [...l, { role: "bot", text: r.reply, source: r.source }]);
+      append({ role: "bot", text: r.reply, source: r.source });
     } catch (e) {
       setFailure({ message, reason: e instanceof Error ? e.message : t("The assistant is switched off") });
     } finally {
@@ -87,8 +102,9 @@ function Page() {
     const message = (text ?? q).trim().slice(0, MAX_CHARS);
     if (message.length < 2 || busy) return;
     setQ("");
-    const nextLog: Msg[] = [...log, { role: "me", text: message }];
-    setLog(nextLog);
+    const mine: Msg = { role: "me", text: message };
+    const nextLog: Msg[] = [...log, mine];
+    append(mine);
     void ask(message, nextLog);
   }
 
@@ -96,7 +112,7 @@ function Page() {
     <Shell
       role="member"
       title={t("Assistant")}
-      subtitle={t("Answers use Lê Long Sport Center's timetable, plans and coaches.")}
+      subtitle={t("Answers use Lê Long Sport's timetable, prices and coaches.")}
     >
       {/* The dot field tracks the cursor behind the thread — it makes an empty
           conversation feel awake without competing with the messages. */}
@@ -119,7 +135,7 @@ function Page() {
             <AssistantMark className="size-4" strokeWidth={1.9} />
           </span>
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-medium leading-tight">{t("Lê Long Sport Center assistant")}</p>
+            <p className="text-sm font-medium leading-tight">{t("Lê Long Sport assistant")}</p>
             <p className="text-2xs text-muted">{t("Grounded in this centre's timetable and prices")}</p>
           </div>
           {log.length > 1 ? (
@@ -127,7 +143,7 @@ function Page() {
               variant="ghost"
               size="sm"
               onClick={() => {
-                setLog([WELCOME]);
+                clear();
                 setFailure(null);
                 setQ("");
               }}
@@ -137,7 +153,7 @@ function Page() {
           ) : null}
         </div>
 
-      <div className="relative grid max-h-[min(58vh,34rem)] gap-3 overflow-y-auto p-4">
+      <div ref={thread} className="relative grid max-h-[min(58vh,34rem)] gap-3 overflow-y-auto p-4">
         {log.map((m, i) => (
           <motion.div
             key={`${i}-${m.role}`}
@@ -194,7 +210,6 @@ function Page() {
             onRetry={() => void ask(failure.message, log)}
           />
         ) : null}
-        <div ref={bottom} />
       </div>
 
         <div className="border-t border-line/70 bg-surface/80 p-3">
@@ -256,7 +271,9 @@ function Page() {
               )}
             >
               {q.length >= MAX_CHARS
-                ? t("That is as long as a question can be.")
+                ? // Naming the number is the point: "as long as it can be" tells
+                  // somebody mid-sentence that they are stuck, not what to aim at.
+                  t("That is the whole {max} characters. Shorten it, or send it in two.", { max: MAX_CHARS })
                 : t("{n} characters left", { n: MAX_CHARS - q.length })}
             </p>
           ) : null}
