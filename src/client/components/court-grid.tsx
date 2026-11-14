@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { ChevronDown, Plus } from "lucide-react";
-import { availLabel, type AvailMap } from "@/components/availability-calendar";
-import { cn } from "@/lib/cn";
-import { locale, t } from "@/lib/i18n";
-import { useLive } from "@/lib/use-live";
+import { availLabel, type AvailMap } from "@/client/components/availability-calendar";
+import { cn } from "@/client/lib/cn";
+import { locale, t } from "@/client/lib/i18n";
+import { useLive } from "@/client/lib/use-live";
 import {
   addDaysISO,
   kindLabel,
@@ -11,7 +11,7 @@ import {
   sportLabel,
   todayISO,
   weekdayShort,
-} from "@/lib/arena3/labels";
+} from "@/shared/arena3/labels";
 
 function hhmm(iso: string) {
   return new Date(iso).toLocaleTimeString(locale(), {
@@ -85,6 +85,17 @@ const STATE_CLASS: Record<SlotState, string> = {
   closed: "stripes bg-line-strong/45 text-subtle",
   past: "bg-wood/50 text-subtle/70",
 };
+
+/**
+ * A finished hour that was actually played keeps a faint trace of what filled it, so a past day
+ * on the report reads as the day it was rather than as an empty floor.
+ */
+function playedClass(state: SlotState, occ: OccSlot | undefined): string | false {
+  if (state !== "past" || !occ) return false;
+  if (occ.kind === "session") return "bg-slot-class/40 text-on-media/80";
+  if (occ.kind === "booking") return "bg-accent/25 text-accent-2";
+  return false;
+}
 
 /**
  * An occupied hour whose owner the desk can look up (B-07). Court-level
@@ -380,7 +391,7 @@ export function CourtGrid({
   freeCount?: number;
   /** Staff grids open with the finished hours showing: the morning's bookings are still work. */
   defaultShowPast?: boolean;
-  /** The hours the centre is open, from its settings (src/lib/venue.ts). */
+  /** The hours the centre is open, from its settings (src/client/lib/venue.ts). */
   hours?: readonly number[];
   /** The hour the caller is currently asking about, marked on the grid. */
   selected?: { courtId: string; hour: number } | null;
@@ -537,6 +548,7 @@ export function CourtGrid({
                 const cls = cn(
                   "grid min-h-11 place-items-center rounded-[var(--radius-xs)] text-2xs font-medium tabular-nums",
                   STATE_CLASS[state],
+                  playedClass(state, occ),
                   isNow(date, h, now) && state !== "past" && "ring-1 ring-accent/60",
                   selected?.courtId === c.id &&
                     selected.hour === h &&
@@ -706,6 +718,7 @@ function HourRow({
         const cls = cn(
           "h-9 w-full overflow-hidden rounded-[var(--radius-xs)]",
           STATE_CLASS[state],
+          playedClass(state, occ),
           live && state !== "past" && "ring-1 ring-accent/60",
           selected?.courtId === c.id &&
             selected.hour === hour &&
