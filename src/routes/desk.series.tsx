@@ -2,8 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { CalendarPlus, Repeat } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { toast } from "sonner";
-import { SectionTitle } from "@/components/section";
-import { Shell, money, when, useSessionUser } from "@/components/shell";
+import { SectionTitle } from "@/client/components/section";
+import { Shell, money, when, useSessionUser } from "@/client/components/shell";
 import {
   Badge,
   Button,
@@ -18,13 +18,13 @@ import {
   Seg,
   Select,
   Skeleton,
-} from "@/components/ui";
-import { Reveal, Stagger, StaggerItem } from "@/components/motion";
-import { TillNotice, useTillOpen } from "@/components/till-notice";
-import { ApiClientError, apiGet, apiPost } from "@/lib/arena3/client";
-import { addDaysISO, formatDate, sportLabel, todayISO } from "@/lib/arena3/labels";
-import { t, tServer } from "@/lib/i18n";
-import { useRead } from "@/lib/use-read";
+} from "@/client/components/ui";
+import { Reveal, Stagger, StaggerItem } from "@/client/components/motion";
+import { TillNotice, useTillOpen } from "@/client/components/till-notice";
+import { ApiClientError, apiGet, apiPost } from "@/client/arena3/client";
+import { addDaysISO, formatDate, sportLabel, todayISO } from "@/shared/arena3/labels";
+import { t, tServer } from "@/client/lib/i18n";
+import { useRead } from "@/client/lib/use-read";
 
 export const Route = createFileRoute("/desk/series")({ component: Page });
 
