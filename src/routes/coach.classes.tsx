@@ -1,16 +1,16 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { Users, Ticket, Calendar, CheckCircle } from "lucide-react";
-import { ClassDetailModal } from "@/components/class-detail";
-import { Shell } from "@/components/shell";
-import { Badge, Button, Card, EmptyState, LoadError, ShowMore, Skeleton, StatusBadge } from "@/components/ui";
-import { Stagger, StaggerItem, motion } from "@/components/motion";
-import { SpotlightCard } from "@/components/fx";
-import { SportIcon } from "@/components/arena-icons";
-import { formatDate, levelLabel, rruleLabel, sportLabel } from "@/lib/arena3/labels";
-import { t } from "@/lib/i18n";
-import { useRead } from "@/lib/use-read";
-import { HighlightBadge, useLive } from "@/lib/use-live";
+import { ClassDetailModal } from "@/client/components/class-detail";
+import { Shell } from "@/client/components/shell";
+import { Badge, Button, Card, EmptyState, LoadError, ShowMore, Skeleton, StatusBadge } from "@/client/components/ui";
+import { Stagger, StaggerItem, motion } from "@/client/components/motion";
+import { SpotlightCard } from "@/client/components/fx";
+import { SportIcon } from "@/client/components/arena-icons";
+import { formatDate, levelLabel, rruleLabel, sportLabel } from "@/shared/arena3/labels";
+import { t } from "@/client/lib/i18n";
+import { useRead } from "@/client/lib/use-read";
+import { HighlightBadge, useLive } from "@/client/lib/use-live";
 
 export const Route = createFileRoute("/coach/classes")({
   component: Page,

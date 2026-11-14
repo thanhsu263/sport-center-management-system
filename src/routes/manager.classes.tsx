@@ -1,23 +1,29 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Shell } from "@/components/shell";
-import { PageHero } from "@/components/page-hero";
-import { StatStrip } from "@/components/stat-strip";
-import { SportBadge, useSports } from "@/components/sports-ui";
-import { Button, Card, DateField, EmptyState, Field, Input, LoadError, Select, ShowMore, Skeleton, StatusBadge } from "@/components/ui";
-import { Lift, Reveal, Stagger, StaggerItem, motion } from "@/components/motion";
-import { SpotlightCard } from "@/components/fx";
-import { ClassDetailModal } from "@/components/class-detail";
-import { apiPost } from "@/lib/arena3/client";
-import { composeWeeklyRrule, levelLabel, rruleLabel, sportLabel, todayISO, addDaysISO } from "@/lib/arena3/labels";
-import { t, tk, tServer } from "@/lib/i18n";
-import { useRead } from "@/lib/use-read";
-import { HighlightBadge, useLive } from "@/lib/use-live";
+import { Shell, money } from "@/client/components/shell";
+import { PageHero } from "@/client/components/page-hero";
+import { StatStrip } from "@/client/components/stat-strip";
+import { SportBadge, useSports } from "@/client/components/sports-ui";
+import { Button, Card, DateField, EmptyState, Field, Input, LoadError, Select, ShowMore, Skeleton, StatusBadge } from "@/client/components/ui";
+import { Lift, Reveal, Stagger, StaggerItem, motion } from "@/client/components/motion";
+import { SpotlightCard } from "@/client/components/fx";
+import { ClassDetailModal } from "@/client/components/class-detail";
+import { MinSizeBadge } from "@/client/components/class-extras";
+import { apiPost } from "@/client/arena3/client";
+import { classSlotMatches, composeWeeklyRrule, levelLabel, rruleLabel, sportLabel, todayISO, addDaysISO } from "@/shared/arena3/labels";
+import { t, tk, tServer } from "@/client/lib/i18n";
+import { useRead } from "@/client/lib/use-read";
+import { useCentre } from "@/client/lib/use-centre";
+import { hoursOf } from "@/client/lib/venue";
+import { HighlightBadge, useLive } from "@/client/lib/use-live";
 
 export const Route = createFileRoute("/manager/classes")({
   component: Page,
 });
+
+/** Matches MAX_CLASS_CAPACITY in the classes handler, which refuses anything above it. */
+const MAX_CAPACITY = 200;
 
 const DAYS = [
   { k: "MO", l: tk("Mon") },
@@ -41,9 +47,12 @@ type ClassRow = {
   capacity: number;
   rrule?: string;
   duration_min?: number;
+  price_vnd?: number | null;
+  min_enrolled?: number | null;
 };
 
 function Page() {
+  const { venue } = useCentre();
   const [limit, setLimit] = useState(8);
   const classesRead = useRead<{ items: ClassRow[] }>("/classes");
   const courtsRead = useRead<{ items: Array<{ id: string; court_code: string; sport: string }> }>("/courts");
@@ -54,7 +63,18 @@ function Page() {
   // Cancelled classes stay on record but are folded away; the server sends the newest first.
   const [showCancelled, setShowCancelled] = useState(false);
   const cancelledCount = items?.filter((c) => c.status === "cancelled").length ?? 0;
-  const listed = items ? (showCancelled ? items : items.filter((c) => c.status !== "cancelled")) : null;
+  // The same coach, weekday and time-of-day filters members have, to find a class without scrolling.
+  const [coach, setCoach] = useState("");
+  const [day, setDay] = useState("");
+  const [part, setPart] = useState("");
+  const filtering = !!(coach || day || part);
+  const coachNames = [...new Set((items ?? []).map((c) => c.coach_name))].sort((a, b) => a.localeCompare(b, "vi"));
+  const listed = items
+    ? (showCancelled ? items : items.filter((c) => c.status !== "cancelled"))
+        .filter((c) => !coach || c.coach_name === coach)
+        .filter((c) => classSlotMatches(c.rrule, day, part))
+    : null;
+  useEffect(() => setLimit(8), [coach, day, part]);
   const courts = useMemo(() => courtsRead.data?.items ?? [], [courtsRead.data]);
   const coaches = useMemo(() => coachesRead.data?.items ?? [], [coachesRead.data]);
   // The form can only say "no coach teaches this" once the coaches have really been read.
@@ -71,7 +91,9 @@ function Page() {
     level: "beginner",
     coach_id: "",
     court_id: "",
-    capacity: 12,
+    capacity: "12",
+    min: "",
+    price: "",
     duration_min: 60,
     start_on: todayISO(),
     end_on: addDaysISO(todayISO(), 60),
@@ -109,6 +131,23 @@ function Page() {
         ? t("There is no court for this sport.")
         : null;
 
+  // The same limits the server holds the class to, said beside the box before the click rather
+  // than after it. Typed as text so a half-typed or emptied box is shown as wrong, not as 0.
+  const whole = (v: string) => (/^\d+$/.test(v.trim()) ? Number(v.trim()) : NaN);
+  const capacityN = whole(form.capacity);
+  const capacityError =
+    Number.isInteger(capacityN) && capacityN >= 1 && capacityN <= MAX_CAPACITY
+      ? null
+      : t("Capacity must be a whole number from 1 to {max}.", { max: MAX_CAPACITY });
+  const minN = whole(form.min);
+  const minError =
+    form.min.trim() === "" || (Number.isInteger(minN) && minN >= 1 && (capacityError || minN <= capacityN))
+      ? null
+      : t("The minimum must be a whole number from 1 up to the capacity.");
+  const priceError =
+    form.price.trim() === "" || Number.isInteger(whole(form.price)) ? null : t("Price must be a whole number of dong, or empty.");
+  const invalid = !!(capacityError || minError || priceError);
+
   function toggleDay(k: string) {
     setDays((prev) => (prev.includes(k) ? prev.filter((d) => d !== k) : [...prev, k]));
   }
@@ -129,14 +168,19 @@ function Page() {
 
       <StatStrip
         stats={[
-          { label: tk("Active classes"), value: publishedClasses },
-          { label: tk("Drafts"), value: draftClasses },
-          { label: tk("Enrolled students"), value: totalEnrolled },
-          { label: tk("Total classes"), value: totalClasses },
+          { label: t("Active classes"), value: publishedClasses },
+          { label: t("Drafts"), value: draftClasses },
+          { label: t("Enrolled students"), value: totalEnrolled },
+          { label: t("Total classes"), value: totalClasses },
         ]}
         className="mb-6"
       />
 
+      <details className="group mb-6 rounded-[var(--radius-xl)] border border-line bg-surface">
+        <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-3 rounded-[var(--radius-xl)] p-4 font-semibold text-fg focus-visible:outline-2 focus-visible:outline-accent">
+          {t("Create class")}
+          <span aria-hidden="true" className="text-xl text-accent group-open:rotate-45">+</span>
+        </summary>
       {formError ? (
         // Without the courts and coaches the form would offer nothing to pick, so it says why instead.
         <div className="mb-6">
@@ -216,7 +260,7 @@ function Page() {
         </div>
         <Field label={t("Start time")}>
           <Select value={String(hour)} onChange={(e) => setHour(Number(e.target.value))}>
-            {Array.from({ length: 16 }, (_, i) => i + 6).map((h) => (
+            {hoursOf(venue).map((h) => (
               <option key={h} value={h}>
                 {String(h).padStart(2, "0")}:00
               </option>
@@ -226,11 +270,47 @@ function Page() {
         <Field label={t("First day")}>
           <DateField value={form.start_on} onChange={(v) => setForm({ ...form, start_on: v })} aria-label={t("Start date")} />
         </Field>
-        <Field label={t("Capacity")}>
+        <Field label={t("Capacity")} hint={capacityError ?? undefined}>
           <Input
             type="number"
+            min={1}
+            max={MAX_CAPACITY}
+            step={1}
+            inputMode="numeric"
+            aria-invalid={capacityError ? true : undefined}
             value={form.capacity}
-            onChange={(e) => setForm({ ...form, capacity: Number(e.target.value) })}
+            onChange={(e) => setForm({ ...form, capacity: e.target.value })}
+          />
+        </Field>
+        <Field
+          label={t("Minimum to run")}
+          hint={minError ?? t("Leave empty for no minimum. Below it the class is only flagged.")}
+          tone={minError ? "danger" : "muted"}
+        >
+          <Input
+            type="number"
+            min={1}
+            max={capacityError ? MAX_CAPACITY : capacityN}
+            step={1}
+            inputMode="numeric"
+            aria-invalid={minError ? true : undefined}
+            value={form.min}
+            onChange={(e) => setForm({ ...form, min: e.target.value })}
+          />
+        </Field>
+        <Field
+          label={t("Price (VND)")}
+          hint={priceError ?? t("Leave empty until the class is ready to sell.")}
+          tone={priceError ? "danger" : "muted"}
+        >
+          <Input
+            type="number"
+            min={0}
+            step={1000}
+            inputMode="numeric"
+            aria-invalid={priceError ? true : undefined}
+            value={form.price}
+            onChange={(e) => setForm({ ...form, price: e.target.value })}
           />
         </Field>
         <div className="flex flex-col justify-end gap-1">
@@ -246,15 +326,19 @@ function Page() {
           ) : null}
           <Button
             className="w-full"
-            disabled={creating || !!missing || !form.coach_id || !form.court_id}
+            disabled={creating || invalid || !!missing || !form.coach_id || !form.court_id}
             onClick={async () => {
               // One click used to land many identical classes: the button stayed
               // live for the whole create-and-publish round trip.
-              if (creating) return;
+              if (creating || invalid) return;
               setCreating(true);
               try {
+                const { price, min, ...rest } = form;
                 const row = await apiPost<{ id: string }>("/classes", {
-                  ...form,
+                  ...rest,
+                  capacity: capacityN,
+                  min_enrolled: min.trim() === "" ? null : Number(min),
+                  price_vnd: price.trim() === "" ? null : Number(price),
                   rrule: composeWeeklyRrule(days, hour),
                 });
                 toast.success(t("Draft created"));
@@ -274,10 +358,37 @@ function Page() {
       </Card>
       </Reveal>
       )}
+      </details>
       {classesRead.error ? (
         <LoadError message={classesRead.error.message} onRetry={classesRead.error.refused ? undefined : classesRead.reload} />
       ) : !items ? (
         <Skeleton className="h-40" />
+      ) : null}
+      {items?.length ? (
+        <div className="mb-4 grid gap-2 sm:grid-cols-3">
+          <Select aria-label={t("Coach")} value={coach} onChange={(e) => setCoach(e.target.value)}>
+            <option value="">{t("All coaches")}</option>
+            {coachNames.map((n) => (
+              <option key={n} value={n}>
+                {n}
+              </option>
+            ))}
+          </Select>
+          <Select aria-label={t("Day")} value={day} onChange={(e) => setDay(e.target.value)}>
+            <option value="">{t("Any day")}</option>
+            {DAYS.map((d) => (
+              <option key={d.k} value={d.k}>
+                {t(d.l)}
+              </option>
+            ))}
+          </Select>
+          <Select aria-label={t("Time of day")} value={part} onChange={(e) => setPart(e.target.value)}>
+            <option value="">{t("Any time")}</option>
+            <option value="morning">{t("Morning (before 12:00)")}</option>
+            <option value="afternoon">{t("Afternoon (12:00-17:00)")}</option>
+            <option value="evening">{t("Evening (from 17:00)")}</option>
+          </Select>
+        </div>
       ) : null}
       <Stagger className="grid gap-3 md:grid-cols-2" gap={0.06}>
         {(listed ?? []).slice(0, limit).map((c) => (
@@ -289,6 +400,7 @@ function Page() {
               <div className="flex items-center gap-2">
                 <SportBadge sport={c.sport} />
                 <StatusBadge status={c.status} />
+                <MinSizeBadge enrolled={c.enrolled_count} min={c.min_enrolled} status={c.status} />
               </div>
               <span className="text-2xs tabular-nums text-muted">{c.code}</span>
             </div>
@@ -299,6 +411,7 @@ function Page() {
               {c.coach_name} · {c.court_code} · <HighlightBadge value={c.enrolled_count}>{c.enrolled_count}</HighlightBadge>/{c.capacity}
             </p>
             {c.rrule ? <p className="text-sm">{rruleLabel(c.rrule, c.duration_min)}</p> : null}
+            <p className="text-sm tabular-nums text-muted">{c.price_vnd == null ? t("Price: not set") : money(c.price_vnd)}</p>
             <Button className="mt-3" variant="outline" onClick={() => setDetail(c.id)}>
               {t("Sessions & students")}
             </Button>
@@ -334,10 +447,13 @@ function Page() {
           </Button>
         </div>
       ) : null}
+      {filtering && listed && !listed.length ? (
+        <EmptyState title={t("No class matches these filters")} hint={t("Change the coach, day or time above.")} />
+      ) : null}
       {items && !items.length ? (
         <EmptyState
           title={t("No classes yet")}
-          hint={t("Pick a sport, a coach and the days above, then press Create & publish. Members can book as soon as it is published.")}
+          hint={t("Open Create class, pick a sport, coach and days, then press Create & publish. Members can book as soon as it is published.")}
         />
       ) : null}
       <ClassDetailModal classId={detail} onClose={() => setDetail(null)} manage onChanged={() => void load()} />

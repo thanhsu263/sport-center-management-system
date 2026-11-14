@@ -1,13 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { ClassDetailModal } from "@/components/class-detail";
-import { Shell } from "@/components/shell";
-import { Button, Card, EmptyState, LoadError, ShowMore, Skeleton, StatusBadge } from "@/components/ui";
-import { Stagger, StaggerItem } from "@/components/motion";
-import { t } from "@/lib/i18n";
-import { levelLabel, rruleLabel, sportLabel } from "@/lib/arena3/labels";
-import { useRead } from "@/lib/use-read";
-import { HighlightBadge, useLive } from "@/lib/use-live";
+import { ClassDetailModal } from "@/client/components/class-detail";
+import { Shell } from "@/client/components/shell";
+import { Button, Card, EmptyState, LoadError, ShowMore, Skeleton, StatusBadge } from "@/client/components/ui";
+import { Stagger, StaggerItem } from "@/client/components/motion";
+import { t } from "@/client/lib/i18n";
+import { levelLabel, rruleLabel, sportLabel } from "@/shared/arena3/labels";
+import { useRead } from "@/client/lib/use-read";
+import { HighlightBadge, useLive } from "@/client/lib/use-live";
 
 export const Route = createFileRoute("/desk/classes")({
   component: Page,
