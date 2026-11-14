@@ -1,12 +1,16 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { SectionTitle } from "@/components/section";
-import { Shell, money, when } from "@/components/shell";
-import { Badge, Button, Card, EmptyState, LoadError, Skeleton, Stat } from "@/components/ui";
-import { Reveal } from "@/components/motion";
-import { levelLabel } from "@/lib/arena3/labels";
-import { t } from "@/lib/i18n";
-import { useRead } from "@/lib/use-read";
+import { SectionTitle } from "@/client/components/section";
+import { Shell, money, when } from "@/client/components/shell";
+import { Badge, Button, Card, EmptyState, LoadError, Skeleton, Stat } from "@/client/components/ui";
+import { Reveal } from "@/client/components/motion";
+import { levelLabel } from "@/shared/arena3/labels";
+import { locale, t } from "@/client/lib/i18n";
+
+/** "2026-11" is a database key; a coach reads "November 2026". */
+const monthName = (period: string) =>
+  new Date(`${period}-01T00:00:00Z`).toLocaleDateString(locale(), { month: "long", year: "numeric", timeZone: "UTC" });
+import { useRead } from "@/client/lib/use-read";
 
 export const Route = createFileRoute("/coach/earnings")({ component: Page });
 
@@ -51,7 +55,7 @@ function Page() {
           <Button variant="outline" size="sm" className="min-w-11" aria-label={t("Previous month")} disabled={!viewing} onClick={() => viewing && setPeriod(shiftMonth(viewing, -1))}>
             ←
           </Button>
-          <span className="min-w-28 text-center font-display text-xl tabular-nums">{viewing ?? "…"}</span>
+          <span className="min-w-28 text-center font-display text-xl tabular-nums">{viewing ? monthName(viewing) : "…"}</span>
           <Button variant="outline" size="sm" className="min-w-11" aria-label={t("Next month")} disabled={!viewing || !current || viewing >= current} onClick={() => viewing && setPeriod(shiftMonth(viewing, 1))}>
             →
           </Button>
@@ -100,7 +104,7 @@ function Page() {
               {data.history.map((h) => (
                 <Card key={h.period} className="flex items-center justify-between gap-3 p-3 text-sm">
                   <span className="tabular-nums">
-                    {h.period} · {t("{n} classes", { n: h.sessions })}
+                    {monthName(h.period)} · {t("{n} classes", { n: h.sessions })}
                   </span>
                   <span className="flex items-center gap-2">
                     <span className="tabular-nums">{money(h.amount_vnd)}</span>

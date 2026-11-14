@@ -1,15 +1,15 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { SectionTitle } from "@/components/section";
-import { Shell, money, when } from "@/components/shell";
-import { Badge, Button, Card, Check, DateField, EmptyState, Field, LoadError, Skeleton, Stat, Pagination } from "@/components/ui";
-import { Reveal } from "@/components/motion";
-import { downloadReport } from "@/lib/arena3/client";
-import { todayISO } from "@/lib/arena3/labels";
-import { t, tServer } from "@/lib/i18n";
-import { usePageState } from "@/lib/use-page-state";
-import { useRead } from "@/lib/use-read";
+import { SectionTitle } from "@/client/components/section";
+import { Shell, money, when } from "@/client/components/shell";
+import { Badge, Button, Card, Check, DateField, EmptyState, Field, LoadError, Skeleton, Stat, Pagination } from "@/client/components/ui";
+import { Reveal } from "@/client/components/motion";
+import { downloadReport } from "@/client/arena3/client";
+import { todayISO } from "@/shared/arena3/labels";
+import { t, tServer } from "@/client/lib/i18n";
+import { usePageState } from "@/client/lib/use-page-state";
+import { useRead } from "@/client/lib/use-read";
 
 export const Route = createFileRoute("/manager/invoices")({ component: Page });
 
