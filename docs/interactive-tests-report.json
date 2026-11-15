@@ -1,0 +1,592 @@
+{
+  "timestamp": "2026-10-11T08:51:35.738Z",
+  "totalDurationMs": 149055,
+  "summary": {
+    "total": 54,
+    "passed": 54,
+    "failed": 0,
+    "passRate": "100.0%"
+  },
+  "suites": [
+    {
+      "suiteName": "Section 1: Public & Authentication (S01–S04)",
+      "total": 15,
+      "passed": 15,
+      "failed": 0,
+      "results": [
+        {
+          "id": "TC-PUB-01",
+          "section": "Section 1: Public & Authentication (S01–S04)",
+          "screen": "S01 - Landing Page",
+          "element": "Header Sign In Button",
+          "action": "Click header link to /login",
+          "status": "PASS",
+          "durationMs": 1738,
+          "actual": "Operated successfully as expected"
+        },
+        {
+          "id": "TC-PUB-02",
+          "section": "Section 1: Public & Authentication (S01–S04)",
+          "screen": "S01 - Landing Page",
+          "element": "Header Register Button",
+          "action": "Click header link to /register",
+          "status": "PASS",
+          "durationMs": 1839,
+          "actual": "Operated successfully as expected"
+        },
+        {
+          "id": "TC-PUB-03",
+          "section": "Section 1: Public & Authentication (S01–S04)",
+          "screen": "S01 - Landing Page",
+          "element": "Language Switcher Button",
+          "action": "Toggle language switch en <-> vi",
+          "status": "PASS",
+          "durationMs": 1985,
+          "actual": "Operated successfully as expected"
+        },
+        {
+          "id": "TC-PUB-04",
+          "section": "Section 1: Public & Authentication (S01–S04)",
+          "screen": "S01 - Landing Page",
+          "element": "Hero 'Book a court' Anchor CTA",
+          "action": "Click hero CTA to scroll to #schedule",
+          "status": "PASS",
+          "durationMs": 574,
+          "actual": "Operated successfully as expected"
+        },
+        {
+          "id": "TC-PUB-05",
+          "section": "Section 1: Public & Authentication (S01–S04)",
+          "screen": "S01 - Landing Page",
+          "element": "Schedule Sport Tabs",
+          "action": "Click badminton, basketball, volleyball filter tabs",
+          "status": "PASS",
+          "durationMs": 1494,
+          "actual": "Operated successfully as expected"
+        },
+        {
+          "id": "TC-PUB-06",
+          "section": "Section 1: Public & Authentication (S01–S04)",
+          "screen": "S01 - Landing Page",
+          "element": "Coach Card Detail Modal",
+          "action": "Click coach card to open bio modal, then click close",
+          "status": "PASS",
+          "durationMs": 6,
+          "actual": "Operated successfully as expected"
+        },
+        {
+          "id": "TC-LOGIN-01",
+          "section": "Section 1: Public & Authentication (S01–S04)",
+          "screen": "S02 - Login Screen",
+          "element": "Phone and Password Inputs",
+          "action": "Inspect visibility of phone and password input fields",
+          "status": "PASS",
+          "durationMs": 17,
+          "actual": "Operated successfully as expected"
+        },
+        {
+          "id": "TC-LOGIN-02",
+          "section": "Section 1: Public & Authentication (S01–S04)",
+          "screen": "S02 - Login Screen",
+          "element": "Password Eye Toggle Button",
+          "action": "Click eye icon to toggle password input type between password and text",
+          "status": "PASS",
+          "durationMs": 502,
+          "actual": "Operated successfully as expected"
+        },
+        {
+          "id": "TC-LOGIN-03",
+          "section": "Section 1: Public & Authentication (S01–S04)",
+          "screen": "S02 - Login Screen",
+          "element": "Sign In Form Submit Validation",
+          "action": "Submit empty form and verify error message or blocked submission",
+          "status": "PASS",
+          "durationMs": 573,
+          "actual": "Operated successfully as expected"
+        },
+        {
+          "id": "TC-LOGIN-04",
+          "section": "Section 1: Public & Authentication (S01–S04)",
+          "screen": "S02 - Login Screen",
+          "element": "Invalid Credentials Error Toast/Message",
+          "action": "Submit incorrect credentials and verify error notification",
+          "status": "PASS",
+          "durationMs": 1093,
+          "actual": "Operated successfully as expected"
+        },
+        {
+          "id": "TC-LOGIN-05",
+          "section": "Section 1: Public & Authentication (S01–S04)",
+          "screen": "S02 - Login Screen",
+          "element": "Forgot Password and Register Navigation Links",
+          "action": "Verify presence and targets of helper navigation links",
+          "status": "PASS",
+          "durationMs": 5,
+          "actual": "Operated successfully as expected"
+        },
+        {
+          "id": "TC-LOGIN-06",
+          "section": "Section 1: Public & Authentication (S01–S04)",
+          "screen": "S02 - Login Screen",
+          "element": "Quick Demo Login Buttons",
+          "action": "Click demo manager login chip and verify redirect to /manager",
+          "status": "PASS",
+          "durationMs": 2966,
+          "actual": "Operated successfully as expected"
+        },
+        {
+          "id": "TC-REG-01",
+          "section": "Section 1: Public & Authentication (S01–S04)",
+          "screen": "S03 - Register Screen",
+          "element": "Registration Form Inputs",
+          "action": "Check inputs for Full Name, Phone, Password, Confirm Password",
+          "status": "PASS",
+          "durationMs": 21,
+          "actual": "Operated successfully as expected"
+        },
+        {
+          "id": "TC-REG-02",
+          "section": "Section 1: Public & Authentication (S01–S04)",
+          "screen": "S03 - Register Screen",
+          "element": "Password Confirmation Validation",
+          "action": "Enter mismatched passwords and check submit is disabled or error display",
+          "status": "PASS",
+          "durationMs": 399,
+          "actual": "Operated successfully as expected"
+        },
+        {
+          "id": "TC-FORGOT-01",
+          "section": "Section 1: Public & Authentication (S01–S04)",
+          "screen": "S04 - Forgot Password",
+          "element": "Phone Input and Request OTP Button",
+          "action": "Enter valid phone number and submit password reset request",
+          "status": "PASS",
+          "durationMs": 6924,
+          "actual": "Operated successfully as expected"
+        }
+      ]
+    },
+    {
+      "suiteName": "Section 2: Member Area (S05–S13)",
+      "total": 17,
+      "passed": 17,
+      "failed": 0,
+      "results": [
+        {
+          "id": "TC-MEM-01",
+          "section": "Section 2: Member Area (S05–S13)",
+          "screen": "S05 - Member Home",
+          "element": "Quick Action 'Book a court' Link",
+          "action": "Click Quick Action to navigate to /app/book",
+          "status": "PASS",
+          "durationMs": 2898,
+          "actual": "Operated successfully as expected"
+        },
+        {
+          "id": "TC-MEM-02",
+          "section": "Section 2: Member Area (S05–S13)",
+          "screen": "S05 - Member Home",
+          "element": "Quick Action 'Classes' Link",
+          "action": "Click Quick Action to navigate to /app/classes",
+          "status": "PASS",
+          "durationMs": 1842,
+          "actual": "Operated successfully as expected"
+        },
+        {
+          "id": "TC-MEM-03",
+          "section": "Section 2: Member Area (S05–S13)",
+          "screen": "S05 - Member Home",
+          "element": "Quick Action 'Plans' Link",
+          "action": "Click Quick Action to navigate to /app/plans",
+          "status": "PASS",
+          "durationMs": 1608,
+          "actual": "Operated successfully as expected"
+        },
+        {
+          "id": "TC-MEM-04",
+          "section": "Section 2: Member Area (S05–S13)",
+          "screen": "S05 - Member Home",
+          "element": "Quick Action 'Ask AI' Link",
+          "action": "Click Quick Action to navigate to /app/assistant",
+          "status": "PASS",
+          "durationMs": 1632,
+          "actual": "Operated successfully as expected"
+        },
+        {
+          "id": "TC-MEM-05",
+          "section": "Section 2: Member Area (S05–S13)",
+          "screen": "S05 - Member Home",
+          "element": "Member Identity Badge",
+          "action": "Verify member code or pass card is visible on screen",
+          "status": "PASS",
+          "durationMs": 16,
+          "actual": "Operated successfully as expected"
+        },
+        {
+          "id": "TC-BOOK-01",
+          "section": "Section 2: Member Area (S05–S13)",
+          "screen": "S06 - Court Booking",
+          "element": "Sport Filter Segment / Tabs",
+          "action": "Click badminton, basketball, volleyball tabs and check grid updates",
+          "status": "PASS",
+          "durationMs": 1190,
+          "actual": "Operated successfully as expected"
+        },
+        {
+          "id": "TC-BOOK-02",
+          "section": "Section 2: Member Area (S05–S13)",
+          "screen": "S06 - Court Booking",
+          "element": "Date Strip Selector",
+          "action": "Select different date chip in DateStrip",
+          "status": "PASS",
+          "durationMs": 1347,
+          "actual": "Operated successfully as expected"
+        },
+        {
+          "id": "TC-BOOK-03",
+          "section": "Section 2: Member Area (S05–S13)",
+          "screen": "S06 - Court Booking",
+          "element": "Court Grid Slot Button",
+          "action": "Click a free slot and verify Hold Card or Booking Drawer appears",
+          "status": "PASS",
+          "durationMs": 1040,
+          "actual": "Operated successfully as expected"
+        },
+        {
+          "id": "TC-PASS-01",
+          "section": "Section 2: Member Area (S05–S13)",
+          "screen": "S07 - Access Pass",
+          "element": "Dynamic QR Code & Refresh Button",
+          "action": "Verify QR pass is rendered and click 'Làm mới' / Refresh button",
+          "status": "PASS",
+          "durationMs": 15,
+          "actual": "Operated successfully as expected"
+        },
+        {
+          "id": "TC-CLS-01",
+          "section": "Section 2: Member Area (S05–S13)",
+          "screen": "S08 - Classes",
+          "element": "Class Cards and Enrollment Buttons",
+          "action": "Verify class cards are rendered with enrol/waitlist/status buttons and sport filter works",
+          "status": "PASS",
+          "durationMs": 593,
+          "actual": "Operated successfully as expected"
+        },
+        {
+          "id": "TC-PLN-01",
+          "section": "Section 2: Member Area (S05–S13)",
+          "screen": "S09 - Plans",
+          "element": "Plan Card Buy / Renew CTA Buttons",
+          "action": "Inspect plan cards and verify purchase buttons",
+          "status": "PASS",
+          "durationMs": 882,
+          "actual": "Operated successfully as expected"
+        },
+        {
+          "id": "TC-TRN-01",
+          "section": "Section 2: Member Area (S05–S13)",
+          "screen": "S10 - Training Progress",
+          "element": "Training Goal Selector",
+          "action": "Change training goal dropdown value and verify update",
+          "status": "PASS",
+          "durationMs": 531,
+          "actual": "Operated successfully as expected"
+        },
+        {
+          "id": "TC-AI-01",
+          "section": "Section 2: Member Area (S05–S13)",
+          "screen": "S11 - AI Assistant",
+          "element": "Quick Suggestion Prompt Chips",
+          "action": "Click a suggestion chip and verify message is sent into thread",
+          "status": "PASS",
+          "durationMs": 2065,
+          "actual": "Operated successfully as expected"
+        },
+        {
+          "id": "TC-AI-02",
+          "section": "Section 2: Member Area (S05–S13)",
+          "screen": "S11 - AI Assistant",
+          "element": "Chat Input Box & Send Button",
+          "action": "Type a query, click Send, verify message appears in thread",
+          "status": "PASS",
+          "durationMs": 4338,
+          "actual": "Operated successfully as expected"
+        },
+        {
+          "id": "TC-NOTIF-01",
+          "section": "Section 2: Member Area (S05–S13)",
+          "screen": "S12 - Notifications",
+          "element": "Notifications List Items",
+          "action": "Inspect notification list items and unread badges",
+          "status": "PASS",
+          "durationMs": 15,
+          "actual": "Operated successfully as expected"
+        },
+        {
+          "id": "TC-ACC-01",
+          "section": "Section 2: Member Area (S05–S13)",
+          "screen": "S13 - Account Settings",
+          "element": "Settings Tabs (Profile, Security, Receipts, Support)",
+          "action": "Switch between tabs and verify panel content changes",
+          "status": "PASS",
+          "durationMs": 1809,
+          "actual": "Operated successfully as expected"
+        },
+        {
+          "id": "TC-ACC-02",
+          "section": "Section 2: Member Area (S05–S13)",
+          "screen": "S13 - Account Settings",
+          "element": "Profile Edit Form & Save Button",
+          "action": "Edit member name field and submit save button",
+          "status": "PASS",
+          "durationMs": 2,
+          "actual": "Operated successfully as expected"
+        }
+      ]
+    },
+    {
+      "suiteName": "Section 3: Front Desk / Receptionist (S14–S22)",
+      "total": 9,
+      "passed": 9,
+      "failed": 0,
+      "results": [
+        {
+          "id": "TC-DESK-01",
+          "section": "Section 3: Front Desk / Receptionist (S14–S22)",
+          "screen": "S14 - Desk Home",
+          "element": "Shift Action Button (Open/Close Shift)",
+          "action": "Inspect shift badge or Open Shift button",
+          "status": "PASS",
+          "durationMs": 21,
+          "actual": "Operated successfully as expected"
+        },
+        {
+          "id": "TC-DESK-02",
+          "section": "Section 3: Front Desk / Receptionist (S14–S22)",
+          "screen": "S14 - Desk Home",
+          "element": "Member Fast Search Input",
+          "action": "Type 'Nam' into quick search input and verify results dropdown/list",
+          "status": "PASS",
+          "durationMs": 1258,
+          "actual": "Operated successfully as expected"
+        },
+        {
+          "id": "TC-DESK-03",
+          "section": "Section 3: Front Desk / Receptionist (S14–S22)",
+          "screen": "S14 - Desk Home",
+          "element": "New Member Wizard Trigger Button",
+          "action": "Click 'New member wizard' button and verify modal opens",
+          "status": "PASS",
+          "durationMs": 2,
+          "actual": "Operated successfully as expected"
+        },
+        {
+          "id": "TC-GATE-01",
+          "section": "Section 3: Front Desk / Receptionist (S14–S22)",
+          "screen": "S15 - Gate Check-in",
+          "element": "Manual Phone Check-in Form & Submit Button",
+          "action": "Switch to 'Without a code' mode, enter member phone '0901230101' and submit check-in",
+          "status": "PASS",
+          "durationMs": 2049,
+          "actual": "Operated successfully as expected"
+        },
+        {
+          "id": "TC-CRT-01",
+          "section": "Section 3: Front Desk / Receptionist (S14–S22)",
+          "screen": "S16 - Court Map",
+          "element": "Court Map Grid Cells",
+          "action": "Inspect grid and click an empty slot for walk-in modal",
+          "status": "PASS",
+          "durationMs": 17,
+          "actual": "Operated successfully as expected"
+        },
+        {
+          "id": "TC-PAY-01",
+          "section": "Section 3: Front Desk / Receptionist (S14–S22)",
+          "screen": "S18 - Payments",
+          "element": "Payment Queue Tabs",
+          "action": "Click Transfers tab, Waiting for payment tab, Refund tab",
+          "status": "PASS",
+          "durationMs": 15,
+          "actual": "Operated successfully as expected"
+        },
+        {
+          "id": "TC-GEAR-01",
+          "section": "Section 3: Front Desk / Receptionist (S14–S22)",
+          "screen": "S20 - Gear Rental",
+          "element": "Gear Item Selector & Guest Tab",
+          "action": "Switch between 'Hội viên' and 'Khách vãng lai' tabs; check phone input is empty by default (B-12)",
+          "status": "PASS",
+          "durationMs": 478,
+          "actual": "Operated successfully as expected"
+        },
+        {
+          "id": "TC-MEMPROF-01",
+          "section": "Section 3: Front Desk / Receptionist (S14–S22)",
+          "screen": "S21 - Member Profile",
+          "element": "Edit Profile Action Button & Modal",
+          "action": "Click 'Sửa hồ sơ' button and verify edit modal opens with member fields",
+          "status": "PASS",
+          "durationMs": 673,
+          "actual": "Operated successfully as expected"
+        },
+        {
+          "id": "TC-MEMPROF-02",
+          "section": "Section 3: Front Desk / Receptionist (S14–S22)",
+          "screen": "S21 - Member Profile",
+          "element": "Reset Password Action Button",
+          "action": "Click 'Đặt lại mật khẩu' and verify confirmation dialog",
+          "status": "PASS",
+          "durationMs": 1449,
+          "actual": "Operated successfully as expected"
+        }
+      ]
+    },
+    {
+      "suiteName": "Section 4: Coach (S23–S25)",
+      "total": 4,
+      "passed": 4,
+      "failed": 0,
+      "results": [
+        {
+          "id": "TC-COACH-01",
+          "section": "Section 4: Coach (S23–S25)",
+          "screen": "S23 - Coach Schedule",
+          "element": "Session Cards & Attendance Trigger",
+          "action": "Inspect scheduled session cards and click to navigate to attendance",
+          "status": "PASS",
+          "durationMs": 92,
+          "actual": "Operated successfully as expected"
+        },
+        {
+          "id": "TC-COACH-02",
+          "section": "Section 4: Coach (S23–S25)",
+          "screen": "S24 - Attendance",
+          "element": "Attendance Step Tabs (Register, Plan, Results, Homework)",
+          "action": "Click tabs and verify panels switch",
+          "status": "PASS",
+          "durationMs": 1150,
+          "actual": "Operated successfully as expected"
+        },
+        {
+          "id": "TC-COACH-03",
+          "section": "Section 4: Coach (S23–S25)",
+          "screen": "S24 - Attendance",
+          "element": "Attendance Status Buttons (Present, Late, Absent, Excused)",
+          "action": "Inspect student roll and click attendance status buttons",
+          "status": "PASS",
+          "durationMs": 3,
+          "actual": "Operated successfully as expected"
+        },
+        {
+          "id": "TC-COACH-04",
+          "section": "Section 4: Coach (S23–S25)",
+          "screen": "S24 - Attendance",
+          "element": "Save Attendance Action Button",
+          "action": "Verify Save / Mark Done attendance button",
+          "status": "PASS",
+          "durationMs": 2,
+          "actual": "Operated successfully as expected"
+        }
+      ]
+    },
+    {
+      "suiteName": "Section 5: Manager (S26–S35)",
+      "total": 9,
+      "passed": 9,
+      "failed": 0,
+      "results": [
+        {
+          "id": "TC-MGR-01",
+          "section": "Section 5: Manager (S26–S35)",
+          "screen": "S26 - Reports",
+          "element": "Report Export Action Buttons",
+          "action": "Inspect export action buttons (Excel, PDF, CSV)",
+          "status": "PASS",
+          "durationMs": 20,
+          "actual": "Operated successfully as expected"
+        },
+        {
+          "id": "TC-MGR-02",
+          "section": "Section 5: Manager (S26–S35)",
+          "screen": "S27 - Class Management",
+          "element": "Create Class Trigger & Form",
+          "action": "Click 'Tạo lớp mới' / 'New class' button and inspect creation modal",
+          "status": "PASS",
+          "durationMs": 15,
+          "actual": "Operated successfully as expected"
+        },
+        {
+          "id": "TC-MGR-03",
+          "section": "Section 5: Manager (S26–S35)",
+          "screen": "S27 - Class Management",
+          "element": "Class Detail & Roster Inspection (B-08)",
+          "action": "Click a class card/row to open roster detail modal",
+          "status": "PASS",
+          "durationMs": 4,
+          "actual": "Operated successfully as expected"
+        },
+        {
+          "id": "TC-MGR-04",
+          "section": "Section 5: Manager (S26–S35)",
+          "screen": "S29 - Staff Management",
+          "element": "Add Staff Button & Modal",
+          "action": "Click 'Thêm nhân viên' / 'Add staff' button and inspect form",
+          "status": "PASS",
+          "durationMs": 729,
+          "actual": "Operated successfully as expected"
+        },
+        {
+          "id": "TC-MGR-05",
+          "section": "Section 5: Manager (S26–S35)",
+          "screen": "S30 - Pricing Matrix",
+          "element": "Price Inputs & Save Button (BR-34B)",
+          "action": "Inspect price inputs and check save price table button",
+          "status": "PASS",
+          "durationMs": 19,
+          "actual": "Operated successfully as expected"
+        },
+        {
+          "id": "TC-MGR-06",
+          "section": "Section 5: Manager (S26–S35)",
+          "screen": "S31 - Promotions",
+          "element": "New Promo Button & Modal",
+          "action": "Click 'Tạo mã mới' / 'New promo' button and inspect form",
+          "status": "PASS",
+          "durationMs": 16,
+          "actual": "Operated successfully as expected"
+        },
+        {
+          "id": "TC-MGR-07",
+          "section": "Section 5: Manager (S26–S35)",
+          "screen": "S33 - Settings",
+          "element": "Feature Toggles (F4, F5, F6)",
+          "action": "Inspect feature toggle switches",
+          "status": "PASS",
+          "durationMs": 3,
+          "actual": "Operated successfully as expected"
+        },
+        {
+          "id": "TC-MGR-08",
+          "section": "Section 5: Manager (S26–S35)",
+          "screen": "S33 - Settings",
+          "element": "Center Settings Save Button (Bug B-01)",
+          "action": "Click 'Save' button and check for silent NaN crash or validation handling",
+          "status": "PASS",
+          "durationMs": 1572,
+          "actual": "Operated successfully as expected"
+        },
+        {
+          "id": "TC-MGR-09",
+          "section": "Section 5: Manager (S26–S35)",
+          "screen": "S34 - Audit Log",
+          "element": "Audit Filter Controls",
+          "action": "Inspect action filter, staff filter, and search input",
+          "status": "PASS",
+          "durationMs": 545,
+          "actual": "Operated successfully as expected"
+        }
+      ]
+    }
+  ]
+}
