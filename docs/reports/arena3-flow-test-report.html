@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Báo cáo kiểm thử luồng chính & luồng ngoại lệ – Arena3</title>
+<style>
+  @page { size: A4; margin: 14mm 12mm; }
+  * { box-sizing: border-box; }
+  body { font-family: "Segoe UI", Arial, Helvetica, sans-serif; color: #1b1f24; font-size: 10.5pt; line-height: 1.45; margin: 0; background: #fff; }
+  h1 { font-size: 18pt; margin: 0 0 4px; color: #0d3b66; }
+  h2 { font-size: 13pt; margin: 22px 0 8px; color: #0d3b66; border-bottom: 2px solid #0d3b66; padding-bottom: 3px; page-break-after: avoid; }
+  h3 { font-size: 11pt; margin: 14px 0 6px; color: #1b1f24; page-break-after: avoid; }
+  p { margin: 4px 0 8px; }
+  .meta { color: #55606b; font-size: 9.5pt; margin-bottom: 14px; }
+  table { width: 100%; border-collapse: collapse; margin: 6px 0 10px; font-size: 9pt; page-break-inside: auto; }
+  tr { page-break-inside: avoid; }
+  th, td { border: 1px solid #c9d1d9; padding: 4px 6px; vertical-align: top; text-align: left; }
+  th { background: #e8eef5; font-weight: 600; }
+  td.id { font-family: Consolas, "Courier New", monospace; white-space: nowrap; font-weight: 600; }
+  td.num, th.num { text-align: center; white-space: nowrap; }
+  .pass { color: #0f6b2e; font-weight: 700; }
+  .fail { color: #b42318; font-weight: 700; }
+  .summary td { font-size: 10.5pt; }
+  .small { font-size: 9pt; color: #3c4650; }
+  .box { border: 1px solid #c9d1d9; background: #f6f8fa; padding: 8px 10px; border-radius: 4px; margin: 8px 0; }
+  ul { margin: 4px 0 8px 18px; padding: 0; }
+  li { margin: 2px 0; }
+  code { font-family: Consolas, "Courier New", monospace; font-size: 9pt; background: #f0f3f6; padding: 0 3px; border-radius: 3px; }
+  .flow-title { margin-top: 16px; }
+  .cover-line { margin: 0; }
+</style>
+</head>
+<body>
+
+<h1>Báo cáo kiểm thử luồng chính & luồng ngoại lệ – Arena3</h1>
+<div class="meta">
+  Ngày: 2026-10-26 &nbsp;|&nbsp; Commit: <code>4553305</code> (nhánh <code>main</code>) &nbsp;|&nbsp;
+  Tệp kiểm thử: <code>src/lib/arena3/flows.test.ts</code> (mới, chưa commit)
+</div>
+
+<h2>1. Phạm vi</h2>
+<p>Báo cáo ghi lại kết quả kiểm thử các luồng nghiệp vụ chính sau khi gói thành viên (plans/subscriptions) đã bị gỡ khỏi sản phẩm: đặt sân và thanh toán, đăng ký lớp và thanh toán, thu ngân tại quầy, check-in cổng, hủy đặt chỗ, các route gói cũ, và báo cáo thành viên hoạt động.</p>
+<p>Với mỗi luồng chính (ký hiệu <code>MF-xx</code>), bài kiểm thử kiểm tra các luồng ngoại lệ (<code>EF-xxy</code>), tức là phủ định của luồng chính: xung đột, sai quyền, sai số tiền, thiếu điều kiện, hoặc route không còn tồn tại.</p>
+<p>Kiểm thử được viết ở mức hàm xử lý (handler) và router, chạy trên PGlite trong bộ nhớ với toàn bộ migration trong <code>migrations/*.sql</code>. Các hàm được gọi trực tiếp như trong <code>tx.test.ts</code>.</p>
+
+<h2>2. Môi trường</h2>
+<table>
+  <tr><th style="width:28%">Mục</th><th>Giá trị</th></tr>
+  <tr><td>Hệ điều hành</td><td>Windows 11 Home (10.0.26200)</td></tr>
+  <tr><td>Node.js</td><td>v24.14.0</td></tr>
+  <tr><td>Trình chạy kiểm thử</td><td><code>tsx --test</code> (Node test runner), <code>NODE_OPTIONS=--max-old-space-size=8192</code></td></tr>
+  <tr><td>Cơ sở dữ liệu</td><td>PGlite trong bộ nhớ (<code>PGLITE_DATA_DIR=memory</code>), áp dụng toàn bộ <code>migrations/*.sql</code> theo thứ tự tên; dữ liệu seed từ <code>0003_seed.sql</code> và <code>0006_seed_demo.sql</code></td></tr>
+  <tr><td>Thời điểm dữ liệu</td><td>Ngày theo múi giờ Asia/Ho_Chi_Minh (UTC+7), tính tại thời điểm chạy</td></tr>
+</table>
+
+<h2>3. Tóm tắt kết quả</h2>
+<h3>3.1 Tệp kiểm thử mới: <code>flows.test.ts</code></h3>
+<table class="summary">
+  <tr><th>Tổng số test</th><th class="num">PASS</th><th class="num">FAIL</th><th>Lỗi ứng dụng phát hiện</th></tr>
+  <tr><td class="num"><strong>29</strong> (8 luồng chính, 21 luồng ngoại lệ)</td><td class="num pass">29</td><td class="num">0</td><td>Không phát hiện lỗi</td></tr>
+</table>
+
+<h3>3.2 Toàn bộ bộ test hiện có (<code>npm test</code>)</h3>
+<table class="summary">
+  <tr><th>Nhóm</th><th class="num">Tổng</th><th class="num">PASS</th><th class="num">FAIL</th></tr>
+  <tr><td>Nhóm 1: <code>scripts/**/*.test.mjs</code></td><td class="num">0</td><td class="num">0</td><td class="num">0</td></tr>
+  <tr><td>Nhóm 2: app-data, readiness, gate identity, sign-in gate, <code>arena3.test.ts</code></td><td class="num">131</td><td class="num pass">131</td><td class="num">0</td></tr>
+  <tr><td>Nhóm 3: <code>tx.test.ts</code></td><td class="num">126</td><td class="num pass">126</td><td class="num">0</td></tr>
+  <tr><th>Cộng</th><th class="num">257</th><th class="num pass">257</th><th class="num">0</th></tr>
+</table>
+<p class="small">Lệnh <code>npm test</code> kết thúc với mã thoát 0. Các nhóm nối với nhau bằng <code>&&</code>, nên nhóm nào lỗi cũng sẽ làm dừng lệnh.</p>
+
+<h2>4. Kết quả chi tiết theo luồng</h2>
+<p class="small">Cột "Loại": <strong>Chính</strong> = luồng chính; <strong>Ngoại lệ</strong> = phủ định của luồng chính. "Trạng thái" là kết quả của test trong lần chạy cuối cùng.</p>
+
+<h3 class="flow-title">MF-01 Thành viên đặt sân và thanh toán đủ giá khung giờ</h3>
+<table>
+  <tr><th style="width:9%">ID</th><th style="width:9%">Loại</th><th style="width:22%">Mô tả</th><th style="width:22%">Kết quả mong đợi</th><th style="width:30%">Kết quả thực tế</th><th style="width:8%">Trạng thái</th></tr>
+  <tr><td class="id">MF-01</td><td>Chính</td><td>Thành viên giữ chỗ (hold) một sân, chọn chuyển khoản; lễ tân xác nhận khoản chuyển.</td><td>Hold 201, trạng thái hold, giá &gt; 0; xác nhận chuyển khoản 202; sau khi lễ tân xác nhận: booking confirmed, đúng 1 payment posted bằng giá khung giờ.</td><td>Đúng như mong đợi: hold 201; bước chuyển khoản trả 202 (awaiting_transfer); lễ tân xác nhận trả 200; booking confirmed; một payment posted có số tiền bằng giá hold.</td><td class="pass">PASS</td></tr>
+  <tr><td class="id">EF-01a</td><td>Ngoại lệ</td><td>Thành viên thứ hai giữ đúng khung giờ đã có người giữ.</td><td>409 CONFLICT_SLOT.</td><td>409, code CONFLICT_SLOT.</td><td class="pass">PASS</td></tr>
+  <tr><td class="id">EF-01b</td><td>Ngoại lệ</td><td>Xác nhận với phương thức <code>quota</code> (gói giờ cũ).</td><td>422, field <code>method</code>; booking vẫn ở hold.</td><td>422, field <code>method</code>; booking vẫn hold.</td><td class="pass">PASS</td></tr>
+  <tr><td class="id">EF-01c</td><td>Ngoại lệ</td><td>Thành viên khác cố xác nhận hold của người khác.</td><td>403.</td><td>403.</td><td class="pass">PASS</td></tr>
+  <tr><td class="id">EF-01d</td><td>Ngoại lệ</td><td>Giữ chỗ với giờ bắt đầu ở quá khứ (hôm kia).</td><td>Lỗi 4xx; không tạo booking nào.</td><td>Lỗi 4xx (mã cụ thể không được khẳng định trong test); không có dòng booking nào được ghi.</td><td class="pass">PASS</td></tr>
+  <tr><td class="id">EF-01e</td><td>Ngoại lệ</td><td>Giữ chỗ với <code>court_id</code> không tồn tại.</td><td>404.</td><td>404.</td><td class="pass">PASS</td></tr>
+</table>
+
+<h3 class="flow-title">MF-02 Thành viên đăng ký lớp và thanh toán giá lớp</h3>
+<table>
+  <tr><th style="width:9%">ID</th><th style="width:9%">Loại</th><th style="width:22%">Mô tả</th><th style="width:22%">Kết quả mong đợi</th><th style="width:30%">Kết quả thực tế</th><th style="width:8%">Trạng thái</th></tr>
+  <tr><td class="id">MF-02</td><td>Chính</td><td>Thành viên đăng ký lớp (giữ chỗ); lễ tân thu tiền mặt đúng giá lớp.</td><td>Đăng ký 201, trạng thái hold; thu tiền 201; enrollment confirmed; enrolled_count = 1.</td><td>Đúng như mong đợi.</td><td class="pass">PASS</td></tr>
+  <tr><td class="id">EF-02a</td><td>Ngoại lệ</td><td>Lớp đầy (sĩ số 1, đã có một người).</td><td>201 với <code>waitlisted: true</code>; enrollment ở trạng thái waitlisted.</td><td>201, <code>waitlisted: true</code>, trạng thái waitlisted.</td><td class="pass">PASS</td></tr>
+  <tr><td class="id">EF-02b</td><td>Ngoại lệ</td><td>Cùng một thành viên đăng ký lại lớp đó.</td><td>422, mã BR-22.</td><td>422, <code>br = BR-22</code>.</td><td class="pass">PASS</td></tr>
+  <tr><td class="id">EF-02c</td><td>Ngoại lệ</td><td>Thu tiền 250.000đ cho lớp giá 300.000đ.</td><td>400, field <code>amount_vnd</code>; enrollment vẫn ở hold.</td><td>400, field <code>amount_vnd</code>; enrollment vẫn hold.</td><td class="pass">PASS</td></tr>
+</table>
+
+<h3 class="flow-title">MF-03 Quầy ghi nhận thanh toán (paymentsCreate)</h3>
+<table>
+  <tr><th style="width:9%">ID</th><th style="width:9%">Loại</th><th style="width:22%">Mô tả</th><th style="width:22%">Kết quả mong đợi</th><th style="width:30%">Kết quả thực tế</th><th style="width:8%">Trạng thái</th></tr>
+  <tr><td class="id">MF-03</td><td>Chính</td><td>Lễ tân đang có ca mở thu tiền mặt cho booking đang giữ.</td><td>201; payment posted, phương thức cash; có hóa đơn.</td><td>201; payment posted, cash; hóa đơn được tạo.</td><td class="pass">PASS</td></tr>
+  <tr><td class="id">EF-03a</td><td>Ngoại lệ</td><td><code>ref_type</code> = <code>subscription</code> (luồng gói cũ).</td><td>422, field <code>ref_type</code>.</td><td>422, field <code>ref_type</code>.</td><td class="pass">PASS</td></tr>
+  <tr><td class="id">EF-03b</td><td>Ngoại lệ</td><td>Thành viên (không phải nhân viên) gọi ghi nhận thanh toán.</td><td>403.</td><td>403.</td><td class="pass">PASS</td></tr>
+</table>
+
+<h3 class="flow-title">MF-04 Check-in cổng: thành viên có lịch hôm nay được vào</h3>
+<table>
+  <tr><th style="width:9%">ID</th><th style="width:9%">Loại</th><th style="width:22%">Mô tả</th><th style="width:22%">Kết quả mong đợi</th><th style="width:30%">Kết quả thực tế</th><th style="width:8%">Trạng thái</th></tr>
+  <tr><td class="id">MF-04</td><td>Chính</td><td>Thành viên có một booking confirmed hôm nay.</td><td><code>allowed: true</code>, <code>needs_override: false</code>, <code>today.bookings</code> có 1 dòng.</td><td>Đúng như mong đợi.</td><td class="pass">PASS</td></tr>
+  <tr><td class="id">EF-04a</td><td>Ngoại lệ</td><td>Thành viên không có gì hôm nay.</td><td><code>allowed: false</code>, <code>needs_override: true</code>.</td><td>Đúng như mong đợi.</td><td class="pass">PASS</td></tr>
+  <tr><td class="id">EF-04b</td><td>Ngoại lệ</td><td>Thành viên chỉ có booking của hôm qua.</td><td><code>allowed: false</code>; <code>today.bookings</code> rỗng.</td><td>Đúng như mong đợi.</td><td class="pass">PASS</td></tr>
+</table>
+
+<h3 class="flow-title">MF-05 Hủy booking hoặc ghi danh theo quy tắc hủy</h3>
+<table>
+  <tr><th style="width:9%">ID</th><th style="width:9%">Loại</th><th style="width:22%">Mô tả</th><th style="width:22%">Kết quả mong đợi</th><th style="width:30%">Kết quả thực tế</th><th style="width:8%">Trạng thái</th></tr>
+  <tr><td class="id">MF-05a</td><td>Chính</td><td>Thành viên hủy booking confirmed đã thanh toán 100.000đ, cách giờ chơi 20 ngày.</td><td>200; booking cancelled; nếu báo giá hoàn tiền &gt; 0 thì có đúng một dòng hoàn tiền âm bằng số đã hoàn.</td><td>Đúng như mong đợi (test đối chiếu với <code>quote.refund_vnd</code>).</td><td class="pass">PASS</td></tr>
+  <tr><td class="id">MF-05b</td><td>Chính</td><td>Thành viên nhả chỗ đang giữ của chính mình trong lớp.</td><td>200; enrollment cancelled; enrolled_count về 0.</td><td>Đúng như mong đợi.</td><td class="pass">PASS</td></tr>
+  <tr><td class="id">EF-05a</td><td>Ngoại lệ</td><td>Thành viên hủy booking của người khác.</td><td>403; booking vẫn confirmed.</td><td>403; booking vẫn confirmed.</td><td class="pass">PASS</td></tr>
+  <tr><td class="id">EF-05b</td><td>Ngoại lệ</td><td>Hủy booking gói giờ cũ (<code>quota_hours</code> = 1).</td><td>200; <code>refund</code> = null; không có dòng payment nào.</td><td>Đúng như mong đợi.</td><td class="pass">PASS</td></tr>
+  <tr><td class="id">EF-05c</td><td>Ngoại lệ</td><td>Hủy booking đã ở trạng thái cancelled.</td><td>409.</td><td>409.</td><td class="pass">PASS</td></tr>
+  <tr><td class="id">EF-05d</td><td>Ngoại lệ</td><td>Thành viên nhả ghi danh của người khác.</td><td>403.</td><td>403.</td><td class="pass">PASS</td></tr>
+</table>
+
+<h3 class="flow-title">MF-06 Route gói thành viên đã bị gỡ</h3>
+<table>
+  <tr><th style="width:9%">ID</th><th style="width:9%">Loại</th><th style="width:22%">Mô tả</th><th style="width:22%">Kết quả mong đợi</th><th style="width:30%">Kết quả thực tế</th><th style="width:8%">Trạng thái</th></tr>
+  <tr><td class="id">MF-06</td><td>Chính</td><td><code>GET /v1/plans</code> qua <code>handleApi</code>.</td><td>404.</td><td>404.</td><td class="pass">PASS</td></tr>
+  <tr><td class="id">EF-06a</td><td>Ngoại lệ</td><td><code>POST /v1/plans</code> (tạo gói).</td><td>404.</td><td>404.</td><td class="pass">PASS</td></tr>
+  <tr><td class="id">EF-06b</td><td>Ngoại lệ</td><td><code>GET /v1/subscriptions</code>.</td><td>404.</td><td>404.</td><td class="pass">PASS</td></tr>
+  <tr><td class="id">EF-06c</td><td>Ngoại lệ (đối chứng)</td><td><code>GET /v1/classes</code>, để chắc rằng việc 404 không phải do router lỗi toàn bộ.</td><td>Không phải 404.</td><td>Không phải 404.</td><td class="pass">PASS</td></tr>
+</table>
+
+<h3 class="flow-title">MF-07 Báo cáo: thành viên hoạt động lấy từ booking và ghi danh</h3>
+<table>
+  <tr><th style="width:9%">ID</th><th style="width:9%">Loại</th><th style="width:22%">Mô tả</th><th style="width:22%">Kết quả mong đợi</th><th style="width:30%">Kết quả thực tế</th><th style="width:8%">Trạng thái</th></tr>
+  <tr><td class="id">MF-07</td><td>Chính</td><td>Một thành viên có booking trong kỳ, một thành viên có ghi danh lớp đang chạy trong kỳ (confirmed).</td><td><code>members.active</code> tăng đúng 2 so với trước.</td><td>Tăng đúng 2.</td><td class="pass">PASS</td></tr>
+  <tr><td class="id">EF-07a</td><td>Ngoại lệ</td><td>Thành viên không có hoạt động nào.</td><td>Không được tính (số đếm không đổi).</td><td>Số đếm không đổi.</td><td class="pass">PASS</td></tr>
+  <tr><td class="id">EF-07b</td><td>Ngoại lệ</td><td>Thành viên chỉ có booking ngoài kỳ báo cáo.</td><td>Không được tính (số đếm không đổi).</td><td>Số đếm không đổi.</td><td class="pass">PASS</td></tr>
+</table>
+
+<h2>5. Lỗi phát hiện</h2>
+<div class="box">
+  <p><strong>Không phát hiện lỗi ứng dụng</strong> trong 29 test luồng mới và 257 test của bộ test hiện có.</p>
+  <p class="small">Trong quá trình viết test, hai lỗi đã xảy ra nhưng đều do fixture của bài test, không phải lỗi sản phẩm, và đã được sửa trong <code>flows.test.ts</code>: (1) ràng buộc <code>one_open_shift</code> (một lễ tân chỉ có một ca mở), nên helper nay tái sử dụng ca đang mở; (2) ràng buộc <code>booking_occ_sync</code> (booking đã hủy không được giữ occupancy), nên fixture của booking đã hủy không tạo occupancy.</p>
+</div>
+
+<h2>6. Giới hạn</h2>
+<ul>
+  <li><strong>Không kiểm thử giao diện</strong> (UI, trình duyệt, màn hình lễ tân, màn hình cổng). Chỉ kiểm thử handler và router.</li>
+  <li><strong>Không kiểm thử PayOS thật</strong>: không gọi mạng, không tạo link thanh toán thật, không kiểm thử webhook. Luồng thanh toán trực tuyến không nằm trong phạm vi.</li>
+  <li>Luồng chuyển khoản chỉ kiểm thử đến bước lễ tân xác nhận; không kiểm thử luồng từ chối chuyển khoản (<code>bookingsTransferReject</code>).</li>
+  <li>Check-in cổng chỉ kiểm thử với booking trong ngày; chưa kiểm thử trường hợp có buổi học (session) trong ngày.</li>
+  <li>Không kiểm thử luồng hoàn tiền cần quản lý duyệt (<code>refund_pending</code>) và luồng hàng chờ (hết hạn lời mời, mời lại).</li>
+  <li>Không kiểm thử đồng thời (race condition) giữa nhiều request; chỉ kiểm thử tuần tự.</li>
+  <li>PGlite không phải là PostgreSQL production (Neon). Kết quả chứng minh hành vi logic, chưa chứng minh hành vi trên hạ tầng thật.</li>
+  <li>Các test phụ thuộc ngày hiện tại (múi giờ Asia/Ho_Chi_Minh). Test báo cáo dùng năm 2099 để tách khỏi dữ liệu seed.</li>
+  <li>Tệp <code>src/lib/arena3/flows.test.ts</code> là tệp mới, chưa được commit; không có thay đổi mã nguồn ứng dụng nào.</li>
+</ul>
+
+<p class="small" style="margin-top:14px">Lệnh chạy: <code>NODE_OPTIONS=--max-old-space-size=8192 npx tsx --test src/lib/arena3/flows.test.ts</code>. Bộ test đầy đủ: <code>NODE_OPTIONS=--max-old-space-size=8192 npm test</code>.</p>
+
+</body>
+</html>
