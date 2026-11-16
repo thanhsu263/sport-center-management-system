@@ -37,6 +37,7 @@ type Plan = {
 };
 
 type Progress = {
+  completed_sessions: number;
   goal: string | null;
   levels: Array<{ sport: string; level: string }>;
   next_sessions: Array<{
@@ -125,7 +126,7 @@ function Page() {
         stats={[
           {
             label: t("Completed sessions"),
-            value: d?.results?.length ?? 0,
+            value: d?.completed_sessions ?? 0,
           },
           {
             label: t("Upcoming sessions"),
@@ -174,7 +175,7 @@ function Page() {
 
           {/* Activity Ring, Streak, Milestone */}
           {(() => {
-            const realDone = d.results.length;
+            const realDone = d.completed_sessions;
             const sessionDates = new Set(
               d.results.map((r) => {
                 const dt = new Date(r.start_at);

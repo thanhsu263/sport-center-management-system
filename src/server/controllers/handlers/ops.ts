@@ -267,6 +267,35 @@ export async function equipmentList(sql: Sql) {
   return { status: 200, body: { items } };
 }
 
+const SKU_RE = /^[A-Z0-9][A-Z0-9-]{1,23}$/;
+
+/** A new line on the gear shelf, so a sport the manager has just added can have gear to hire. */
+export async function equipmentCreate(sql: Sql, request: Request, user: PublicUser) {
+  requireRole(user, ["manager"]);
+  const b = await readJson(request);
+  const name = (str(b.name) ?? "").trim();
+  if (!name) throw err.field("name", "Enter the gear's name.");
+  if (name.length > 80) throw err.field("name", "Keep the name to 80 characters or fewer.");
+  const sku = (str(b.sku) ?? "").trim().toUpperCase();
+  if (!SKU_RE.test(sku)) throw err.field("sku", "Use 2 to 24 letters, digits or dashes for the code.");
+  const sport = str(b.sport) || null;
+  if (sport && !(await getActiveSportCodes(sql)).includes(sport)) {
+    throw err.field("sport", "Choose a sport the centre offers.");
+  }
+  const stock = parseInteger("stock", "Stock", b.stock ?? 0, 0, 9999);
+  const rent_vnd = parseInteger("rent_vnd", "Hire price", b.rent_vnd ?? 0, 0, 100_000_000);
+  if (await one(sql, `select 1 from equipment_items where sku = $1`, [sku])) {
+    throw err.field("sku", "Another gear item already uses that code.");
+  }
+  const item = await one<{ id: string }>(
+    sql,
+    `insert into equipment_items (sku, name, sport, stock, rent_vnd) values ($1,$2,$3,$4,$5) returning *`,
+    [sku, name, sport, stock, rent_vnd],
+  );
+  await audit(sql, user.id, "equipment.create", "equipment_item", item!.id, null, item);
+  return { status: 201, body: { ok: true, item } };
+}
+
 export async function equipmentLoan(sql: Sql, request: Request, user: PublicUser) {
   requireRole(user, ["receptionist", "manager"]);
   const b = await readJson(request);

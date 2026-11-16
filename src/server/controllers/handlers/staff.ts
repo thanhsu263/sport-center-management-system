@@ -13,7 +13,7 @@ import { getActiveSportCodes } from "./sports";
  * Staff accounts (R-01…R-03).
  *
  * There is no system-admin role: the manager is the one who hands out the
- * receptionist and coach logins, and the only way a staff account comes to
+ * manager, receptionist and coach logins, and the only way a staff account comes to
  * exist. Registration is member-only (`auth.register` hard-codes the role), so
  * nothing on a public page can produce one.
  *
@@ -21,7 +21,7 @@ import { getActiveSportCodes } from "./sports";
  * how "who issued this account, and when" is answered.
  */
 
-const MANAGED_ROLES = ["receptionist", "coach"] as const;
+const MANAGED_ROLES = ["receptionist", "coach", "manager"] as const;
 type ManagedRole = (typeof MANAGED_ROLES)[number];
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -37,7 +37,7 @@ export function tempPassword(): string {
 
 function managedRole(v: unknown, field = "role"): ManagedRole {
   if (!MANAGED_ROLES.includes(v as ManagedRole)) {
-    throw err.field(field, "Choose receptionist or coach.");
+    throw err.field(field, "Choose manager, receptionist or coach.");
   }
   return v as ManagedRole;
 }
@@ -88,12 +88,12 @@ async function loadStaff(sql: Sql, id: string): Promise<StaffRow> {
   return withAvatarUrl(row);
 }
 
-/** The account a manager is allowed to manage here: receptionists and coaches, never themselves. */
+/** Managers can manage staff accounts, never their own account. */
 async function managedTarget(sql: Sql, id: string, manager: PublicUser): Promise<StaffRow> {
   const row = await loadStaff(sql, id);
   if (row.id === manager.id) throw err.forbidden("You cannot change your own account here.");
   if (!MANAGED_ROLES.includes(row.role as ManagedRole)) {
-    throw err.forbidden("Only receptionist and coach accounts are managed from this screen.");
+    throw err.forbidden("Only manager, receptionist and coach accounts are managed from this screen.");
   }
   return row;
 }
@@ -178,6 +178,9 @@ export async function staffCreate(sql: Sql, request: Request, user: PublicUser) 
 
 export async function staffPatch(sql: Sql, id: string, request: Request, user: PublicUser) {
   requireRole(user, ["manager"]);
+  // Serialize role/status changes across different targets, not just one user.
+  // The transaction holds this lock through the count, update and audit.
+  await sql.query(`select pg_advisory_xact_lock(hashtext('arena3:staff-manager-count'))`);
   const target = await managedTarget(sql, id, user);
   const body = await readJson(request);
   const nextStatus = str(body.status);
@@ -186,6 +189,13 @@ export async function staffPatch(sql: Sql, id: string, request: Request, user: P
     throw err.field("status", "Nothing to change.");
   }
   const before = { role: target.role, status: target.status, sports: target.sports ?? [] };
+
+  if (target.role === "manager" && target.status === "active" &&
+      ((nextRole !== null && nextRole !== "manager") || (!!nextStatus && nextStatus !== "active"))) {
+    const remaining = await one<{ n: number }>(sql,
+      `select count(*)::int as n from users where role = 'manager' and status = 'active' and id <> $1`, [id]);
+    if (!remaining?.n) throw err.conflictState("At least one active manager must remain.");
+  }
 
   if (nextStatus) await updateStaffStatus(sql, id, user, target, before, nextStatus);
   if (nextRole || body.sports !== undefined) {
@@ -237,7 +247,7 @@ async function updateStaffRole(sql: Sql, id: string, user: PublicUser, target: S
   if (role === "coach" && !sports.length) {
     throw err.field("sports", "Pick at least one sport this coach can teach.");
   }
-  if (role === "receptionist" && target.role === "coach") {
+  if (role !== "coach" && target.role === "coach") {
     const classes = await one<{ n: number }>(
       sql,
       `select count(*)::int as n from classes

@@ -296,6 +296,7 @@ const ACTION_LABEL: Record<string, string> = {
   redeem_points: tk("Redeem points"),
   refund: tk("Refund"),
   refund_approved: tk("Refund approved"),
+  refund_authorized: tk("Refund approved"),
   refund_pending: tk("Refund pending"),
   refund_rejected: tk("Refund rejected"),
   register: tk("Register"),

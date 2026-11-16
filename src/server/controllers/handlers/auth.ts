@@ -1,9 +1,10 @@
+import { verifyCaptcha } from "../../integrations/captcha";
 import type { Sql } from "@/server/data/db";
 import { hashOtp, hashPassword, randomOtp, randomToken, verifyPassword } from "../../services/crypto";
 import { err } from "../errors";
 import { ageYears, audit, getSettings, pageOf, readJson, str } from "../helpers";
 import { isValidVnPhone, normalizePhone, passwordOk, unaccentVi } from "../../services/phone";
-import { limit, RULES } from "../ratelimit";
+import { limit, RULES, requestIp } from "../ratelimit";
 import {
   findUserByLogin,
   issueSession,
@@ -152,20 +153,49 @@ export async function createMember(sql: Sql, f: SignupFields, action: string) {
   return { status: 200, body: await issueSession(sql, user) };
 }
 
+// Initial sends and resends share guards: restarting the form cannot bypass them.
+async function guardOtpSend(request: Request, body: Record<string, unknown>) {
+  if (body.website) return false;
+  await verifyCaptcha(body.captcha_token, requestIp(request));
+  limit(`otp-send:ip:${requestIp(request)}`, RULES.authSendIp);
+  limit(`otp-send:phone:${normalizePhone(str(body.phone) ?? "")}`, RULES.authSendIdentity);
+  const email = str(body.email)?.trim().toLowerCase();
+  if (email) limit(`otp-send:email:${email}`, RULES.authSendIdentity);
+  return true;
+}
+
+async function replaceChallenge(sql: Sql, phone: string, purpose: string, otp: string, payload: unknown) {
+  // Serialize even the first insert, which has no row to lock yet.
+  await sql.query(`select pg_advisory_xact_lock(hashtext($1))`, [`otp:${phone}:${purpose}`]);
+  const pending = await one<{ id: string; cooling: boolean }>(sql,
+    `select id, expires_at > now() + interval '4 minutes' as cooling
+       from otp_challenges where phone=$1 and purpose=$2 order by expires_at desc limit 1 for update`,
+    [phone, purpose]);
+  if (pending?.cooling) throw err.rateLimited("Wait 60 seconds before requesting another code.");
+  if (pending) {
+    await sql.query(`update otp_challenges set otp_hash=$2, payload=$3::jsonb,
+      expires_at=now() + interval '5 minutes', attempts=0 where id=$1`,
+      [pending.id, hashOtp(otp), JSON.stringify(payload)]);
+    await sql.query(`delete from otp_challenges where phone=$1 and purpose=$2 and id<>$3`, [phone, purpose, pending.id]);
+    return pending;
+  }
+  return (await one<{ id: string }>(sql,
+    `insert into otp_challenges (phone,purpose,otp_hash,payload,expires_at)
+     values ($1,$2,$3,$4::jsonb,now() + interval '5 minutes') returning id`,
+    [phone,purpose,hashOtp(otp),JSON.stringify(payload)]))!;
+}
+
+const silentOtpSuccess = () => ({ status: 202, body: { sent_to: null } });
+
 export async function register(sql: Sql, request: Request) {
   const body = await readJson(request);
+  if (!await guardOtpSend(request, body)) return silentOtpSuccess();
   const fields = await checkSignup(sql, body, {
     email: str(body.email)?.trim().toLowerCase() || null,
     password: true,
   });
   const otp = randomOtp();
-  const row = await one<{ id: string }>(
-    sql,
-    `insert into otp_challenges (phone, purpose, otp_hash, payload, expires_at)
-     values ($1, 'register', $2, $3::jsonb, now() + interval '5 minutes')
-     returning id`,
-    [fields.phone, hashOtp(otp), JSON.stringify({ ...fields, pii_consent: true })],
-  );
+  const row = await replaceChallenge(sql, fields.phone, "register", otp, { ...fields, pii_consent: true });
   const email = fields.email;
   // Sent, not queued. An OTP lives five minutes; waiting for the next pass of
   // the outbox dispatcher would spend a meaningful part of that on nothing.
@@ -186,6 +216,8 @@ export async function register(sql: Sql, request: Request) {
 
 export async function verifyOtp(sql: Sql, request: Request) {
   const body = await readJson(request);
+  limit(`otp-verify:ip:${requestIp(request)}`, RULES.authVerifyIp);
+  limit(`otp-verify:phone:${normalizePhone(str(body.phone) ?? "")}`, RULES.authVerifyIdentity);
   const phone = normalizePhone(str(body.phone) ?? "");
   const otp = str(body.otp);
   const purpose = str(body.purpose) ?? "register";
@@ -297,6 +329,7 @@ export async function logout(sql: Sql, request: Request, user: PublicUser) {
 
 export async function forgot(sql: Sql, request: Request) {
   const body = await readJson(request);
+  if (!await guardOtpSend(request, body)) return silentOtpSuccess();
   const phone = normalizePhone(str(body.phone) ?? "");
   if (!isValidVnPhone(phone)) throw err.validation("That phone number is not valid.", { field: "phone" });
   const user = await one<{ id: string; email: string | null }>(
@@ -304,14 +337,9 @@ export async function forgot(sql: Sql, request: Request) {
     `select id, email from users where phone = $1`,
     [phone],
   );
+  if (user?.email) limit(`otp-send:email:${user.email.trim().toLowerCase()}`, RULES.authSendIdentity);
   const otp = randomOtp();
-  const row = await one<{ id: string }>(
-    sql,
-    `insert into otp_challenges (phone, purpose, otp_hash, payload, expires_at)
-     values ($1, 'reset', $2, '{}'::jsonb, now() + interval '5 minutes')
-     returning id`,
-    [phone, hashOtp(otp)],
-  );
+  const row = await replaceChallenge(sql, phone, "reset", otp, {});
   // Only a real account gets a message; the response looks the same either
   // way so this cannot be used to find out who has an account here.
   const delivery = user ? await deliverOtp(user.email, otp) : { sentTo: null };
