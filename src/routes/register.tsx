@@ -1,3 +1,5 @@
+import { Captcha, useCaptcha } from "@/client/components/captcha";
+import { OtpInput, OtpResend } from "@/client/components/otp-input";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { Eye, EyeOff } from "lucide-react";
@@ -72,6 +74,8 @@ const slot = (text: string, node: ReactNode) => {
 
 function Register() {
   const navigate = useNavigate();
+  const captcha = useCaptcha();
+  const [resendAt, setResendAt] = useState(0);
   const [step, setStep] = useState<"form" | "otp">("form");
   const [otp, setOtp] = useState("");
   const [shown, setShown] = useState("");
@@ -117,8 +121,8 @@ function Register() {
   const tooWeak =
     form.password.length > 0 && !(form.password.length >= 8 && /[A-Za-z]/.test(form.password) && /\d/.test(form.password));
 
-  async function send(e: FormEvent) {
-    e.preventDefault();
+  async function send(e?: FormEvent) {
+    e?.preventDefault();
     setError(null);
     if (form.password !== confirm) {
       setError({ message: t("The two passwords do not match."), field: "confirm" });
@@ -128,11 +132,13 @@ function Register() {
     try {
       const res = await apiPost<{ otp?: string; sent_to?: string | null }>(
         "/auth/register",
-        needGuardian ? { ...form, guardian_name: guardian.name, guardian_phone: guardian.phone } : form,
+        { ...form, ...(needGuardian ? { guardian_name: guardian.name, guardian_phone: guardian.phone } : {}), captcha_token: captcha.token, website: captcha.website },
       );
       setShown(res.otp ?? "");
       setSentTo(res.sent_to ?? null);
       setStep("otp");
+      setOtp("");
+      setResendAt(Date.now() + 60_000);
       toast.message(
         res.sent_to ? t("Code sent to {email}", { email: res.sent_to }) : t("Code generated. Check with the front desk."),
       );
@@ -141,6 +147,7 @@ function Register() {
       if (field === "guardian_name") setAskGuardian(true);
       setError({ message: err instanceof Error ? tServer(err.message) : t("Could not create the account"), field });
     } finally {
+      captcha.reset();
       setBusy(false);
     }
   }
@@ -221,6 +228,7 @@ function Register() {
               className="mt-6 grid gap-4"
               onSubmit={send}
             >
+              <Captcha state={captcha} />
               <Field label={t("Full name")}>
                 <Input
                   required
@@ -379,15 +387,7 @@ function Register() {
                   {slot(t("Demo build: the code is {code}.", { code: SLOT }), <span className="font-medium tabular-nums">{shown}</span>)}
                 </p>
               ) : null}
-              <Field label={t("6-digit OTP")}>
-                <Input
-                  value={otp}
-                  onChange={(e) => setOtp(e.target.value)}
-                  inputMode="numeric"
-                  autoComplete="one-time-code"
-                  {...faulted("otp")}
-                />
-              </Field>
+              <OtpInput value={otp} onChange={setOtp} invalid={error?.field === "otp"} errorId="register-error" />
               {error ? (
                 <p id="register-error" role="alert" className="text-sm text-danger">
                   {error.message}
@@ -398,6 +398,8 @@ function Register() {
                   {t("Verify")}
                 </Button>
               </Magnet>
+              <Captcha state={captcha} />
+              <OtpResend until={resendAt} disabled={busy} onResend={() => void send()} />
             </motion.form>
           )}
           </AnimatePresence>
