@@ -27,6 +27,28 @@ import {
   normalizeCode,
 } from "./rules.ts";
 import { signCheckinToken, verifyCheckinToken } from "./checkin.ts";
+import { spreadOtpDigits } from "../../client/components/otp-input.tsx";
+
+describe("G11: OTP digits arriving together", () => {
+  it("spreads two through five digits and focuses the next box", () => {
+    for (const text of ["12", "123", "1234", "12345"]) {
+      assert.deepEqual(spreadOtpDigits("", 0, text), { value: text, focusIndex: text.length });
+    }
+  });
+  it("strips separators and fills from the focused box, capped at six boxes", () => {
+    assert.deepEqual(spreadOtpDigits("", 0, "123 456"), { value: "123456", focusIndex: 5 });
+    assert.deepEqual(spreadOtpDigits("12", 2, "3 4-56"), { value: "123456", focusIndex: 5 });
+    assert.deepEqual(spreadOtpDigits("123456", 4, "987654"), { value: "123498", focusIndex: 5 });
+    assert.deepEqual(spreadOtpDigits("", 2, "34"), { value: "  34", focusIndex: 4 });
+  });
+  it("replaces only the target boxes and preserves deletion", () => {
+    assert.deepEqual(spreadOtpDigits("123456", 2, "9"), { value: "129456", focusIndex: 3 });
+    assert.deepEqual(spreadOtpDigits("123456", 1, "98"), { value: "198456", focusIndex: 3 });
+    assert.deepEqual(spreadOtpDigits("123456", 2, ""), { value: "12 456", focusIndex: null });
+    assert.deepEqual(spreadOtpDigits("123456", 5, ""), { value: "12345", focusIndex: null });
+    assert.deepEqual(spreadOtpDigits("123456", 2, "abc"), { value: "123456", focusIndex: null });
+  });
+});
 
 describe("phone", () => {
   it("normalizes VN mobiles to +84", () => {
