@@ -109,6 +109,12 @@ export type ApiErrorBody = {
   /** Set when a bulk save names the row that was refused. */
   index?: number;
   requires_confirm?: boolean;
+  affected?: {
+    booking_count: number;
+    session_count: number;
+    bookings: { id: string; code: string; start_at: string }[];
+    sessions: { id: string; start_at: string }[];
+  };
 };
 
 /**
