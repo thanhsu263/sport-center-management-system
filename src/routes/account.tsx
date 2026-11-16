@@ -1088,6 +1088,7 @@ function Receipts() {
 
   return (
     <>
+      <p className="mb-3 text-sm text-muted">{t("Collect your refund in cash at the front desk.")}</p>
       <Stagger className="grid gap-2.5" gap={0.05}>
         {items.map((r) => (
           <StaggerItem key={r.id}>

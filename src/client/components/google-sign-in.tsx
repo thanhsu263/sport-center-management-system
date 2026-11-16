@@ -97,7 +97,9 @@ export function GoogleButton({
   }, [clientId, lang, text]);
 
   if (!clientId) return null;
-  return <div ref={box} className="flex min-h-11 w-full justify-center" />;
+  // Google's iframe paints an opaque white box when its colour scheme differs from the
+  // page's dark one; a light scheme here keeps it transparent around the pill.
+  return <div ref={box} className="flex min-h-11 w-full justify-center rounded-full [color-scheme:light]" />;
 }
 
 /**
