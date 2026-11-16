@@ -155,7 +155,7 @@ function Page() {
                   <div className="mt-auto pt-5">
                     <Button
                       className="w-full"
-                      variant={best ? "primary" : "outline"}
+                      variant="primary"
                       disabled={busy !== null || ordered[p.id] !== undefined}
                       onClick={() => void order(p)}
                     >

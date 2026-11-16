@@ -229,25 +229,18 @@ function Page() {
   }
 
   async function submitRefund() {
-    if (!refunding) return;
+    if (!refunding || !refundReason.trim()) return;
     const amount = parseVnd(refundAmount);
     if (amount <= 0 || amount > refunding.refundable_vnd) return;
     setRefundBusy(true);
     setRefundErr("");
     try {
-      const res = await apiPost<{ payment: { status: string } }>(
+      await apiPost<{ payment: { status: string } }>(
         `/payments/${refunding.id}/refund`,
         { amount_vnd: amount, reason: refundReason.trim() },
         true,
       );
-      // Above a receptionist's limit the server parks it instead of paying it.
-      // Saying "Refunded" either way would have the desk hand over cash for a
-      // refund no manager has signed off yet.
-      toast.success(
-        res.payment?.status === "refund_pending"
-          ? t("Raised: a manager has to sign this off before the money moves")
-          : t("Refunded {amount}", { amount: money(amount) }),
-      );
+      toast.success(t("Refund pending. Pay it in cash from the payments queue after any required manager approval."));
       setRefunding(null);
       reload();
     } catch (e) {
@@ -746,7 +739,7 @@ function Page() {
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-medium tabular-nums">{money(Math.abs(p.amount_vnd))}</span>
                     {isRefund ? <Badge tone="danger">{t("Refund")}</Badge> : null}
-                    {p.status === "refund_pending" ? <Badge tone="hold">{t("Awaiting a manager")}</Badge> : null}
+                    {p.status === "refund_pending" ? <Badge tone="hold">{t("Awaiting cash payout")}</Badge> : null}
                     {p.status === "refund_rejected" ? <Badge tone="muted">{t("Rejected")}</Badge> : null}
                   </div>
                   <p className="mt-1 break-words text-xs tabular-nums text-subtle">
@@ -838,7 +831,7 @@ function Page() {
               {t("Cancel")}
             </Button>
             <Button
-              disabled={refundBusy || !!refundInvalid}
+              disabled={refundBusy || !!refundInvalid || !refundReason.trim()}
               onClick={() => void submitRefund()}
             >
               {refundBusy ? t("Working…") : t("Refund {amount}", { amount: money(refundTyped) })}
@@ -872,12 +865,12 @@ function Page() {
                 rows={3}
                 value={refundReason}
                 onChange={(e) => setRefundReason(e.target.value)}
-                placeholder={t("Court closed for maintenance, member cancelled in time, …")}
+                placeholder={t("Court closed for maintenance, …")}
               />
             </Field>
             {me?.role !== "manager" ? (
               <p className="text-xs text-muted">
-                {t("Above your limit this is parked for a manager instead of paid out. You will be told which happened.")}
+                {t("Refund pending. Pay it in cash from the payments queue after any required manager approval.")}
               </p>
             ) : null}
             {refundErr ? (

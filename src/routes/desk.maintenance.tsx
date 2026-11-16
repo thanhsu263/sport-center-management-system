@@ -13,13 +13,14 @@ import {
   Input,
   LoadError,
   MoneyInput,
+  Modal,
   Select,
   Skeleton,
   Stat,
   Pagination,
 } from "@/client/components/ui";
 import { Reveal, Stagger, StaggerItem } from "@/client/components/motion";
-import { ApiClientError, apiPatch, apiPost } from "@/client/arena3/client";
+import { ApiClientError, apiPatch, apiPost, type ApiErrorBody } from "@/client/arena3/client";
 import { t, tServer } from "@/client/lib/i18n";
 import { usePageState } from "@/client/lib/use-page-state";
 import { useRead } from "@/client/lib/use-read";
@@ -71,24 +72,30 @@ function Page() {
   const [fe, setFe] = useState<{ field?: string; message: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [closing, setClosing] = useState<{ id: string; cost: string; note: string } | null>(null);
+  const [confirmation, setConfirmation] = useState<{
+    affected: NonNullable<ApiErrorBody["affected"]>;
+    body: Record<string, unknown>;
+    id?: string;
+  } | null>(null);
 
-  async function create() {
+  async function create(body: Record<string, unknown> = {
+    title, description: desc || undefined, court_id: courtId || undefined, priority, blocks_court: blocks,
+  }) {
     setFe(null);
     setBusy(true);
     try {
-      const r = await apiPost<{ code: string }>("/work-orders", {
-        title,
-        description: desc || undefined,
-        court_id: courtId || undefined,
-        priority,
-        blocks_court: blocks,
-      });
+      const r = await apiPost<{ code: string }>("/work-orders", body);
+      setConfirmation(null);
       toast.success(t("Ticket {code} created", { code: r.code }));
       setTitle("");
       setDesc("");
       setBlocks(false);
       read.reload();
     } catch (e) {
+      if (e instanceof ApiClientError && e.body.requires_confirm && e.body.affected) {
+        setConfirmation({ affected: e.body.affected, body });
+        return;
+      }
       if (e instanceof ApiClientError) setFe({ field: e.body.field, message: e.message });
       else setFe({ message: e instanceof Error ? tServer(e.message) : t("Something went wrong") });
     } finally {
@@ -98,14 +105,21 @@ function Page() {
 
   /** True when the change went through, so a form the person typed into is only closed once it has been saved. */
   async function patch(id: string, body: Record<string, unknown>, ok?: string) {
+    setBusy(true);
     try {
       await apiPatch(`/work-orders/${id}`, body);
+      setConfirmation(null);
       if (ok) toast.success(ok);
       return true;
     } catch (e) {
+      if (e instanceof ApiClientError && e.body.requires_confirm && e.body.affected) {
+        setConfirmation({ affected: e.body.affected, body, id });
+        return false;
+      }
       toast.error(e instanceof Error ? tServer(e.message) : t("Something went wrong"));
       return false;
     } finally {
+      setBusy(false);
       // Either way the list is asked again: after a refusal it may be someone else's change that got in first.
       read.reload();
     }
@@ -121,6 +135,26 @@ function Page() {
       title={t("Maintenance")}
       subtitle={t("Report what is broken. A ticket can take a court out of booking until it is fixed.")}
     >
+      <Modal open={!!confirmation} onClose={() => { if (!busy) setConfirmation(null); }} title={t("Block this court?")}>
+        {confirmation ? <div className="space-y-4">
+          <p>{t("{bookings} bookings will be cancelled. Refunds are collected in cash at the front desk. {sessions} class sessions need moving or cancelling by the manager and coach.", {
+            bookings: confirmation.affected.booking_count, sessions: confirmation.affected.session_count,
+          })}</p>
+          <p className="text-sm text-muted">{t("First affected start times")}</p>
+          <ul className="space-y-2 text-sm">
+            {confirmation.affected.bookings.map((b) => <li key={b.id}>{t("Booking")} {b.code} · {when(b.start_at)}</li>)}
+            {confirmation.affected.sessions.map((s) => <li key={s.id}>{t("Class session")} · {when(s.start_at)}</li>)}
+          </ul>
+          {fe ? <p role="alert" className="text-sm text-danger">{fe.message}</p> : null}
+          <div className="flex flex-wrap gap-2">
+            <Button disabled={busy} onClick={() => {
+              const body = { ...confirmation.body, confirm: true };
+              void (confirmation.id ? patch(confirmation.id, body) : create(body));
+            }}>{t("Confirm court closure")}</Button>
+            <Button variant="outline" disabled={busy} onClick={() => setConfirmation(null)}>{t("Back")}</Button>
+          </div>
+        </div> : null}
+      </Modal>
       <Reveal from="down">
         <Card className="mb-4 grid gap-3 md:grid-cols-4">
           <div className="md:col-span-2">
@@ -243,6 +277,11 @@ function Page() {
                       </Button>
                     </div>
                   )
+                ) : null}
+                {canEdit && (w.status === "done" || w.status === "cancelled") ? (
+                  <Button className="mt-3" size="sm" variant="outline" disabled={busy} onClick={() => void patch(w.id, { status: "open" })}>
+                    {t("Reopen ticket")}
+                  </Button>
                 ) : null}
               </Card>
             </StaggerItem>
