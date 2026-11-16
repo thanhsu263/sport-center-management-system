@@ -25,12 +25,14 @@ const { readJson, withIdempotency } = await import("./helpers.ts");
 const opsH = await import("./handlers/ops.ts");
 const { classesCreate, enrollmentDelete, classesEnroll, sessionReschedule, sessionCancel, classDetail, classRoster, classesPatch, classQuote } = await import("./handlers/classes.ts");
 const { bookingGet, bookingsReschedule, walkIn, bookingsHold, bookingsConfirm, bookingsCancel } = await import("./handlers/bookings.ts");
-const { shiftClose, paymentsCreate, shiftCurrent, paymentsRefund, paymentsApproveRefund, paymentsRejectRefund } = await import("./handlers/desk.ts");
+const { shiftClose, paymentsCreate, shiftCurrent, paymentsRefund, paymentsApproveRefund, paymentsRejectRefund, paymentsPayOutRefund } = await import("./handlers/desk.ts");
 const { waitlistAccept, inviteWaitlist, sessionAttendancePost } = await import("./handlers/ops.ts");
-const { waitlistExpire } = await import("../data/jobs.ts");
+const { waitlistExpire, notifyClassMinimums, notifyOverdueShifts } = await import("../data/jobs.ts");
+const { classesList } = await import("./handlers/classes.ts");
+const { classCode } = await import("../../shared/arena3/labels.ts");
 const { findUserByLogin, issueSession, authFromRequest, toPublic } = await import("./session.ts");
 const { hashPassword, hashOtp } = await import("../services/crypto.ts");
-const { csvCell } = await import("./handlers/extras.ts");
+const { csvCell, workOrdersCreate, workOrdersPatch } = await import("./handlers/extras.ts");
 const { trainingCreate } = await import("./handlers/training.ts");
 const { clearAll: clearLimits, RULES: LIMITS, take: takeLimit } = await import("./ratelimit.ts");
 const { onlineCreate } = await import("./handlers/online.ts");
@@ -44,6 +46,755 @@ const { memberGet, membersDirectory, membersSearch } = membersH;
 const { PLAN_PHASES, INTENSITIES } = await import("../services/rules.ts");
 
 let db: PGlite;
+
+describe("G10 public OTP abuse guards", () => {
+  it("checks captcha before queries, quietly drops honeypots, and replaces challenges after 60 seconds", async (t) => {
+    const envNames = ["TURNSTILE_SECRET_KEY", "OTP_ECHO", "SMTP_HOST", "SMTP_USER", "SMTP_PASS", "MAIL_TRANSPORT"];
+    const saved = envNames.map((key) => process.env[key]);
+    for (const key of envNames) delete process.env[key];
+    process.env.OTP_ECHO = "1";
+    const mail = t.mock.method(console, "info", () => {});
+    const fetchMock = t.mock.method(globalThis, "fetch", async () => new Response(JSON.stringify({ success: true })));
+    const rollback = new Error("Roll back G10 fixtures");
+    try {
+      await assert.rejects(withTx(async (sql) => {
+        // Shadow seed tables with private, transaction-local fixtures.
+        for (const table of ["users", "otp_challenges"]) {
+          await sql.query(`create temporary table ${table} (like public.${table} including all) on commit drop`);
+        }
+        await sql.query(`insert into users (full_name,name_normalized,role,password_hash,phone,email)
+          values ('G10 Reset','g10 reset','member','hash','+84987654102','g10-reset@example.test')`);
+        for (const purpose of ["register", "reset"] as const) {
+          clearLimits();
+          const handler = purpose === "register" ? authH.register : authH.forgot;
+          const body = purpose === "register"
+            ? { full_name: "G10 Signup", phone: "0987654101", email: "g10-signup@example.test", password: "G10Password!", pii_consent: true }
+            : { phone: "0987654102" };
+          const request = (extra: Record<string, unknown> = {}) => new Request("http://localhost/v1/auth/test", {
+            method: "POST", headers: { "x-forwarded-for": "192.0.2.10" }, body: JSON.stringify({ ...body, ...extra }),
+          });
+          const count = async () => (await sql.query<{ n: number }>(`select count(*)::int as n from otp_challenges where purpose=$1`, [purpose]))[0].n;
+          process.env.TURNSTILE_SECRET_KEY = "test-secret";
+          const noQueries = { query: async () => { assert.fail("captcha/honeypot must run before any query"); } } as unknown as typeof sql;
+          const captchaError = (e: any) => e.code === "VALIDATION" && e.extra.field === "captcha";
+          const mailsBefore = mail.mock.callCount();
+          const callsBefore = fetchMock.mock.callCount();
+          await assert.rejects(handler(noQueries, request()), captchaError);
+          assert.equal(fetchMock.mock.callCount(), callsBefore);
+          for (const response of ["rejected", "network", "malformed", "http"] as const) {
+            fetchMock.mock.mockImplementation(async () => {
+              if (response === "network") throw new Error("offline");
+              if (response === "malformed") return new Response("not json");
+              return new Response(JSON.stringify({ success: response === "http" }), { status: response === "http" ? 503 : 200 });
+            });
+            await assert.rejects(handler(noQueries, request({ captcha_token: "bad" })), captchaError);
+          }
+          assert.equal(await count(), 0);
+          assert.equal(mail.mock.callCount(), mailsBefore);
+          assert.equal((await handler(noQueries, request({ website: "spam" }))).status, 202);
+          assert.equal(await count(), 0);
+          assert.equal(mail.mock.callCount(), mailsBefore);
+          fetchMock.mock.mockImplementation(async (_url, init) => {
+            assert.equal(String(_url), "https://challenges.cloudflare.com/turnstile/v0/siteverify");
+            assert.deepEqual(JSON.parse(String(init?.body)), { secret: "test-secret", response: "valid", remoteip: "192.0.2.10" });
+            return new Response(JSON.stringify({ success: true }));
+          });
+          const first = await handler(sql, request({ captcha_token: "valid" }));
+          assert.equal(first.status, 202);
+          assert.equal(await count(), 1);
+          assert.equal(mail.mock.callCount(), mailsBefore + 1);
+          const initial = (await sql.query<any>(`select * from otp_challenges where purpose=$1`, [purpose]))[0];
+          assert.equal(initial.otp_hash, hashOtp((first.body as any).otp));
+          delete process.env.TURNSTILE_SECRET_KEY;
+          const verifiedCalls = fetchMock.mock.callCount();
+          await assert.rejects(handler(sql, request()), (e: any) => e.status === 429 && e.message === "Wait 60 seconds before requesting another code.");
+          assert.equal(mail.mock.callCount(), mailsBefore + 1);
+          // Advance the persisted send time, not the wall clock or time of day.
+          await sql.query(`update otp_challenges set expires_at=now() + interval '239 seconds', attempts=4 where id=$1`, [initial.id]);
+          const resent = await handler(sql, request());
+          const replacement = (await sql.query<any>(`select * from otp_challenges where purpose=$1`, [purpose]))[0];
+          assert.equal(resent.status, 202);
+          assert.equal(replacement.id, initial.id);
+          assert.equal(replacement.attempts, 0);
+          assert.equal(replacement.otp_hash, hashOtp((resent.body as any).otp));
+          assert.equal(await count(), 1);
+          assert.equal(mail.mock.callCount(), mailsBefore + 2);
+          assert.equal(fetchMock.mock.callCount(), verifiedCalls);
+          await sql.query(`delete from otp_challenges where id=$1`, [initial.id]);
+          assert.equal((await handler(sql, request())).status, 202); // Initial send also works without a key.
+        }
+        throw rollback;
+      }), (e) => e === rollback);
+    } finally {
+      envNames.forEach((key, index) => { if (saved[index] === undefined) delete process.env[key]; else process.env[key] = saved[index]; });
+      clearLimits();
+      mail.mock.restore();
+      fetchMock.mock.restore();
+    }
+  });
+
+  it("limits sends and resends per IP, phone and email, and verification per IP and phone", async () => {
+    const secret = process.env.TURNSTILE_SECRET_KEY;
+    delete process.env.TURNSTILE_SECRET_KEY;
+    const reachedDatabase = new Error("request passed guards");
+    const sql = { query: async () => { throw reachedDatabase; } } as any;
+    const request = (body: unknown, ip: string) => new Request("http://localhost/v1/auth/test", {
+      method: "POST", headers: { "x-forwarded-for": ip }, body: JSON.stringify(body),
+    });
+    try {
+      for (const dimension of ["ip", "phone", "email"] as const) {
+        clearLimits();
+        const maximum = dimension === "ip" ? LIMITS.authSendIp.limit : LIMITS.authSendIdentity.limit;
+        for (let i = 0; i <= maximum; i++) {
+          const body = { full_name: "G10", phone: dimension === "phone" ? "0987654103" : `0987654${String(200 + i)}`,
+            email: dimension === "email" ? " G10@example.test " : `g10-${i}@example.test`, password: "Password123", pii_consent: true };
+          await assert.rejects(authH.register(sql, request(body, dimension === "ip" ? "192.0.2.1" : `192.0.2.${i + 1}`)),
+            (e: any) => i < maximum ? e === reachedDatabase : e.status === 429);
+        }
+      }
+      for (const dimension of ["ip", "phone"] as const) {
+        clearLimits();
+        const maximum = dimension === "ip" ? LIMITS.authVerifyIp.limit : LIMITS.authVerifyIdentity.limit;
+        for (let i = 0; i <= maximum; i++) {
+          await assert.rejects(authH.verifyOtp(sql, request({ phone: dimension === "phone" ? "0987654103" : `0987654${String(300 + i)}`, otp: "123456" },
+            dimension === "ip" ? "192.0.2.1" : `192.0.2.${i + 1}`)),
+            (e: any) => i < maximum ? e === reachedDatabase : e.status === 429);
+        }
+      }
+    } finally {
+      if (secret === undefined) delete process.env.TURNSTILE_SECRET_KEY; else process.env.TURNSTILE_SECRET_KEY = secret;
+      clearLimits();
+    }
+  });
+});
+
+describe("G8 manager accounts", () => {
+  it("creates and resets managers, audits changes, and refuses removing the last active manager", async () => {
+    const { staffCreate, staffPatch, staffResetPassword, staffRevokeSessions } = await import("./handlers/staff.ts");
+    const rollback = new Error("Roll back G8 fixtures");
+    await assert.rejects(withTx(async (sql) => {
+      // Empty tables with the real schema isolate the manager count from seed data.
+      // These transaction-local fixtures disappear on rollback; no seed row is changed.
+      for (const table of ["users", "sessions_auth", "audit_logs", "coach_sports", "user_avatars", "classes", "site_assets"]) {
+        await sql.query(`create temporary table ${table} (like public.${table} including all) on commit drop`);
+      }
+      const actor = (await sql.query<any>(
+        `insert into users (full_name,name_normalized,role,password_hash,phone)
+         values ('G8 Manager','g8 manager','manager','hash','+84987654001') returning *`,
+      ))[0];
+      const request = (body: unknown) => new Request("http://localhost/v1/staff", {
+        method: "POST", body: JSON.stringify(body),
+      });
+      const created = await staffCreate(sql, request({ full_name: "G8 Second Manager", phone: "0987654002", role: "manager" }), actor);
+      const second = created.body.staff;
+      assert.equal(created.status, 201);
+      assert.equal(second.role, "manager");
+      assert.equal(second.status, "active");
+      assert.equal(second.must_change_password, true);
+      await issueSession(sql, { ...actor, id: second.id });
+      const reset = await staffResetPassword(sql, second.id, actor);
+      assert.notEqual(reset.body.temp_password, created.body.temp_password);
+      const { verifyPassword } = await import("../services/crypto.ts");
+      const password = (await sql.query<any>(`select password_hash from users where id=$1`, [second.id]))[0];
+      assert.ok(verifyPassword(reset.body.temp_password, password.password_hash));
+      assert.ok((await sql.query<any>(`select revoked_at from sessions_auth where user_id=$1`, [second.id]))[0].revoked_at);
+
+      const patch = (id: string, body: unknown, by = actor) => staffPatch(sql, id, request(body), by);
+      const forbidden = (e: any) => e.code === "FORBIDDEN";
+      await assert.rejects(patch(actor.id, { status: "locked" }), forbidden);
+      await assert.rejects(patch(actor.id, { role: "receptionist" }), forbidden);
+      await assert.rejects(staffResetPassword(sql, actor.id, actor), forbidden);
+      await assert.rejects(staffRevokeSessions(sql, actor.id, actor), forbidden);
+      await assert.rejects(staffCreate(sql, request({ role: "manager" }), { ...actor, role: "member" }), forbidden);
+
+      assert.equal((await patch(second.id, { status: "locked" })).body.staff.status, "locked");
+      await patch(second.id, { status: "active" });
+      assert.equal((await patch(second.id, { role: "receptionist" })).body.staff.role, "receptionist");
+      await patch(second.id, { role: "manager" });
+      assert.equal((await patch(second.id, { role: "coach", sports: ["badminton"] })).body.staff.role, "coach");
+      await patch(second.id, { role: "manager" });
+      // The second manager retires the first. Its already-authorized request
+      // must still be unable to remove the remaining manager (the race case).
+      await patch(actor.id, { role: "receptionist" }, { ...actor, id: second.id });
+      const conflict = (e: any) => e.status === 409 && e.message === "At least one active manager must remain.";
+      for (const body of [{ status: "locked" }, { role: "receptionist" }, { role: "coach", sports: ["badminton"] }, { role: "manager", status: "locked" }]) {
+        await assert.rejects(patch(second.id, body), conflict);
+      }
+      assert.deepEqual(await sql.query(`select role,status from users where id=$1`, [second.id]), [{ role: "manager", status: "active" }]);
+      const audits = await sql.query<any>(`select actor_id,action from audit_logs where entity_id=$1 order by at`, [second.id]);
+      assert.equal(audits.length, 8);
+      assert.ok(audits.every((a) => a.actor_id === actor.id));
+      assert.deepEqual(audits.map((a) => a.action).sort(), ["create_staff", "reset_staff_password", "lock_staff", "unlock_staff", ...Array(4).fill("change_staff_role")].sort());
+      throw rollback;
+    }), (e) => e === rollback);
+  });
+});
+
+describe("G7 till shift safeguards", () => {
+  it("requires a manager reason, preserves ownership checks, audits closure and reports cash differences", async () => {
+    const rollback = new Error("Roll back G7 close fixtures");
+    await assert.rejects(withTx(async (sql) => {
+      const users = await sql.query<any>(
+        `insert into users (full_name,name_normalized,role,password_hash,phone)
+         select 'G7 ' || role,'g7 ' || role,role::user_role,'hash',substr(gen_random_uuid()::text,1,16)
+         from unnest(array['manager','receptionist','receptionist','member']) role returning *`,
+      );
+      const manager = users.find((u) => u.role === "manager");
+      const [owner, other] = users.filter((u) => u.role === "receptionist");
+      const member = users.find((u) => u.role === "member");
+      const shift = (await sql.query<{ id: string }>(
+        `insert into cashier_shifts (receptionist_id) values ($1) returning id`, [owner.id],
+      ))[0];
+      await sql.query(
+        `insert into payments (code,shift_id,method,amount_vnd,vat_rate,status,ref_type,ref_id)
+         select 'G7-' || substr(gen_random_uuid()::text,1,20),$1,method::pay_method,amount,0,status::pay_status,'booking',gen_random_uuid()
+         from (values ('cash',100000,'posted'),('cash',-20000,'posted'),
+                      ('cash',-10000,'refund_pending'),('card',50000,'posted')) p(method,amount,status)`, [shift.id],
+      );
+      const request = (body: unknown) => new Request(`http://localhost/v1/shifts/${shift.id}/close`, {
+        method: "POST", body: JSON.stringify(body),
+      });
+      for (const reason of [undefined, "", "  ", 42]) {
+        await assert.rejects(shiftClose(sql, shift.id, request({ cash_declared_vnd: 70000, reason }), manager),
+          (e: any) => e.code === "VALIDATION" && e.extra.field === "reason");
+      }
+      for (const user of [other, member]) {
+        await assert.rejects(shiftClose(sql, shift.id, request({ cash_declared_vnd: 70000, reason: "Review" }), user),
+          (e: any) => e.code === "FORBIDDEN");
+      }
+      const closed = await shiftClose(sql, shift.id, request({ cash_declared_vnd: 70000, reason: "  Forgotten shift  " }), manager);
+      assert.deepEqual(closed.body, { ok: true, cash_declared_vnd: 70000, cash_system_vnd: 80000 });
+      const audits = await sql.query<any>(`select actor_id,action,after from audit_logs where entity_id=$1`, [shift.id]);
+      assert.equal(audits.length, 1);
+      assert.equal(audits[0].actor_id, manager.id);
+      assert.equal(audits[0].action, "force_close_shift");
+      assert.deepEqual(audits[0].after, { declared: 70000, actual: 80000, reason: "Forgotten shift" });
+      const alerts = await sql.query<any>(`select payload from outbox where template='shift_cash_difference' and user_id=$1 and payload->>'shift_id'=$2`, [manager.id, shift.id]);
+      assert.equal(alerts.length, 1);
+      assert.equal(alerts[0].payload.cash_declared_vnd, 70000);
+      assert.equal(alerts[0].payload.cash_system_vnd, 80000);
+      await assert.rejects(shiftClose(sql, shift.id, request({ cash_declared_vnd: 70000, reason: "Retry" }), manager),
+        (e: any) => e.code === "CONFLICT_STATE");
+      // Normal owner closure still works; matching cash produces no warning.
+      const ownShift = (await sql.query<{ id: string }>(
+        `insert into cashier_shifts (receptionist_id) values ($1) returning id`, [owner.id],
+      ))[0];
+      await shiftClose(sql, ownShift.id, request({ cash_declared_vnd: 0 }), owner);
+      assert.equal((await sql.query(`select id from outbox where payload->>'shift_id'=$1`, [ownShift.id])).length, 0);
+      assert.equal((await sql.query<any>(`select action from audit_logs where entity_id=$1`, [ownShift.id]))[0].action, "close_shift");
+      const mismatch = (await sql.query<{ id: string }>(
+        `insert into cashier_shifts (receptionist_id) values ($1) returning id`, [owner.id],
+      ))[0];
+      await shiftClose(sql, mismatch.id, request({ cash_declared_vnd: 1 }), owner);
+      assert.equal((await sql.query(`select id from outbox where user_id=$1 and payload->>'shift_id'=$2`, [manager.id, mismatch.id])).length, 1);
+      throw rollback;
+    }), (e) => e === rollback);
+  });
+
+  it("warns active managers once only for open shifts strictly older than 16 hours", async () => {
+    const rollback = new Error("Roll back G7 overdue fixtures");
+    await assert.rejects(withTx(async (sql) => {
+      const users = await sql.query<any>(
+        `insert into users (full_name,name_normalized,role,password_hash,phone)
+         select 'G7 ' || role,'g7 ' || role,role::user_role,'hash',substr(gen_random_uuid()::text,1,16)
+         from unnest(array['manager','manager','receptionist','receptionist','receptionist','receptionist']) role returning *`,
+      );
+      const [manager, disabled] = users.filter((u) => u.role === "manager");
+      await sql.query(`update users set status='disabled' where id=$1`, [disabled.id]);
+      const owners = users.filter((u) => u.role === "receptionist");
+      const shifts: string[] = [];
+      for (const [i, hours] of [17, 16, 15, 20].entries()) {
+        shifts.push((await sql.query<{ id: string }>(
+          `insert into cashier_shifts (receptionist_id,opened_at,closed_at)
+           values ($1,now()-($2 * interval '1 hour'),case when $3 then now() else null end) returning id`,
+          [owners[i].id, hours, i === 3],
+        ))[0].id);
+      }
+      await notifyOverdueShifts(sql);
+      await notifyOverdueShifts(sql);
+      const alerts = await sql.query<any>(
+        `select user_id,payload from outbox where template='shift_overdue'
+         and user_id=any($1::uuid[]) and payload->>'shift_id'=any($2::text[])`,
+        [[manager.id, disabled.id], shifts],
+      );
+      assert.equal(alerts.length, 1);
+      assert.equal(alerts[0].user_id, manager.id);
+      assert.equal(alerts[0].payload.shift_id, shifts[0]);
+      assert.equal(alerts[0].payload.receptionist_id, owners[0].id);
+      throw rollback;
+    }), (e) => e === rollback);
+  });
+});
+
+describe("G6 maintenance commitments", () => {
+  for (const mode of ["create", "reopen", "enable blocking"] as const) {
+    it(`${mode}: requires confirmation, refunds only remaining cash, and preserves sessions with staff alerts`, async () => {
+      const rollback = new Error("Roll back G6 fixtures");
+      await assert.rejects(withTx(async (sql) => {
+        const users = await sql.query<any>(
+          `insert into users (full_name,name_normalized,role,password_hash,phone)
+           select 'G6 ' || role,'g6 ' || role,role::user_role,'hash',substr(gen_random_uuid()::text,1,16)
+           from unnest(array['manager','receptionist','coach','member']) role returning *`,
+        );
+        const manager = users.find((u) => u.role === "manager");
+        const desk = users.find((u) => u.role === "receptionist");
+        const coach = users.find((u) => u.role === "coach");
+        const member = users.find((u) => u.role === "member");
+        const court = (await sql.query<{ id: string }>(
+          `insert into courts (court_code,sport,status)
+           values ('G6-' || substr(gen_random_uuid()::text,1,5),'badminton','ready') returning id`,
+        ))[0];
+        const cls = (await sql.query<{ id: string }>(
+          `insert into classes (sport,level,coach_id,court_id,capacity,rrule,duration_min,start_on,end_on,status)
+           values ('badminton','beginner',$1,$2,10,'FREQ=WEEKLY;BYDAY=MO;BYHOUR=10',60,
+                   current_date - 7,current_date + 30,'open') returning id`, [coach.id, court.id],
+        ))[0];
+        const bookings: { id: string; occupancy_id: string }[] = [];
+        for (let i = 0; i < 8; i++) {
+          bookings.push((await sql.query<{ id: string; occupancy_id: string }>(
+            `with occupied as (
+               insert into occupancies (court_id,start_at,end_at,kind,ref_id)
+               values ($1,now() + $3 * interval '2 hours',now() + $3 * interval '2 hours' + interval '1 hour',
+                       'booking',gen_random_uuid()) returning *
+             ) insert into court_bookings (id,court_id,user_id,start_at,end_at,status,price_vnd,deposit_vnd,paid_vnd,code,channel,occupancy_id)
+               select ref_id,$1,$2,start_at,end_at,$4::booking_status,100000,0,$5,
+                      'G6-' || substr(ref_id::text,1,20),'app',id from occupied returning id,occupancy_id`,
+            [court.id, member.id, i === 7 ? -2 : i + 1, i === 1 ? "hold" : "confirmed", i === 0 ? 100000 : 0],
+          ))[0]);
+        }
+        await sql.query(
+          `insert into payments (code,user_id,method,amount_vnd,vat_rate,status,ref_type,ref_id)
+           values ('G6-' || substr(gen_random_uuid()::text,1,20),$1,'card',100000,0,'posted','booking',$2),
+                  ('G6-' || substr(gen_random_uuid()::text,1,20),$1,'cash',-20000,0,'refund_pending','booking',$2)`,
+          [member.id, bookings[0].id],
+        );
+        const session = (await sql.query<{ id: string; occupancy_id: string }>(
+          `with occupied as (
+             insert into occupancies (court_id,start_at,end_at,kind,ref_id)
+             values ($2,now() + interval '2 days',now() + interval '2 days 1 hour','session',gen_random_uuid()) returning *
+           ) insert into sessions (id,class_id,court_id,start_at,end_at,status,occupancy_id)
+             select ref_id,$1,$2,start_at,end_at,'scheduled',id from occupied returning id,occupancy_id`, [cls.id, court.id],
+        ))[0];
+        const request = (body: object) => new Request("http://test/work-orders", {
+          method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body),
+        });
+        let id: string | undefined;
+        if (mode !== "create") {
+          id = (await workOrdersCreate(sql, request({ title: "G6 repair", court_id: court.id }), desk)).body.id;
+          if (mode === "reopen") await workOrdersPatch(sql, id, request({ status: "done", blocks_court: true }), desk);
+        }
+        const run = (confirm?: boolean) => mode === "create"
+          ? workOrdersCreate(sql, request({ title: "G6 repair", court_id: court.id, blocks_court: true, confirm }), coach)
+          : workOrdersPatch(sql, id!, request({ status: "open", blocks_court: true, confirm }), desk);
+        await assert.rejects(run(), (error: any) => {
+          assert.equal(error.status, 409);
+          assert.equal(error.extra.requires_confirm, true);
+          assert.equal(error.extra.affected.booking_count, 7);
+          assert.equal(error.extra.affected.session_count, 1);
+          assert.equal(error.extra.affected.bookings.length, 5);
+          assert.equal(error.extra.affected.bookings[0].id, bookings[0].id);
+          assert.ok(error.extra.affected.sessions[0].start_at);
+          return true;
+        });
+        assert.equal((await sql.query<any>(`select status from courts where id = $1`, [court.id]))[0].status, "ready");
+        assert.equal((await sql.query<any>(`select count(*)::int n from work_orders where court_id = $1`, [court.id]))[0].n, mode === "create" ? 0 : 1);
+        assert.equal((await sql.query<any>(`select count(*)::int n from outbox where payload->>'session_id' = $1`, [session.id]))[0].n, 0);
+        const result = await run(true);
+        if (mode === "create") id = (result.body as { id: string }).id;
+        assert.equal((await sql.query<any>(`select status from courts where id = $1`, [court.id]))[0].status, "maintenance");
+        const cancelled = await sql.query<any>(`select status,occupancy_id from court_bookings where id = any($1::uuid[])`, [bookings.slice(0, 7).map((b) => b.id)]);
+        assert.ok(cancelled.every((b) => b.status === "cancelled" && b.occupancy_id === null));
+        assert.equal((await sql.query<any>(`select count(*)::int n from occupancies where id = any($1::uuid[])`, [bookings.slice(0, 7).map((b) => b.occupancy_id)]))[0].n, 0);
+        assert.equal((await sql.query<any>(`select status from court_bookings where id = $1`, [bookings[7].id]))[0].status, "confirmed");
+        const refunds = await sql.query<any>(`select amount_vnd,method,status,shift_id from payments where ref_id = $1 and amount_vnd < 0 order by amount_vnd`, [bookings[0].id]);
+        assert.deepEqual(refunds, [
+          { amount_vnd: -80000, method: "cash", status: "refund_pending", shift_id: null },
+          { amount_vnd: -20000, method: "cash", status: "refund_pending", shift_id: null },
+        ]);
+        assert.equal((await sql.query<any>(`select count(*)::int n from outbox where template = 'booking_cancelled' and payload->>'id' = any($1::text[])`, [bookings.map((b) => b.id)]))[0].n, 7);
+        assert.deepEqual((await sql.query<any>(`select status,occupancy_id from sessions where id = $1`, [session.id]))[0], { status: "scheduled", occupancy_id: session.occupancy_id });
+        const notices = () => sql.query<any>(`select user_id from outbox where template = 'maintenance_session' and payload->>'session_id' = $1 and user_id = any($2::uuid[]) order by user_id`, [session.id, users.map((u) => u.id)]);
+        assert.deepEqual((await notices()).map((n) => n.user_id).sort(), [manager.id, coach.id].sort());
+        await workOrdersPatch(sql, id!, request({ status: "in_progress", confirm: true }), desk);
+        assert.equal((await notices()).length, 2);
+        assert.equal((await sql.query<any>(`select count(*)::int n from payments where ref_id = $1`, [bookings[0].id]))[0].n, 3);
+        throw rollback;
+      }), (error) => error === rollback);
+    });
+  }
+});
+
+describe("G5 class minimum warnings", () => {
+  it("warns managers once in the first-session 24-hour window, counts only confirmed seats, and flags running classes without cancelling", async () => {
+    const rollback = new Error("Roll back G5 fixtures");
+    await assert.rejects(withTx(async (sql) => {
+      const users = await sql.query<any>(
+        `insert into users (full_name, name_normalized, role, password_hash, phone)
+         select 'G5 ' || role, 'g5 ' || role, role::user_role, 'hash', substr(gen_random_uuid()::text, 1, 16)
+           from unnest(array['manager','manager','manager','coach','member','member','member','member','member']) role
+         returning *`,
+      );
+      const managers = users.filter((u) => u.role === "manager");
+      const coach = users.find((u) => u.role === "coach");
+      const members = users.filter((u) => u.role === "member");
+      await sql.query(`update users set status = 'disabled' where id = $1`, [managers[2].id]);
+      const cases = [
+        { name: "boundary", hours: 24, minimum: 2, status: "open", confirmed: 1, warn: true, running: false },
+        { name: "soon", hours: 12, minimum: 2, status: "open", confirmed: 1, warn: true, running: false },
+        { name: "early", hours: 25, minimum: 2, status: "open", confirmed: 1, warn: false, running: false },
+        { name: "met", hours: 12, minimum: 2, status: "open", confirmed: 2, warn: false, running: false },
+        { name: "none", hours: 12, minimum: null, status: "open", confirmed: 1, warn: false, running: false },
+        { name: "draft", hours: 12, minimum: 2, status: "draft", confirmed: 1, warn: false, running: false },
+        { name: "cancelled", hours: 12, minimum: 2, status: "cancelled", confirmed: 1, warn: false, running: false },
+        { name: "started", hours: 0, minimum: 2, status: "open", confirmed: 1, warn: false, running: true },
+        { name: "later-session", hours: 12, minimum: 2, status: "open", confirmed: 1, warn: false, running: true },
+        { name: "no-session", hours: null, minimum: 2, status: "open", confirmed: 1, warn: false, running: false },
+      ];
+      const fixtures: Array<(typeof cases)[number] & { id: string }> = [];
+      for (const c of cases) {
+        const court = (await sql.query<{ id: string }>(
+          `insert into courts (court_code, sport, status)
+           values ('G5-' || substr(gen_random_uuid()::text, 1, 5),'badminton','ready') returning id`,
+        ))[0];
+        const cls = (await sql.query<{ id: string }>(
+          `insert into classes (sport, level, coach_id, court_id, capacity, enrolled_count,
+                                min_enrolled, rrule, duration_min, start_on, end_on, status)
+           values ('badminton','beginner',$1,$2,10,5,$3,'FREQ=WEEKLY;BYDAY=MO;BYHOUR=10',60,
+                   current_date - 7,current_date + 30,$4::class_status) returning id`,
+          [coach.id, court.id, c.minimum, c.status],
+        ))[0];
+        fixtures.push({ ...c, id: cls.id });
+        for (const [i, member] of members.entries()) {
+          const status = i < c.confirmed ? "confirmed" : i === 2 ? "hold" : i === 3 ? "waitlisted" : "cancelled";
+          await sql.query(
+            `insert into enrollments (class_id,user_id,status,waitlist_pos,hold_until)
+             values ($1,$2,$3::enroll_status,case when $3 = 'waitlisted' then 1 else null end,
+                     case when $3 = 'hold' then now() + interval '1 hour' else null end)`,
+            [cls.id, member.id, status],
+          );
+        }
+        // All times are relative to the transaction's stable now(), never wall-clock hours.
+        if (c.hours !== null) await sql.query(
+          `with occupied as (
+             insert into occupancies (court_id,start_at,end_at,kind,ref_id)
+             values ($2,now() + $3 * interval '1 hour',now() + ($3 + 1) * interval '1 hour','session',gen_random_uuid())
+             returning id,ref_id,start_at,end_at
+           ) insert into sessions (id,class_id,court_id,start_at,end_at,status,occupancy_id)
+             select ref_id,$1,$2,start_at,end_at,'scheduled',id from occupied`,
+          [cls.id, court.id, c.hours],
+        );
+        if (c.name === "later-session") await sql.query(
+          `insert into sessions (class_id,court_id,start_at,end_at,status)
+           values ($1,$2,now() - interval '7 days',now() - interval '7 days' + interval '1 hour','done')`,
+          [cls.id, court.id],
+        );
+      }
+      const ids = fixtures.map((c) => c.id);
+      const states = () => sql.query(
+        `select id,status::text,enrolled_count from classes where id = any($1::uuid[]) order by id`, [ids],
+      );
+      const before = await states();
+      await notifyClassMinimums(sql);
+      const notices = () => sql.query<any>(
+        `select user_id,payload,channel,sent_at,dedupe_key from outbox
+          where template = 'class_below_minimum' and payload->>'class_id' = any($1::text[])
+            and user_id = any($2::uuid[]) order by dedupe_key`, [ids, users.map((u) => u.id)],
+      );
+      const first = await notices();
+      assert.equal(first.length, 4);
+      for (const c of fixtures) {
+        const messages = first.filter((n) => n.payload.class_id === c.id);
+        assert.equal(messages.length, c.warn ? 2 : 0, c.name);
+        for (const n of messages) {
+          assert.ok(managers.slice(0, 2).some((u) => u.id === n.user_id));
+          assert.equal(n.channel, "inapp");
+          assert.ok(n.sent_at);
+          assert.deepEqual(n.payload, { class_id: c.id, code: classCode("badminton", "beginner", c.id), confirmed_count: 1, min_enrolled: 2 });
+        }
+      }
+      await notifyClassMinimums(sql);
+      assert.deepEqual(await notices(), first, "repeat sweeps do not duplicate notifications");
+      assert.deepEqual(await states(), before, "warnings never cancel or change a class");
+      assert.deepEqual(await sql.query(
+        `select p.id from payments p join enrollments e on p.ref_type = 'enrollment' and p.ref_id = e.id
+          where e.class_id = any($1::uuid[])`, [ids],
+      ), [], "warnings create no refunds");
+      const listed = await classesList(sql, new Request("http://localhost/classes"), toPublic(managers[0]));
+      const listedItems = listed.body.items as Array<{ code: string; id: string; confirmed_count: number; running_below_minimum: boolean }>;
+      for (const c of fixtures) {
+        const row = listedItems.find((item) => item.id === c.id)!;
+        assert.equal(row.confirmed_count, c.confirmed, c.name);
+        assert.equal(row.running_below_minimum, c.running, c.name);
+      }
+      throw rollback;
+    }), (error) => error === rollback);
+  });
+});
+
+describe("G4 voluntary class departure", () => {
+  it("keeps paid tuition without a refund and offers the released seat to the waitlist", async () => {
+    const rollback = new Error("Roll back G4 fixtures");
+    await assert.rejects(withTx(async (sql) => {
+      const users = await sql.query<any>(
+        `insert into users (full_name, name_normalized, role, password_hash, phone)
+         select 'G4 ' || role, 'g4 ' || role, role::user_role, 'hash', substr(gen_random_uuid()::text, 1, 16)
+           from unnest(array['coach','member','member']) role returning *`,
+      );
+      const coach = users.find((u) => u.role === "coach");
+      const [member, waiting] = users.filter((u) => u.role === "member");
+      const court = (await sql.query<{ id: string }>(
+        `insert into courts (court_code, sport, status)
+         values ('G4-' || substr(gen_random_uuid()::text, 1, 5), 'badminton', 'ready') returning id`,
+      ))[0];
+      // No scheduled session: this tests a permitted departure, independent of clock/cutoff.
+      const cls = (await sql.query<{ id: string }>(
+        `insert into classes (sport, level, coach_id, court_id, capacity, enrolled_count,
+                              rrule, duration_min, start_on, end_on, status)
+         values ('badminton','beginner',$1,$2,1,1,'FREQ=WEEKLY;BYDAY=MO;BYHOUR=10',60,
+                 '2099-01-01','2099-02-01','open') returning id`, [coach.id, court.id],
+      ))[0];
+      const seat = (await sql.query<{ id: string }>(
+        `insert into enrollments (class_id, user_id, status, price_vnd)
+         values ($1,$2,'confirmed',300000) returning id`, [cls.id, member.id],
+      ))[0];
+      const queued = (await sql.query<{ id: string }>(
+        `insert into enrollments (class_id, user_id, status, waitlist_pos)
+         values ($1,$2,'waitlisted',1) returning id`, [cls.id, waiting.id],
+      ))[0];
+      await sql.query(
+        `insert into payments (code, user_id, method, amount_vnd, vat_rate, status, ref_type, ref_id)
+         values ('G4-' || substr(gen_random_uuid()::text, 1, 20),$1,'transfer',300000,0,'posted','enrollment',$2)`,
+        [member.id, seat.id],
+      );
+      const paymentsBefore = await sql.query(`select * from payments where user_id = $1`, [member.id]);
+      const result = await enrollmentDelete(sql, seat.id, toPublic(member));
+      assert.equal(result.status, 200);
+      assert.deepEqual(result.body, { ok: true });
+      assert.deepEqual(await sql.query(`select * from payments where user_id = $1`, [member.id]), paymentsBefore);
+      assert.deepEqual(await sql.query(`select status::text as status from enrollments where id = $1`, [seat.id]),
+        [{ status: "cancelled" }]);
+      assert.deepEqual(await sql.query(`select enrolled_count from classes where id = $1`, [cls.id]),
+        [{ enrolled_count: 0 }]);
+      assert.deepEqual(await sql.query(
+        `select enrollment_id, status::text as status from waitlist_offers
+          where enrollment_id in ($1,$2)`, [seat.id, queued.id],
+      ), [{ enrollment_id: queued.id, status: "pending" }]);
+      throw rollback;
+    }), (error) => error === rollback);
+  });
+});
+
+describe("G3 centre-cancelled session refunds", () => {
+  const request = (body: Record<string, unknown> = { reason: "Court unavailable" }) =>
+    new Request("http://localhost", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+
+  async function fixture(sql: Parameters<Parameters<typeof withTx>[0]>[0]) {
+    // Use a Monday at least six weeks away, with fixed local session times.
+    // No time-of-day cutoff or mocked global clock can affect these fixtures.
+    const monday = new Date();
+    monday.setUTCHours(0, 0, 0, 0);
+    monday.setUTCDate(monday.getUTCDate() + 42 + (8 - monday.getUTCDay()) % 7);
+    const day = (offset: number) => new Date(monday.getTime() + offset * 86400000).toISOString().slice(0, 10);
+    const users = await sql.query<any>(
+      `insert into users (full_name, name_normalized, role, password_hash, phone)
+       select 'G3 ' || role, 'g3 ' || role, role::user_role, 'hash', substr(gen_random_uuid()::text, 1, 16)
+         from unnest(array['manager','coach','member','member','member','member','member','member']) role
+       returning *`,
+    );
+    const manager = toPublic(users.find((u) => u.role === "manager"));
+    const coach = users.find((u) => u.role === "coach");
+    const members = users.filter((u) => u.role === "member");
+    const court = (await sql.query<{ id: string }>(
+      `insert into courts (court_code, sport, status)
+       values ('G3-' || substr(gen_random_uuid()::text, 1, 5), 'badminton', 'ready') returning id`,
+    ))[0];
+    // Five Mondays including both endpoints, but only two materialized sessions.
+    const cls = (await sql.query<{ id: string }>(
+      `insert into classes (sport, level, coach_id, court_id, capacity, rrule, duration_min, start_on, end_on, status)
+       values ('badminton', 'beginner', $1, $2, 10, 'FREQ=WEEKLY;BYDAY=MO;BYHOUR=10', 60,
+               $3::date, $4::date, 'open') returning id`, [coach.id, court.id, day(0), day(28)],
+    ))[0];
+    const seats: string[] = [];
+    const amounts = [110003, 50000, 0, 100000, 12347, 30000];
+    for (const [i, member] of members.entries()) {
+      const seat = (await sql.query<{ id: string }>(
+        `insert into enrollments (class_id, user_id, status, price_vnd, extension_vnd, waitlist_pos)
+         values ($1,$2,$3::enroll_status,$4,$5,case when $3 = 'waitlisted' then 1 else null end) returning id`,
+        [cls.id, member.id, i === 3 ? 'waitlisted' : 'confirmed', i === 4 ? 100000 : amounts[i], i === 0 ? 10000 : 0],
+      ))[0];
+      seats.push(seat.id);
+      if (amounts[i]) await sql.query(
+        `insert into payments (code, user_id, method, amount_vnd, vat_rate, status, ref_type, ref_id)
+         values ('G3-' || substr(gen_random_uuid()::text, 1, 20),$1,'transfer',$2,0,'posted','enrollment',$3)`,
+        [member.id, amounts[i], seat.id],
+      );
+    }
+    for (const [index, amount, status] of [[1, -35000, 'posted'], [1, -12000, 'refund_pending'], [5, -30000, 'posted']] as const) {
+      await sql.query(
+        `insert into payments (code, user_id, method, amount_vnd, vat_rate, status, ref_type, ref_id)
+         values ('G3-' || substr(gen_random_uuid()::text, 1, 20),$1,'cash',$2,0,$3::pay_status,'enrollment',$4)`,
+        [members[index].id, amount, status, seats[index]],
+      );
+    }
+    const sessions = await sql.query<{ id: string }>(
+      `with occupied as (
+         insert into occupancies (court_id, start_at, end_at, kind, ref_id)
+         select $2,d,d + interval '1 hour','session',gen_random_uuid()
+           from unnest(array[$3::timestamptz,$4::timestamptz]) d
+         returning id, ref_id, start_at, end_at
+       ) insert into sessions (id, class_id, court_id, start_at, end_at, status, occupancy_id)
+         select ref_id,$1,$2,start_at,end_at,'scheduled',id from occupied returning id`,
+      [cls.id, court.id, `${day(0)}T10:00:00+07:00`, `${day(7)}T10:00:00+07:00`],
+    );
+    return { manager, members, cls, seats, sessions, moveDay: day(1) };
+  }
+
+  it("refunds actual tuition over the full recurrence, caps posted and pending returns, and rejects repeat cancellation", async () => {
+    await withTx(async (sql) => {
+      const { manager, members, seats, sessions } = await fixture(sql);
+      const result = await sessionCancel(sql, sessions[0].id, request(), manager);
+      assert.deepEqual(result.body, { ok: true, notified: 5, refunded: 3, refunded_vnd: 25469 });
+      const refunds = await sql.query<any>(
+        `select ref_id, amount_vnd, method, status, shift_id, created_by from payments
+          where ref_id = any($1::uuid[]) and status = 'refund_pending' and amount_vnd <> -12000`, [seats],
+      );
+      assert.equal(refunds.length, 3);
+      for (const [index, amount] of [[0, -20000], [1, -3000], [4, -2469]]) {
+        assert.deepEqual(refunds.find((r) => r.ref_id === seats[index]), {
+          ref_id: seats[index], amount_vnd: amount, method: 'cash', status: 'refund_pending', shift_id: null, created_by: null,
+        });
+      }
+      const notifications = await sql.query<any>(
+        `select user_id, payload from outbox where template = 'class_changed' and payload->>'session_id' = $1`, [sessions[0].id],
+      );
+      for (const [index, amount] of [[0, 20000], [1, 3000], [2, 0], [4, 2469], [5, 0]]) {
+        const notification = notifications.find((n) => n.user_id === members[index].id);
+        assert.equal(notification.payload.kind, 'session_cancelled');
+        assert.equal(notification.payload.refund_vnd, amount);
+      }
+      assert.equal(notifications.some((n) => n.user_id === members[3].id), false);
+      await assert.rejects(sessionCancel(sql, sessions[0].id, request(), manager), { code: 'CONFLICT_STATE' });
+      const second = await sessionCancel(sql, sessions[1].id, request(), manager);
+      assert.equal(second.body.refunded, 2);
+      assert.equal(second.body.refunded_vnd, 22469);
+      const capped = await sql.query<{ returned: number }>(
+        `select sum(-amount_vnd)::int as returned from payments where ref_id = $1 and amount_vnd < 0`, [seats[1]],
+      );
+      assert.equal(capped[0].returned, 50000);
+    });
+  });
+
+  it("uses at least one planned session when the recurrence has no occurrences", async () => {
+    await withTx(async (sql) => {
+      const { manager, cls, sessions, moveDay } = await fixture(sql);
+      await sql.query(`update classes set start_on = $2::date, end_on = $2::date where id = $1`, [cls.id, moveDay]);
+      const result = await sessionCancel(sql, sessions[0].id, request(), manager);
+      assert.equal(result.body.refunded, 3);
+      assert.equal(result.body.refunded_vnd, 115350);
+    });
+  });
+
+  it("moving a session leaves payments unchanged", async () => {
+    await withTx(async (sql) => {
+      const { manager, seats, sessions, moveDay } = await fixture(sql);
+      const before = await sql.query(`select * from payments where ref_id = any($1::uuid[]) order by id`, [seats]);
+      const result = await sessionReschedule(sql, sessions[0].id,
+        request({ start_at: `${moveDay}T10:00:00+07:00`, reason: 'Move only' }), manager);
+      assert.equal(result.status, 200);
+      assert.deepEqual(await sql.query(`select * from payments where ref_id = any($1::uuid[]) order by id`, [seats]), before);
+    });
+  });
+});
+
+describe("G2 certificates and G7 Progress attendance", () => {
+  async function fixture(sql: Parameters<Parameters<typeof withTx>[0]>[0]) {
+    const users = await sql.query<any>(
+      `insert into users (full_name, name_normalized, role, password_hash, phone)
+       values ('G2 Member', 'g2 member', 'member', 'hash', substr(gen_random_uuid()::text, 1, 16)),
+              ('G2 Coach', 'g2 coach', 'coach', 'hash', substr(gen_random_uuid()::text, 1, 16)) returning *`,
+    );
+    const member = toPublic(users.find((u) => u.role === 'member'));
+    const coach = users.find((u) => u.role === 'coach');
+    const court = (await sql.query<{ id: string }>(
+      `insert into courts (court_code, sport, status)
+       values ('G2-' || substr(gen_random_uuid()::text, 1, 5), 'badminton', 'ready') returning id`,
+    ))[0];
+    const cls = (await sql.query<{ id: string }>(
+      `insert into classes (sport, level, coach_id, court_id, capacity, rrule, duration_min, start_on, end_on, status)
+       values ('badminton', 'beginner', $1, $2, 10, 'FREQ=WEEKLY;BYDAY=MO;BYHOUR=10', 60,
+         (now() at time zone 'Asia/Ho_Chi_Minh')::date - 30,
+         (now() at time zone 'Asia/Ho_Chi_Minh')::date + 1, 'open') returning id`,
+      [coach.id, court.id],
+    ))[0];
+    const enrollment = (await sql.query<{ id: string }>(
+      `insert into enrollments (class_id, user_id, status) values ($1, $2, 'confirmed') returning id`,
+      [cls.id, member.id],
+    ))[0];
+    const sessions = await sql.query<{ id: string }>(
+      `insert into sessions (class_id, court_id, start_at, end_at, status)
+       select $1, $2, now() - n * interval '1 day', now() - n * interval '1 day' + interval '1 hour', 'done'
+       from generate_series(2, 6) n returning id`, [cls.id, court.id],
+    );
+    for (const [i, session] of sessions.entries()) {
+      await sql.query(
+        `insert into attendance (kind, user_id, session_id, result)
+         values ('session', $1, $2, $3::att_result)`,
+        [member.id, session.id, i === 0 ? 'late' : i === 4 ? 'absent' : 'present'],
+      );
+    }
+    return { member, cls, enrollment, sessions };
+  }
+
+  it("G2: generated sessions alone cannot qualify a class ending today or later in Vietnam", async () => {
+    const { meCertificates, meCertificateIssue } = await import('./handlers/certificates.ts');
+    await withTx(async (sql) => {
+      // Keep the database session date different from Vietnam's date at any hour.
+      const { zone } = (await sql.query<{ zone: string }>(
+        `select case when (now() at time zone 'Pacific/Honolulu')::date
+           <> (now() at time zone 'Asia/Ho_Chi_Minh')::date
+         then 'Pacific/Honolulu' else 'Pacific/Kiritimati' end as zone`,
+      ))[0];
+      await sql.query(`select set_config('TimeZone', $1, true)`, [zone]);
+      const { member, cls, enrollment } = await fixture(sql);
+      for (const offset of [1, 0, -1]) {
+        await sql.query(
+          `update classes set end_on = (now() at time zone 'Asia/Ho_Chi_Minh')::date + $2::int where id = $1`,
+          [cls.id, offset],
+        );
+        const listed = (await meCertificates(sql, member)).body.items[0];
+        assert.equal(listed.remaining, 0);
+        assert.equal(listed.sessions, 5);
+        assert.equal(listed.attended, 4);
+        assert.equal(listed.eligible, offset < 0);
+        if (offset >= 0) {
+          await assert.rejects(meCertificateIssue(sql, enrollment.id, member), {
+            code: 'CONFLICT_STATE', message: 'The class is not over yet.',
+          });
+          assert.equal((await sql.query(`select 1 from class_certificates where enrollment_id = $1`, [enrollment.id])).length, 0);
+        } else {
+          const issued = await meCertificateIssue(sql, enrollment.id, member);
+          assert.equal(issued.status, 201);
+          assert.ok(issued.body.code);
+          assert.deepEqual((await meCertificateIssue(sql, enrollment.id, member)).body, issued.body);
+        }
+      }
+    });
+  });
+
+  it("G7: Progress counts present and late sessions without coach results, excluding absent and cancelled", async () => {
+    const { meTraining } = await import('./handlers/training.ts');
+    await withTx(async (sql) => {
+      await sql.query(`insert into feature_flags (key, enabled) values ('F4', true)
+        on conflict (key) do update set enabled = true`);
+      const { member, sessions } = await fixture(sql);
+      assert.equal((await meTraining(sql, member)).body.completed_sessions, 4);
+      await sql.query(`update sessions set status = 'cancelled' where id = $1`, [sessions[1].id]);
+      const progress = (await meTraining(sql, member)).body;
+      assert.equal(progress.completed_sessions, 3);
+      assert.equal(progress.results.length, 0);
+    });
+  });
+});
 
 describe("training suggestions publish without manual edits", () => {
   for (const mode of ["ai", "unavailable", "invalid-json"] as const) {
@@ -324,8 +1075,8 @@ describe("foreign keys & subscription role unit tests (Vòng 3: F-24, F-25, F-18
     coach_id: coachUser.id,
     court_id: validCourtId,
     rrule: "FREQ=WEEKLY;BYDAY=MO;BYHOUR=9",
-    start_on: "2026-11-01",
-    end_on: "2026-11-30",
+    start_on: "2027-11-01",
+    end_on: "2027-11-30",
     duration_min: 60,
     capacity: 10,
     ...overrides,
@@ -705,9 +1456,28 @@ describe("Round 5: Money & Cashier Shift unit tests (F-17, F-12, F-13, F-09)", (
 
   // F-09: walkIn phone validation & slot clash
   it("validates phone and rejects conflicting slot with 409 in walkIn (F-09)", async () => {
+    const court = (await db.query<{ id: string }>(
+      `insert into courts (court_code, sport, status) values ('G9-F09', 'badminton', 'ready') returning id`,
+    )).rows[0];
+    const receptionist = (await db.query<any>(
+      `insert into users (phone, full_name, name_normalized, role, password_hash)
+       values ('+84987654907', 'G9 Receptionist', 'g9 receptionist', 'receptionist', 'hash') returning *`,
+    )).rows[0];
+    const member = (await db.query<{ phone: string }>(
+      `insert into users (phone, full_name, name_normalized, role, password_hash)
+       values ('+84987654909', 'G9 Walkin Member', 'g9 walkin member', 'member', 'hash') returning phone`,
+    )).rows[0];
+    // Tomorrow at opening time in ICT is future, on-grid and in hours even at night.
+    const slot = (await db.query<{ start_at: Date; end_at: Date }>(
+      `select ((now() at time zone 'Asia/Ho_Chi_Minh')::date + 1 + open_time)
+                at time zone 'Asia/Ho_Chi_Minh' as start_at,
+              (((now() at time zone 'Asia/Ho_Chi_Minh')::date + 1 + open_time)
+                at time zone 'Asia/Ho_Chi_Minh') + slot_minutes * interval '1 minute' as end_at
+         from center_settings where id = 1`,
+    )).rows[0];
     const shift = (await db.query<{ id: string }>(
       "insert into cashier_shifts (receptionist_id) values ($1) returning id",
-      [receptionistUser.id]
+      [receptionist.id]
     )).rows[0];
 
     // SĐT rác -> validation error
@@ -715,15 +1485,15 @@ describe("Round 5: Money & Cashier Shift unit tests (F-17, F-12, F-13, F-09)", (
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
-        court_id: validCourtId,
-        start_at: "2026-11-20T09:00:00.000Z",
+        court_id: court.id,
+        start_at: slot.start_at,
         guest_name: "Walkin Guest",
         guest_phone: "12345",
         method: "cash",
       }),
     });
     await assert.rejects(
-      async () => withTx(async (sql) => walkIn(sql, reqBadPhone, receptionistUser)),
+      async () => withTx(async (sql) => walkIn(sql, reqBadPhone, receptionist)),
       (err: any) => {
         assert.equal(err.status, 422);
         assert.equal(err.extra?.field, "phone");
@@ -734,22 +1504,22 @@ describe("Round 5: Money & Cashier Shift unit tests (F-17, F-12, F-13, F-09)", (
     // Slot đã hold -> 409 CONFLICT_SLOT
     await db.query(`
       insert into occupancies (id, court_id, start_at, end_at, kind, ref_id)
-      values (gen_random_uuid(), $1, '2026-11-20 09:00:00+00', '2026-11-20 10:00:00+00', 'hold', gen_random_uuid())
-    `, [validCourtId]);
+      values (gen_random_uuid(), $1, $2, $3, 'hold', gen_random_uuid())
+    `, [court.id, slot.start_at, slot.end_at]);
 
     const reqClash = new Request("http://localhost/v1/walk-in", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
-        court_id: validCourtId,
-        start_at: "2026-11-20T09:00:00.000Z",
+        court_id: court.id,
+        start_at: slot.start_at,
         guest_name: "Walkin Clash",
-        guest_phone: "0912345678",
+        guest_phone: member.phone,
         method: "cash",
       }),
     });
     await assert.rejects(
-      async () => withTx(async (sql) => walkIn(sql, reqClash, receptionistUser)),
+      async () => withTx(async (sql) => walkIn(sql, reqClash, receptionist)),
       (err: any) => {
         assert.equal(err.status, 409);
         assert.equal(err.code, "CONFLICT_SLOT");
@@ -833,7 +1603,9 @@ describe("Round 5: Money & Cashier Shift unit tests (F-17, F-12, F-13, F-09)", (
     assert.equal((resRefund.body as any).payment?.shift_id, shift.id);
     assert.equal((resRefund.body as any).payment?.amount_vnd, -40000);
 
-    // Verify shift totals: 100k - 40k = 60k
+    assert.equal((resRefund.body as any).payment.status, "refund_pending");
+    await withTx((sql) => paymentsPayOutRefund(sql, (resRefund.body as any).payment.id, receptionistUser));
+    // Verify shift totals after cash payout: 100k - 40k = 60k
     const reqCurrent = new Request("http://localhost/v1/shifts/current");
     const cur = await withTx(async (sql) => shiftCurrent(sql, receptionistUser, reqCurrent));
     assert.equal(cur.status, 200);
@@ -881,6 +1653,8 @@ describe("Round 5: Money & Cashier Shift unit tests (F-17, F-12, F-13, F-09)", (
     });
     const resApprove = await withTx(async (sql) => paymentsApproveRefund(sql, pendingId, reqApprove, managerUser));
     assert.equal(resApprove.status, 200);
+    assert.equal((resApprove.body as any).status, "refund_pending");
+    await withTx((sql) => paymentsPayOutRefund(sql, pendingId, receptionistUser));
 
     // Shift totals for receptionist MUST drop by refund amount (the approved refund has shift_id = shift.id)
     const curAfter = await withTx(async (sql) => shiftCurrent(sql, receptionistUser, reqCurrentBefore));
@@ -903,7 +1677,7 @@ describe("Round 5: Money & Cashier Shift unit tests (F-17, F-12, F-13, F-09)", (
     const reqRefund = new Request("http://localhost/v1/payments/" + pay.id + "/refund", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ amount_vnd: 20000 }),
+      body: JSON.stringify({ amount_vnd: 20000, reason: "Staff decision" }),
     });
 
     await assert.rejects(
@@ -1148,31 +1922,31 @@ describe("Round 6: F-06, F-07, F-26, F-04 unit tests", () => {
 
   // F-26: Waitlist queue jumping
   it("F-26: pending offer reserves seat against newcomer; offer accepted -> 200; offer expired -> newcomer can take seat", async () => {
-    const coachId = "00000000-0000-0000-0000-000000000011";
-    const classId = "40000000-0000-0000-0000-000000000001";
-    await db.query("delete from enrollments where class_id = $1", [classId]);
-    await db.query("delete from classes where id = $1", [classId]);
-    await db.query(
-      `insert into classes (id, sport, level, coach_id, court_id, rrule, start_on, end_on, duration_min, capacity, status, enrolled_count, price_vnd)
-       values ($1, 'badminton', 'f26-test', $2, $3, 'FREQ=WEEKLY;BYDAY=MO;BYHOUR=10', current_date + 1, current_date + 14, 60, 1, 'open', 0, 300000)`,
-      [classId, coachId, validCourtId]
-    );
-
-    const mem1 = { id: "00000000-0000-0000-0000-000000000104", phone: "+84900000104", name: "Mem 1", role: "member" } as any;
-    const mem2 = { id: "00000000-0000-0000-0000-000000000105", phone: "+84900000105", name: "Mem 2", role: "member" } as any;
-    const mem3 = { id: "00000000-0000-0000-0000-000000000106", phone: "+84900000106", name: "Mem 3", role: "member" } as any;
-    const mem4 = { id: "00000000-0000-0000-0000-000000000107", phone: "+84900000107", name: "Mem 4", role: "member" } as any;
+    const coach = (await db.query<{ id: string }>(
+      `insert into users (phone, full_name, name_normalized, role, password_hash)
+       values ('+84987654908', 'G9 Coach', 'g9 coach', 'coach', 'hash') returning id`,
+    )).rows[0];
+    const court = (await db.query<{ id: string }>(
+      `insert into courts (court_code, sport, status) values ('G9-F26', 'badminton', 'ready') returning id`,
+    )).rows[0];
+    const { id: classId } = (await db.query<{ id: string }>(
+      `insert into classes (sport, level, coach_id, court_id, rrule, start_on, end_on, duration_min, capacity, status, enrolled_count, price_vnd)
+       select 'badminton', 'f26-test', $1, $2,
+              'FREQ=WEEKLY;BYDAY=MO;BYHOUR=' || extract(hour from open_time)::int,
+              (now() at time zone 'Asia/Ho_Chi_Minh')::date + 1,
+              (now() at time zone 'Asia/Ho_Chi_Minh')::date + 14,
+              slot_minutes, 1, 'open', 0, 300000
+         from center_settings where id = 1 returning id`,
+      [coach.id, court.id],
+    )).rows[0];
+    const members = (await db.query<any>(
+      `insert into users (phone, full_name, name_normalized, role, password_hash)
+       select '+8498765490' || n, 'G9 Member ' || n, 'g9 member ' || n, 'member', 'hash'
+         from generate_series(1, 4) n returning *`,
+    )).rows;
+    const [mem1, mem2, mem3, mem4] = members;
 
     try {
-      for (const m of [mem1, mem2, mem3, mem4]) {
-        await db.query(
-          `insert into users (id, phone, full_name, name_normalized, role, password_hash)
-           values ($1, $2, $3, $4, 'member', 'hash')
-           on conflict (id) do nothing`,
-          [m.id, m.phone, m.name, m.name.toLowerCase()]
-        );
-      }
-      await db.query("delete from subscriptions where user_id = any($1::uuid[])", [[mem1.id, mem2.id, mem3.id, mem4.id]]);
       await db.query(
         `insert into subscriptions (user_id, plan_id, start_on, end_on, status)
          select u, (select id from membership_plans order by price_vnd limit 1), current_date - 1, current_date + 400, 'active'
@@ -1500,8 +2274,8 @@ describe("Round 7: Group C unit tests (CL-21, CL-22, CL-23, CL-24, SS-18, SS-20,
           coach_id: coachUser.id,
           court_id: badmintonCourtId,
           rrule: "FREQ=WEEKLY;BYDAY=MO;BYHOUR=10",
-          start_on: "2026-11-01",
-          end_on: "2026-11-30",
+          start_on: "2027-11-01",
+          end_on: "2027-11-30",
           capacity: 1000,
         }),
       });
@@ -1524,8 +2298,8 @@ describe("Round 7: Group C unit tests (CL-21, CL-22, CL-23, CL-24, SS-18, SS-20,
           coach_id: coachUser.id,
           court_id: badmintonCourtId,
           rrule: "FREQ=WEEKLY;BYDAY=MO;BYHOUR=10",
-          start_on: "2026-11-01",
-          end_on: "2026-11-30",
+          start_on: "2027-11-01",
+          end_on: "2027-11-30",
           capacity: 200,
         }),
       });
@@ -1548,8 +2322,8 @@ describe("Round 7: Group C unit tests (CL-21, CL-22, CL-23, CL-24, SS-18, SS-20,
           coach_id: coachUser.id,
           court_id: badmintonCourtId,
           rrule: "FREQ=WEEKLY;BYDAY=MO;BYHOUR=25",
-          start_on: "2026-11-01",
-          end_on: "2026-11-30",
+          start_on: "2027-11-01",
+          end_on: "2027-11-30",
           capacity: 20,
         }),
       });
@@ -1572,8 +2346,8 @@ describe("Round 7: Group C unit tests (CL-21, CL-22, CL-23, CL-24, SS-18, SS-20,
           coach_id: coachUser.id,
           court_id: badmintonCourtId,
           rrule: "FREQ=WEEKLY;BYDAY=MO;BYHOUR=11",
-          start_on: "2026-11-01",
-          end_on: "2026-11-30",
+          start_on: "2027-11-01",
+          end_on: "2027-11-30",
           capacity: 20,
         }),
       });
@@ -1595,8 +2369,8 @@ describe("Round 7: Group C unit tests (CL-21, CL-22, CL-23, CL-24, SS-18, SS-20,
           coach_id: coachUser.id,
           court_id: badmintonCourtId,
           rrule: "FREQ=WEEKLY;BYDAY=MO;BYHOUR=10",
-          start_on: "2026-11-30",
-          end_on: "2026-11-01",
+          start_on: "2027-11-30",
+          end_on: "2027-11-01",
           capacity: 20,
         }),
       });
@@ -1619,8 +2393,8 @@ describe("Round 7: Group C unit tests (CL-21, CL-22, CL-23, CL-24, SS-18, SS-20,
           coach_id: coachUser.id,
           court_id: badmintonCourtId,
           rrule: "FREQ=WEEKLY;BYDAY=MO;BYHOUR=12",
-          start_on: "2026-11-01",
-          end_on: "2026-11-30",
+          start_on: "2027-11-01",
+          end_on: "2027-11-30",
           capacity: 20,
         }),
       });
@@ -1650,8 +2424,8 @@ describe("Round 7: Group C unit tests (CL-21, CL-22, CL-23, CL-24, SS-18, SS-20,
           coach_id: coachUser.id,
           court_id: basketballCourt.id,
           rrule: "FREQ=WEEKLY;BYDAY=MO;BYHOUR=10",
-          start_on: "2026-11-01",
-          end_on: "2026-11-30",
+          start_on: "2027-11-01",
+          end_on: "2027-11-30",
           capacity: 20,
         }),
       });
@@ -1674,8 +2448,8 @@ describe("Round 7: Group C unit tests (CL-21, CL-22, CL-23, CL-24, SS-18, SS-20,
           coach_id: coachUser.id,
           court_id: badmintonCourtId,
           rrule: "FREQ=WEEKLY;BYDAY=MO;BYHOUR=13",
-          start_on: "2026-11-01",
-          end_on: "2026-11-30",
+          start_on: "2027-11-01",
+          end_on: "2027-11-30",
           capacity: 20,
         }),
       });
@@ -1696,8 +2470,8 @@ describe("Round 7: Group C unit tests (CL-21, CL-22, CL-23, CL-24, SS-18, SS-20,
           coach_id: coachUser.id,
           court_id: badmintonCourtId,
           rrule: "FREQ=WEEKLY;BYDAY=MO,WE;BYHOUR=13",
-          start_on: "2026-11-10",
-          end_on: "2026-12-20",
+          start_on: "2027-11-10",
+          end_on: "2027-12-20",
           capacity: 9,
         }),
       });
@@ -2336,7 +3110,7 @@ describe("Round 10: Two-way Chat unit tests", () => {
       assert.equal((res.body as any).payment?.shift_id, s1);
     });
 
-    it("A2-3: manager approves while S1 is still open -> posted, shift_id = S1, cash total drops", async () => {
+    it("A2-3: manager approves then cashier pays -> posted, shift_id = S1, cash total drops", async () => {
       await setupA2();
       const s1 = (await db.query<{ id: string }>(
         `insert into cashier_shifts (receptionist_id) values ($1) returning id`,
@@ -2364,6 +3138,8 @@ describe("Round 10: Two-way Chat unit tests", () => {
       });
       const resApprove = await withTx(async (sql) => paymentsApproveRefund(sql, pendingId, reqApprove, managerUser));
       assert.equal(resApprove.status, 200);
+      assert.equal((resApprove.body as any).status, "refund_pending");
+      await withTx((sql) => paymentsPayOutRefund(sql, pendingId, receptionistUser));
 
       const checkRow = (await db.query<{ status: string; shift_id: string }>(
         `select status, shift_id from payments where id = $1`,
@@ -2376,7 +3152,7 @@ describe("Round 10: Two-way Chat unit tests", () => {
       assert.equal((curAfter.body as any).totals?.cash, cashBefore - 1000000);
     });
 
-    it("A2-4: S1 closes -> receptionist opens S2 -> approve -> shift_id = S2; S1's figures unchanged", async () => {
+    it("A2-4: S1 closes -> receptionist opens S2 -> approve and pay out -> shift_id = S2; S1's figures unchanged", async () => {
       await setupA2();
       const s1 = (await db.query<{ id: string }>(
         `insert into cashier_shifts (receptionist_id) values ($1) returning id`,
@@ -2418,6 +3194,8 @@ describe("Round 10: Two-way Chat unit tests", () => {
       });
       const resApprove = await withTx(async (sql) => paymentsApproveRefund(sql, pendingId, reqApprove, managerUser));
       assert.equal(resApprove.status, 200);
+      assert.equal((resApprove.body as any).status, "refund_pending");
+      await withTx((sql) => paymentsPayOutRefund(sql, pendingId, receptionistUser));
 
       const checkRow = (await db.query<{ status: string; shift_id: string }>(
         `select status, shift_id from payments where id = $1`,
@@ -2441,7 +3219,7 @@ describe("Round 10: Two-way Chat unit tests", () => {
       assert.equal(s2Totals, 1000000);
     });
 
-    it("A2-5: S1 closes, no new shift -> approve refused; payment still refund_pending", async () => {
+    it("A2-5: S1 closes, no new shift -> payout refused after approval; payment still refund_pending", async () => {
       await setupA2();
       const s1 = (await db.query<{ id: string }>(
         `insert into cashier_shifts (receptionist_id) values ($1) returning id`,
@@ -2467,9 +3245,10 @@ describe("Round 10: Two-way Chat unit tests", () => {
         body: JSON.stringify({ reason: "Approved" }),
       });
 
+      await withTx((sql) => paymentsApproveRefund(sql, pendingId, reqApprove, managerUser));
       await assert.rejects(
-        () => withTx(async (sql) => paymentsApproveRefund(sql, pendingId, reqApprove, managerUser)),
-        (e: any) => e.code === "CONFLICT_STATE",
+        () => withTx((sql) => paymentsPayOutRefund(sql, pendingId, receptionistUser)),
+        (e: any) => e.extra?.br === "BR-44",
       );
 
       const checkRow = (await db.query<{ status: string; shift_id: string }>(
@@ -4362,7 +5141,8 @@ describe("Sell classes: final fixes", () => {
       [m.id, classId],
     );
     assert.equal(told.rows[0].payload.refund_vnd, 200000);
-    await assert.rejects(() => withTx((sql) => paymentsApproveRefund(sql, row.id, jsonReq("POST", {}), { ...mgr, id: "00000000-0000-0000-0000-000000000009" })));
+    const approved = await withTx((sql) => paymentsApproveRefund(sql, row.id, jsonReq("POST", {}), mgr));
+    assert.equal(approved.body.status, "refund_pending");
     const desk = { id: "00000000-0000-0000-0000-000000000002", role: "receptionist" } as any;
     const open = await db.query<{ id: string }>("select id from cashier_shifts where receptionist_id = $1 and closed_at is null", [desk.id]);
     const shiftId = open.rows[0]?.id ?? (await db.query<{ id: string }>("insert into cashier_shifts (receptionist_id) values ($1) returning id", [desk.id])).rows[0].id;
@@ -4374,7 +5154,7 @@ describe("Sell classes: final fixes", () => {
     await db.query("update cashier_shifts set closed_at = now() where id = $1", [shiftId]);
   });
 
-  it("SC-cancel-refund-manager: a manager hands the refund over without a till, a receptionist without a shift cannot", async () => {
+  it("SC-cancel-refund-manager: neither a manager nor a receptionist can pay without a till", async () => {
     const { paymentsPayOutRefund } = await import("./handlers/desk.ts");
     const classId = await seedClass({ price: 300000, capacity: 5 });
     const m = await seedMember(85);
@@ -4388,9 +5168,9 @@ describe("Sell classes: final fixes", () => {
       () => withTx((sql) => paymentsPayOutRefund(sql, row.id, desk)),
       (e: any) => e.extra?.br === "BR-44",
     );
-    await withTx((sql) => paymentsPayOutRefund(sql, row.id, mgr));
+    await assert.rejects(() => withTx((sql) => paymentsPayOutRefund(sql, row.id, mgr)), (e: any) => e.extra?.br === "BR-44");
     const paid = (await db.query<{ status: string; shift_id: string | null }>("select status::text as status, shift_id from payments where id = $1", [row.id])).rows[0];
-    assert.equal(paid.status, "posted");
+    assert.equal(paid.status, "refund_pending");
     assert.equal(paid.shift_id, null);
   });
 
