@@ -36,7 +36,16 @@ export type LimitRule = {
   windowMs: number;
 };
 
+/** The deployment proxy supplies the client IP; absent addresses share a bucket. */
+export function requestIp(request: Request): string {
+  return request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+}
+
 export const RULES = {
+  authSendIp: { limit: 20, windowMs: 900_000 },
+  authSendIdentity: { limit: 5, windowMs: 900_000 },
+  authVerifyIp: { limit: 30, windowMs: 900_000 },
+  authVerifyIdentity: { limit: 10, windowMs: 900_000 },
   /** Buying or renewing a plan. One a minute is generous for a real purchase. */
   planRequest: { limit: 3, windowMs: 60_000 },
   /** Cumulative guard so a member cannot queue twenty pending requests over an hour. */

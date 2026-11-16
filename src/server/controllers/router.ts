@@ -615,6 +615,9 @@ async function dispatch(request: Request): Promise<Response | Result> {
   if (method === "GET" && p0 === "equipment" && !p1) {
     return authedRead((sql) => opsH.equipmentList(sql));
   }
+  if (method === "POST" && p0 === "equipment" && !p1) {
+    return authed((sql, user) => opsH.equipmentCreate(sql, request, user));
+  }
   if (method === "GET" && p0 === "equipment" && p1 === "loans") {
     return authedRead((sql, user) => opsH.loansOpen(sql, user));
   }
