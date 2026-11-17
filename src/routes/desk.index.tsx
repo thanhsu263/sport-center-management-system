@@ -1,3 +1,8 @@
+/**
+ * Tuyến đường (route) bàn tiếp tân /desk/ - Trung tâm điều hành cho nhân viên lễ tân (receptionist).
+ * Quản lý ca thu ngân tiền mặt (mở/đóng ca), tra cứu hồ sơ hội viên nhanh, đăng ký hội viên mới
+ * kèm bán gói tập và thanh toán (quy trình wizard 3 bước), cùng xử lý danh sách yêu cầu hỗ trợ (tickets).
+ */
 import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
 import { ArrowRight, Dumbbell, Repeat, UserMinus, Wrench } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -38,6 +43,12 @@ import { usePageState } from "@/client/lib/use-page-state";
 import { readError, useRead } from "@/client/lib/use-read";
 import { useLimits } from "@/client/lib/use-centre";
 
+/**
+ * Làm gì: Định nghĩa cấu hình route cho bàn tiếp tân (Front desk) tại đường dẫn /desk/, hiển thị giao diện làm việc chính của lễ tân.
+ * Được gọi ở: TanStack Router (URL: /desk/).
+ * @returns Đối tượng cấu hình route của TanStack Router liên kết với component Page.
+ * @throws Không ném lỗi.
+ */
 export const Route = createFileRoute("/desk/")({
   component: Page,
 });
@@ -80,7 +91,14 @@ type ShiftNow = { shift: { id: string; opened_at: string } | null; totals?: { ca
  */
 const hasKeyboard = () => typeof window !== "undefined" && window.matchMedia?.("(pointer: fine)").matches === true;
 
+/**
+ * Làm gì: Component trang chủ bàn lễ tân (/desk/), quản lý ca thu ngân, tìm kiếm hội viên, quy trình tạo tài khoản và bán gói 3 bước, cùng hàng đợi xử lý ticket.
+ * Được gọi ở: Cấu hình Route trong src/routes/desk.index.tsx (URL: /desk/).
+ * @returns Giao diện bảng điều khiển bàn lễ tân (JSX.Element).
+ * @throws Không ném lỗi trực tiếp; các lỗi API được bắt và hiển thị qua toast hoặc UI thông báo lỗi (LoadError).
+ */
 function Page() {
+  // Bước 1: Khởi tạo điều hướng và các state quản lý dữ liệu (ca làm việc, tìm kiếm, ticket, gói tập).
   const navigate = useNavigate();
   const [q, setQ] = useState("");
   const [items, setItems] = useState<Hit[]>([]);
@@ -140,6 +158,7 @@ function Page() {
   // has to be able to see from here that somebody is owed attention. A hint only: if it cannot
   // be read, the queue itself says why.
   const waiting = useRead<{ waiting: number }>("/payments/pending?brief=1").data?.waiting ?? 0;
+  // Trạng thái cho quy trình wizard 3 bước: 1 - Hồ sơ hội viên, 2 - Chọn gói tập, 3 - Thanh toán.
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [newUser, setNewUser] = useState<{
     id: string;
@@ -152,8 +171,10 @@ function Page() {
   const [method, setMethod] = useState("cash");
   const [busy, setBusy] = useState(false);
 
+  // Bước 2: Tự động tìm kiếm hội viên khi nhập từ khóa (áp dụng debounce 180ms để giảm tải server).
   useEffect(() => {
     setSearchErr(null);
+    // Chỉ tìm kiếm khi từ khóa có từ 3 ký tự trở lên để tránh kết quả quá rộng và tối ưu hiệu năng.
     if (q.trim().length < 3) {
       setItems([]);
       setAnswered(null);
@@ -161,6 +182,7 @@ function Page() {
     }
     // A reply to text that has since been changed must not land on the newer list.
     let stale = false;
+    // Trì hoãn 180ms chờ người dùng dừng gõ phím trước khi gửi request tìm kiếm.
     const timer = setTimeout(() => {
       apiGet<{ items: Hit[] }>(`/members?q=${encodeURIComponent(q)}`).then(
         (r) => {
@@ -176,12 +198,20 @@ function Page() {
         },
       );
     }, 180);
+    // Dọn dẹp: hủy bộ đếm giờ và đánh dấu stale để bỏ qua kết quả nếu người dùng tiếp tục gõ từ khóa mới.
     return () => {
       stale = true;
       clearTimeout(timer);
     };
   }, [q, searchTry]);
 
+  // Bước 3: Hàm tiện ích đặt lại quy trình wizard tạo hội viên về ban đầu.
+  /**
+   * Làm gì: Đặt lại toàn bộ trạng thái của quy trình wizard đăng ký hội viên mới về bước 1 và xóa sạch dữ liệu form đã nhập.
+   * Được gọi ở: Sự kiện hoàn tất thanh toán ở Bước 3 của wizard trong component Page (dòng 509).
+   * @returns Không trả về giá trị (void).
+   * @throws Không ném lỗi.
+   */
   function resetWizard() {
     setStep(1);
     setNewUser(null);
@@ -191,6 +221,7 @@ function Page() {
     setSubId(null);
   }
 
+  // Bước 4: Render toàn bộ giao diện quầy lễ tân gồm thanh ca trực, ô tìm kiếm hội viên, wizard đăng ký và danh sách ticket.
   return (
     <Shell role="receptionist">
       <PageHero
@@ -367,15 +398,20 @@ function Page() {
                 className="w-full"
                 disabled={busy || !form.full_name.trim() || !form.phone.trim()}
                 onClick={async () => {
+                  // Bước 1: Khóa giao diện (setBusy = true) để tránh việc người dùng nhấp liên tục gây trùng lặp request.
                   setBusy(true);
                   try {
+                    // Bước 2: Gọi API POST /members để tạo hồ sơ hội viên mới.
+                    // Gửi pii_consent: true vì khách hàng đăng ký trực tiếp tại quầy lễ tân đã xác nhận đồng ý cung cấp thông tin cá nhân.
                     const res = await apiPost<{
                       user: { id: string; full_name: string; member_code?: string | null };
                       existing?: boolean;
                       temp_password?: string;
                     }>("/members", { ...form, pii_consent: true });
+                    // Bước 3: Lưu thông tin hội viên vào state (kèm mật khẩu tạm do server sinh) và chuyển wizard sang Bước 2 (chọn gói tập).
                     setNewUser({ ...res.user, temp_password: res.temp_password });
                     setStep(2);
+                    // Bước 4: Hiển thị thông báo: nếu số điện thoại đã có hồ sơ thì báo để chọn gói hoặc dừng lại; nếu tạo mới thành công thì hiển thị member_code và temp_password để lễ tân thông báo cho hội viên.
                     toast.success(
                       res.existing
                         ? t("This person already has a profile. Pick a plan or stop here.")
@@ -387,8 +423,10 @@ function Page() {
                           : t("Created the profile. Temporary password: {password}", { password: res.temp_password ?? "" }),
                     );
                   } catch (e) {
+                    // Xử lý lỗi: hiển thị thông báo lỗi từ server (dịch qua tServer) nếu việc tạo tài khoản thất bại.
                     toast.error(e instanceof Error ? tServer(e.message) : t("Could not create the account"));
                   } finally {
+                    // Bước 5: Mở khóa trạng thái bận để lễ tân tiếp tục thao tác.
                     setBusy(false);
                   }
                 }}
@@ -450,18 +488,23 @@ function Page() {
               <Button
                 disabled={!picked || busy}
                 onClick={async () => {
+                  // Bước 1: Kiểm tra điều kiện tiên quyết (phải có gói tập picked và hồ sơ newUser), sau đó khóa giao diện để tránh gửi trùng.
                   if (!picked || !newUser) return;
                   setBusy(true);
                   try {
+                    // Bước 2: Gọi API POST /subscriptions để đăng ký gói tập đã chọn cho hội viên (gói ở trạng thái chờ thanh toán).
                     const res = await apiPost<{ subscription: { id: string } }>("/subscriptions", {
                       plan_id: picked.id,
                       user_id: newUser.id,
                     });
+                    // Bước 3: Lưu subscription ID vừa tạo và chuyển wizard sang Bước 3 (thu tiền và xuất hóa đơn).
                     setSubId(res.subscription.id);
                     setStep(3);
                   } catch (e) {
+                    // Xử lý lỗi: thông báo cho lễ tân nếu không thể khởi tạo đăng ký gói tập.
                     toast.error(e instanceof Error ? tServer(e.message) : t("Could not start the plan"));
                   } finally {
+                    // Bước 4: Mở khóa trạng thái bận khi kết thúc yêu cầu.
                     setBusy(false);
                   }
                 }}
@@ -488,9 +531,12 @@ function Page() {
               <Button
                 disabled={busy || !shift}
                 onClick={async () => {
+                  // Bước 1: Kiểm tra subId và khóa nút bấm để chống bấm lặp gây thu tiền hai lần (double-charge).
                   if (!subId) return;
                   setBusy(true);
                   try {
+                    // Bước 2: Gọi API POST /payments để ghi nhận thanh toán tiền gói tập vào ca làm việc hiện tại.
+                    // Tham số thứ 3 (true) kích hoạt cờ idempotent để sinh idempotency-key trong header, đảm bảo an toàn giao dịch tài chính.
                     const res = await apiPost<PaymentCreateResponse>(
                       "/payments",
                       {
@@ -501,13 +547,17 @@ function Page() {
                       },
                       true,
                     );
+                    // Bước 3: Thông báo thanh toán thành công.
                     toast.success(t("Paid, receipt opened"));
                     // Clear the wizard before printing. The payment is already
                     // posted; if the receipt fails to open, leaving step 3 on
                     // screen would offer to take the same money again.
+                    // Bước 4: Lưu ID hội viên, reset toàn bộ form wizard về trạng thái ban đầu để tránh bấm thu tiền lại lần nữa, rồi chuyển sang trang chi tiết hội viên.
                     const uid = newUser.id;
                     resetWizard();
                     navigate({ to: "/desk/member/$id", params: { id: uid } });
+                    // Bước 5: Mở hóa đơn PDF trong tab mới để in biên lai cho khách.
+                    // Nếu trình duyệt chặn popup, openInvoice sẽ chuyển sang tải file về máy; nếu vẫn lỗi thì cảnh báo để in lại từ hồ sơ.
                     if (res.invoice?.id) {
                       try {
                         await openInvoice(res.invoice.id);
@@ -516,8 +566,10 @@ function Page() {
                       }
                     }
                   } catch (e) {
+                    // Xử lý lỗi: hiển thị thông báo nếu thanh toán thất bại (ví dụ ca thu ngân chưa mở hoặc số tiền không hợp lệ).
                     toast.error(e instanceof Error ? tServer(e.message) : t("Payment did not go through"));
                   } finally {
+                    // Bước 6: Mở khóa trạng thái bận sau khi xử lý xong.
                     setBusy(false);
                   }
                 }}
@@ -638,6 +690,7 @@ function Page() {
                       <Button
                         size="sm"
                         onClick={() => {
+                          // Bật/tắt khung soạn phản hồi cho ticket này và làm sạch ô nhập
                           setReplyTo(replyTo === ticket.id ? null : ticket.id);
                           setReply("");
                         }}
@@ -655,7 +708,9 @@ function Page() {
                       variant="outline"
                       onClick={async () => {
                         try {
+                          // Bước 1: Gửi yêu cầu đóng ticket lên server (xử lý trực tiếp tại quầy hoặc ticket trùng lặp)
                           await apiPost(`/tickets/${ticket.id}/close`);
+                          // Bước 2: Tải lại danh sách ticket và hiển thị thông báo thành công
                           ticketsRead.reload();
                           toast.success(t("Request closed"));
                         } catch (e) {
@@ -672,11 +727,16 @@ function Page() {
                   <form
                     className="mt-3 flex flex-wrap gap-2"
                     onSubmit={async (e) => {
+                      // Bước 1: Ngăn hành vi reload trang mặc định của form
                       e.preventDefault();
+                      // Kiểm tra nội dung tối thiểu 2 ký tự và tránh submit nhiều lần khi đang gửi
                       if (reply.trim().length < 2 || replying) return;
+                      // Đánh dấu trạng thái đang gửi để vô hiệu hóa nút gửi, tránh gửi trùng
                       setReplying(true);
                       try {
+                        // Bước 2: Gửi nội dung phản hồi lên API (server sẽ lưu câu trả lời và gửi thông báo tới app hội viên)
                         await apiPost(`/tickets/${ticket.id}/reply`, { reply: reply.trim() });
+                        // Bước 3: Tải lại danh sách ticket, đóng form trả lời và làm sạch ô nhập
                         ticketsRead.reload();
                         setReplyTo(null);
                         setReply("");
@@ -684,6 +744,7 @@ function Page() {
                       } catch (err) {
                         toast.error(err instanceof Error ? tServer(err.message) : t("Something went wrong"));
                       } finally {
+                        // Bước 4: Mở lại nút bấm sau khi gửi xong (kể cả thành công hay thất bại)
                         setReplying(false);
                       }
                     }}
@@ -729,10 +790,13 @@ function Page() {
             </Button>
             <Button
               onClick={async () => {
+                // Bỏ qua nếu không có ca trực nào đang mở
                 if (!shift) return;
                 try {
+                  // Bước 1: Gửi số tiền mặt thực tế đã đếm để đối soát với sổ sách và chốt đóng ca trực
                   await apiPost(`/shifts/${shift.shift.id}/close`, { cash_declared_vnd: Number(cash) });
                   toast.success(t("Shift closed"));
+                  // Bước 2: Đóng modal đối soát và tải lại thông tin ca trực mới nhất
                   setCloseOpen(false);
                   shiftRead.reload();
                 } catch (e) {
@@ -761,17 +825,24 @@ function Page() {
  * without opening the map.
  */
 function DeskNow() {
+  // Bước 1: Lấy ngày hiện tại và gọi API tải tình trạng sử dụng sân (occupancy) cùng mốc thời gian phút hiện tại
   const today = todayISO();
   const { data, error } = useRead<{ courts: Court[]; slots: OccSlot[] }>(`/occupancy?date=${today}`);
   const now = useNowMinute();
+  // Bỏ qua nếu có lỗi tải; hiển thị khung xương (Skeleton) khi dữ liệu hoặc thời gian chưa sẵn sàng
   if (error) return null;
   if (!data || !now) return <Skeleton className="h-40" />;
+  // Bước 2: Lấy số giờ hiện tại theo múi giờ Việt Nam (Asia/Ho_Chi_Minh)
   const hour = Number(
     new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Ho_Chi_Minh", hour: "2-digit", hour12: false }).format(new Date(now)),
   );
+  // Chỉ tính các slot hoạt động thực tế: lượt đặt sân (booking) hoặc lớp tập (session)
   const live = (s: OccSlot) => s.kind === "booking" || s.kind === "session";
+  // Bước 3: Lọc số lượt đang chơi trên sân ngay lúc này (start <= now < end)
   const playing = data.slots.filter((s) => live(s) && Date.parse(s.start) <= now && Date.parse(s.end) > now);
+  // Lọc số lượt khách sẽ đến sân trong vòng 1 giờ tới (3.600.000 ms = 1 tiếng)
   const soon = data.slots.filter((s) => live(s) && Date.parse(s.start) > now && Date.parse(s.start) <= now + 3_600_000);
+  // Tính tổng số sân còn trống trong khung giờ hiện tại dựa trên lịch thực tế
   const freeNow = freeHours(data.courts, data.slots, today, now).filter((f) => f.hour === hour).length;
   return (
     <SpotlightCard className="rounded-[var(--radius-xl)]" size={260} strength={0.1}>
@@ -802,9 +873,16 @@ function DeskNow() {
   );
 }
 
+// Số lượng lượt khách sắp đến hiển thị mỗi lần (bước phân trang client dạng xem thêm)
 const ARRIVING_STEP = 6;
 
+/**
+ * Làm gì: Hiển thị dòng thời gian các lượt đặt sân và lớp tập sắp diễn ra trong 2 giờ tới, hỗ trợ lễ tân check-in nhanh tại quầy.
+ * Được gọi ở: src/routes/desk.index.tsx (component Page tại màn hình chính bàn lễ tân /desk).
+ * @returns Giao diện timeline danh sách khách sắp tới kèm nút check-in nhanh và nút xem thêm.
+ */
 function DeskArrivingTimeline() {
+  // Bước 1: Khởi tạo dữ liệu lịch đặt sân trong ngày, đồng hồ phút và số lượng hiển thị ban đầu
   const today = todayISO();
   const { data, reload } = useRead<{ courts: Court[]; slots: OccSlot[] }>(`/occupancy?date=${today}`);
   const now = useNowMinute();
@@ -813,11 +891,18 @@ function DeskArrivingTimeline() {
   const [shown, setShown] = useState(ARRIVING_STEP);
 
   if (!data || !now) return null;
+  // Bước 2: Lọc các lượt khách sẽ đến trong vòng 2 giờ tới (7.200.000 ms) và sắp xếp theo giờ bắt đầu tăng dần
   const live = (s: OccSlot) => s.kind === "booking" || s.kind === "session";
   const arriving = data.slots
     .filter((s) => live(s) && Date.parse(s.start) > now && Date.parse(s.start) <= now + 7_200_000)
     .sort((a, b) => a.start.localeCompare(b.start));
 
+  /**
+   * Làm gì: Định dạng chuỗi thời gian chuẩn ISO thành dạng giờ:phút (HH:mm) theo múi giờ Việt Nam (Asia/Ho_Chi_Minh).
+   * Được gọi ở: DeskArrivingTimeline (khi hiển thị khung giờ bắt đầu và kết thúc của lượt chơi).
+   * @param iso Chuỗi thời gian chuẩn ISO cần định dạng.
+   * @returns Chuỗi giờ:phút dạng HH:mm (ví dụ "14:30").
+   */
   const hhmm = (iso: string) =>
     new Date(iso).toLocaleTimeString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh", hour: "2-digit", minute: "2-digit" });
 
@@ -859,18 +944,22 @@ function DeskArrivingTimeline() {
                   variant="outline"
                   disabled={checking === key}
                   onClick={async () => {
+                    // Khóa nút đang bấm bằng key (court_id + start) để tránh bấm trùng lặp
                     setChecking(key);
                     try {
+                      // Bước 1: Gọi API check-in lượt đặt sân (booking) hoặc check-in qua cổng quầy lễ tân (gate-checkin)
                       if (s.kind === "booking" && s.ref) {
                         await apiPost(`/bookings/${s.ref}/check-in`);
                       } else {
                         await apiPost("/desk/gate-checkin", { reason: "forgot" });
                       }
+                      // Bước 2: Hiển thị thông báo check-in thành công và tải lại lịch sân
                       toast.success(t("Checked in"));
                       reload();
                     } catch (e) {
                       toast.error(e instanceof Error ? tServer(e.message) : t("Something went wrong"));
                     } finally {
+                      // Bước 3: Mở khóa trạng thái nút bấm sau khi xử lý xong
                       setChecking(null);
                     }
                   }}
@@ -887,9 +976,17 @@ function DeskArrivingTimeline() {
   );
 }
 
+/**
+ * Làm gì: Hiển thị danh sách hội viên vừa check-in qua cổng gần đây để lễ tân giám sát lượt vào sân.
+ * Được gọi ở: src/routes/desk.index.tsx (component Page tại màn hình chính bàn lễ tân /desk).
+ * @returns Giao diện danh sách các lượt check-in gần nhất kèm ảnh, mã hội viên và phương thức quét thẻ/QR.
+ */
 function DeskRecentCheckins() {
+  // Bước 1: Lấy giới hạn số lượng hiển thị từ cấu hình hệ thống (useLimits)
   const { desk_checkins } = useLimits();
+  // Bước 2: Tải danh sách lượt check-in qua cổng mới nhất từ API
   const read = useRead<{ items: Array<{ id: string; full_name: string; member_code: string | null; method: string | null; at: string; avatar_url?: string | null }>; total: number }>(`/desk/gate-checkins?limit=${desk_checkins}`);
+  // Bước 3: Lấy mảng dữ liệu check-in (mặc định mảng rỗng nếu chưa tải xong)
   const items = read.data?.items ?? [];
 
   return (

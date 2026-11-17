@@ -1,3 +1,8 @@
+/**
+ * Trang thông báo kết quả điều hướng trở về sau thanh toán trực tuyến qua cổng payOS (/pay/return).
+ * Thuộc tầng web client (TanStack Router), tiếp nhận khách hàng sau khi thanh toán hoặc hủy giao dịch trên payOS.
+ * Giao diện chỉ hiển thị kết quả chứ không tự quyết định trạng thái, mà luôn gọi API server để xác thực chéo với payOS.
+ */
 import { createFileRoute, useSearch } from "@tanstack/react-router";
 import { PaidMark } from "@/client/components/moments/paid";
 import { useEffect, useState } from "react";
@@ -21,6 +26,11 @@ import { t } from "@/client/lib/i18n";
 
 type Search = { pid?: string; cancelled?: string; status?: string };
 
+/**
+ * Làm gì: Định nghĩa route "/pay/return" trong TanStack Router, xác thực search params (pid, cancelled, status) từ URL chuyển hướng của cổng thanh toán.
+ * Được gọi ở: URL "/pay/return" (cổng thanh toán payOS chuyển hướng khách hàng về theo returnUrl hoặc cancelUrl)
+ * @returns Đối tượng cấu hình route của TanStack Router
+ */
 export const Route = createFileRoute("/pay/return")({
   validateSearch: (s: Record<string, unknown>): Search => ({
     pid: typeof s.pid === "string" ? s.pid : undefined,
@@ -36,21 +46,36 @@ type Outcome = "checking" | "posted" | "pending" | "cancelled" | "unknown";
 const ATTEMPTS = 8;
 const GAP_MS = 2500;
 
+/**
+ * Làm gì: Component hiển thị trang kết quả thanh toán, thăm dò (polling) trạng thái từ máy chủ và hiển thị giao diện phù hợp với người dùng.
+ * Được gọi ở: Route "/pay/return" (thuộc tính component của Route)
+ * @returns JSX phần tử giao diện hiển thị trạng thái giao dịch (đang kiểm tra, đã thanh toán, đã hủy, chờ duyệt hoặc lỗi)
+ */
 function Page() {
+  // Bước 1: Trích xuất search params từ URL và khởi tạo các state theo dõi giao dịch.
   const search = useSearch({ from: "/pay/return" });
   const paymentId = search.pid ?? null;
   const [outcome, setOutcome] = useState<Outcome>("checking");
   const [amount, setAmount] = useState<number | null>(null);
 
+  // Bước 2: Kích hoạt hiệu ứng polling để liên tục kiểm tra kết quả thanh toán với máy chủ.
   useEffect(() => {
+    // Nếu thiếu paymentId (người dùng tự truy cập URL mà không qua thanh toán) thì không thể đối soát.
     if (!paymentId) {
       setOutcome("unknown");
       return;
     }
+    // Biến cờ alive giúp tránh memory leak khi component unmount; tries đếm số lần đã gọi polling.
     let alive = true;
     let tries = 0;
 
+    /**
+     * Làm gì: Gửi yêu cầu xác thực giao dịch lên máy chủ qua endpoint verify, cập nhật outcome và tự động lên lịch thăm dò lại nếu đang xử lý.
+     * Được gọi ở: useEffect trong Page (gọi ngay lần đầu hoặc qua setTimeout)
+     * @returns Promise<void>
+     */
     async function ask() {
+      // Bước 2.1: Tăng số lần thử và gọi API xác thực giao dịch.
       tries += 1;
       try {
         // The server asks payOS; the browser is told the answer. Ownership is
@@ -58,28 +83,37 @@ function Page() {
         const r = await apiPost<{ status: string; amount_vnd?: number }>(
           `/payments/online/${paymentId}/verify`,
         );
+        // Nếu component đã unmount trong lúc chờ API phản hồi thì dừng lại ngay, không cập nhật state.
         if (!alive) return;
         if (typeof r.amount_vnd === "number") setAmount(r.amount_vnd);
+        // Bước 2.2: Phân loại trạng thái giao dịch từ server để cập nhật UI.
         if (r.status === "posted") {
+          // Trạng thái "posted": Tiền đã vào tài khoản, đặt sân hoặc gói tập đã được kích hoạt thành công.
           setOutcome("posted");
         } else if (r.status === "failed" || r.status === "expired") {
+          // Trạng thái "failed" hoặc "expired": Khách hàng hủy thanh toán hoặc link thanh toán đã hết hạn.
           setOutcome("cancelled");
         } else if (tries < ATTEMPTS) {
           // A bank transfer can land a few seconds after the redirect.
           window.setTimeout(() => void ask(), GAP_MS);
         } else {
+          // Đã hết 8 lần thử (khoảng 20s) mà ngân hàng chưa xác nhận: chuyển sang "pending" để nhắc khách không chuyển tiền đúp.
           setOutcome("pending");
         }
       } catch {
+        // Lỗi kết nối hoặc máy chủ gặp sự cố: đánh dấu "unknown" để hướng dẫn khách xem biên nhận hoặc liên hệ lễ tân.
         if (alive) setOutcome("unknown");
       }
     }
+    // Bước 2.3: Thực hiện lần thăm dò đầu tiên ngay khi render.
     void ask();
+    // Cleanup function: Đánh dấu alive = false để hủy các cập nhật state nếu component unmount.
     return () => {
       alive = false;
     };
   }, [paymentId]);
 
+  // Bước 3: Render giao diện thẻ trạng thái (Card) tương ứng với giá trị outcome.
   return (
     <Shell role="member" title={t("Payment")} subtitle={t("Back from the payment page.")}>
       <Card className="mx-auto max-w-md p-6 text-center" aria-live="polite" aria-busy={outcome === "checking"}>

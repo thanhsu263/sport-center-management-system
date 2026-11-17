@@ -1,3 +1,12 @@
+/**
+ * File: src/routes/app.points.tsx
+ * Vai trò: Trang quản lý điểm thưởng tích luỹ (Loyalty Points) dành cho hội viên (Member) trong hệ thống Arena 3.
+ * Vị trí trong app:
+ * - Định nghĩa route `/app/points` trong phân hệ hội viên (Shell role="member").
+ * - Hiển thị số dư điểm hiện tại, phân hạng hội viên (Bronze/Silver/Gold) và tiến trình tích luỹ điểm lên hạng tiếp theo.
+ * - Cung cấp chức năng đổi điểm tích luỹ lấy voucher giảm giá áp dụng khi đặt sân hoặc mua gói tập.
+ * - Hiển thị nhật ký biến động điểm (cộng/trừ) có hỗ trợ phân trang theo thứ tự thời gian mới nhất.
+ */
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { SectionTitle } from "@/client/components/section";
@@ -11,8 +20,15 @@ import { t, tServer } from "@/client/lib/i18n";
 import { usePageState } from "@/client/lib/use-page-state";
 import { useRead } from "@/client/lib/use-read";
 
+/**
+ * Làm gì: Khởi tạo định tuyến cho trang /app/points bằng TanStack Router, liên kết URL với component Page để hiển thị giao diện điểm thưởng của hội viên.
+ * Được gọi ở: TanStack Router (URL: `/app/points`).
+ * @returns Đối tượng định nghĩa route của TanStack Router cấu hình cho trang /app/points.
+ * @throws Không ném lỗi.
+ */
 export const Route = createFileRoute("/app/points")({ component: Page });
 
+// Cấu trúc dữ liệu phản hồi từ API GET /me/points, bao gồm số dư điểm, phân hạng hội viên, tỷ lệ quy đổi và danh sách lịch sử điểm.
 type Data = {
   points: number;
   earned: number;
@@ -26,33 +42,61 @@ type Data = {
   history_total: number;
 };
 
+/**
+ * Làm gì: Chuyển đổi mã định danh hạng hội viên (gold, silver, bronze) sang tên hiển thị tương ứng có hỗ trợ đa ngôn ngữ qua hàm t().
+ * Được gọi ở: src/routes/app.points.tsx (trong component Page, hiển thị tại PageHero và thẻ hội viên 3D).
+ * @param k Mã định danh phân hạng hội viên ('gold' | 'silver' | 'bronze').
+ * @returns Tên hiển thị của hạng hội viên sau khi được dịch đa ngôn ngữ ('Gold' / 'Silver' / 'Bronze').
+ * @throws Không ném lỗi.
+ */
 const tierName = (k: string) => (k === "gold" ? t("Gold") : k === "silver" ? t("Silver") : t("Bronze"));
 
+/**
+ * Làm gì: Component giao diện chính của trang Điểm thưởng (/app/points), hiển thị số dư điểm, hạng thành viên, form đổi điểm lấy voucher và danh sách lịch sử biến động điểm.
+ * Được gọi ở: src/routes/app.points.tsx (khai báo tại Route.component phục vụ URL: `/app/points`).
+ * @returns Giao diện trang quản lý điểm tích luỹ của hội viên bọc trong component Shell vai trò member.
+ * @throws Không ném lỗi.
+ */
 function Page() {
+  // Bước 1: Khởi tạo phân trang (mặc định 10 dòng/trang, lưu theo key "points.history") và gọi API GET /me/points tải dữ liệu điểm thưởng cùng lịch sử.
   const { offset, setOffset, pageSize, setPageSize } = usePageState("points.history", 10);
   // The balance comes with every page; the history pages, newest first.
   const { data: d, error, reload } = useRead<Data>(`/me/points?limit=${pageSize}&offset=${offset}`, { keepPrevious: true });
+  // Bước 2: Khai báo các state cho form đổi điểm: pts (số điểm nhập), fieldErr (lỗi nhập liệu), code (mã voucher đã đổi), busy (trạng thái gửi API).
   const [pts, setPts] = useState("");
   const [fieldErr, setFieldErr] = useState<string | null>(null);
   const [code, setCode] = useState<{ code: string; value: number } | null>(null);
   const [busy, setBusy] = useState(false);
 
+  /**
+   * Làm gì: Thực hiện đổi điểm thưởng lấy mã giảm giá (voucher) bằng cách gọi API POST /me/points/redeem, hiển thị mã mới tạo và làm mới dữ liệu điểm.
+   * Được gọi ở: src/routes/app.points.tsx (sự kiện onClick của nút Button "Get a code" trong form đổi điểm).
+   * @returns Không trả về giá trị (Promise<void>).
+   * @throws Không ném lỗi ra ngoài; bắt lỗi từ API và lưu thông báo lỗi vào state fieldErr để hiển thị trên giao diện.
+   */
   async function redeem() {
+    // Bước 1: Xóa thông báo lỗi cũ và bật trạng thái busy để khóa nút bấm, tránh người dùng nhấn nhiều lần gây trùng lặp request.
     setFieldErr(null);
     setBusy(true);
     try {
+      // Bước 2: Gửi request POST /me/points/redeem kèm số điểm muốn đổi để hệ thống tạo mã khuyến mãi giảm giá mới.
       const r = await apiPost<{ code: string; value_vnd: number }>("/me/points/redeem", { points: Number(pts) }, true);
+      // Bước 3: Đổi điểm thành công: lưu mã voucher vào state để người dùng sao chép, xóa ô nhập điểm và gọi reload() để cập nhật lại số dư mới.
       setCode({ code: r.code, value: r.value_vnd });
       setPts("");
       reload();
     } catch (e) {
+      // Bước 4: Xử lý khi có lỗi xảy ra (ví dụ: không đủ điểm hoặc nhập ít hơn mức tối thiểu min_redeem) và dịch thông báo lỗi sang tiếng Việt.
       setFieldErr(e instanceof ApiClientError ? e.message : e instanceof Error ? tServer(e.message) : t("Something went wrong"));
     } finally {
+      // Bước 5: Tắt trạng thái busy để mở lại nút bấm dù thành công hay thất bại.
       setBusy(false);
     }
   }
 
+  // Bước 3: Chuyển chuỗi điểm nhập vào sang kiểu số (n) để kiểm tra điều kiện kích hoạt nút đổi điểm và tính trước giá trị voucher quy đổi.
   const n = Number(pts);
+  // Bước 4: Render giao diện người dùng hoàn chỉnh gồm PageHero (thống kê tổng quan), thẻ thành viên 3D hiệu ứng Tilt/GlareHover, form đổi điểm và bảng lịch sử điểm.
   return (
     <Shell role="member">
       <PageHero
