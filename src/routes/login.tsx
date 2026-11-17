@@ -151,7 +151,7 @@ function Login() {
             <span className="font-display text-2xl">Lê Long Sport</span>
           </Link>
           <div className="max-w-sm rounded-[var(--radius-xl)] bg-pass/92 p-6 text-pass-fg">
-            <ShinyText className="shiny-on-media text-2xs" speed={6}>
+            <ShinyText className="text-2xs font-medium uppercase tracking-wide [--shiny-base:color-mix(in_oklab,var(--color-pass-fg)_70%,transparent)] [--shiny-glint:#3f7d20]" speed={6}>
               {t("The desk is open")}
             </ShinyText>
             <SplitText
