@@ -3,6 +3,17 @@
  * attendance panels. One `"English": "Tiếng Việt",` per line.
  */
 export const manager: Record<string, string> = {
+  "Manager, receptionist and coach logins are issued here. Members sign themselves up.": "Tài khoản quản lý, lễ tân và HLV được cấp tại đây. Hội viên tự đăng ký.",
+  "Add a manager, receptionist or coach to give them a login.": "Thêm quản lý, lễ tân hoặc HLV để cấp tài khoản đăng nhập cho họ.",
+  "Till shift open over 16 hours": "Ca thu ngân mở quá 16 giờ",
+  "Shift {id}, opened {when}, is still open. Review the till and close the shift with a counted cash amount and a reason.": "Ca {id}, mở lúc {when}, vẫn chưa đóng. Kiểm tra quỹ và đóng ca với số tiền mặt đã kiểm đếm cùng lý do.",
+  "Till cash difference": "Chênh lệch tiền mặt trong ca",
+  "Shift {id} closed with {declared} counted cash; the recorded cash total is {actual}.": "Ca {id} đã đóng với tiền mặt kiểm đếm là {declared}; tổng tiền mặt ghi nhận là {actual}.",
+  "A reason is required to force close a shift.": "Cần nhập lý do để buộc đóng ca thu ngân.",
+  "Class below minimum": "Lớp chưa đủ sĩ số tối thiểu",
+  "Class {code} starts within 24 hours with {count} confirmed seats; the minimum is {minimum}. Review the class and decide whether to run it or cancel it.": "Lớp {code} bắt đầu trong vòng 24 giờ với {count} học viên đã xác nhận; sĩ số tối thiểu là {minimum}. Xem xét và quyết định tiếp tục hay hủy lớp.",
+  "Review classes": "Xem xét các lớp",
+  "Running below minimum · {count}/{minimum} confirmed": "Lớp đang học chưa đủ sĩ số · {count}/{minimum} đã xác nhận",
   "Open Create class, pick a sport, coach and days, then press Create & publish. Members can book as soon as it is published.": "Mở Tạo lớp học, chọn môn, HLV và ngày học, rồi nhấn Tạo & mở lớp. Hội viên có thể đăng ký ngay sau khi mở lớp.",
   "Matching members": "Hội viên phù hợp",
   "Plan active": "Gói còn hiệu lực",
@@ -79,6 +90,7 @@ export const manager: Record<string, string> = {
   "Export Excel": "Xuất Excel",
   "Export PDF": "Xuất PDF",
   "All sports": "Tất cả môn",
+  "No sport yet": "Chưa có môn",
   "Court capacity": "Công suất sân",
   "Share of open hours that were sold, as bookings or class sessions.": "Tỷ lệ giờ mở cửa đã được bán, dưới dạng đặt sân hoặc buổi học.",
   "No courts to report on": "Chưa có sân nào để báo cáo",
@@ -212,6 +224,7 @@ export const manager: Record<string, string> = {
   "No active coach teaches this sport yet.": "Chưa có HLV nào đang dạy môn này.",
   "There is no court for this sport.": "Chưa có sân cho môn này.",
   "Pick the days and the hour. Clashes on court or coach are blocked for you.": "Chọn các ngày và giờ học. Hệ thống sẽ tự chặn lịch trùng sân hoặc trùng HLV.",
+  "Pick at least one day of the week.": "Hãy chọn ít nhất một ngày trong tuần.",
   "Squad": "Đội tuyển",
   "Repeats weekly on": "Lặp lại hằng tuần vào",
   "Start time": "Giờ bắt đầu",
