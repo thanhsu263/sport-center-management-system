@@ -1,3 +1,7 @@
+/**
+ * Tuyến đường (route) hiển thị trang Bản quyền hình ảnh (/credits).
+ * Cung cấp thông tin minh bạch về giấy phép sử dụng (license), tác giả (credit) và liên kết nguồn gốc của toàn bộ tài nguyên đa phương tiện dùng trong ứng dụng.
+ */
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, useMemo } from "react";
 import { useRead } from "@/client/lib/use-read";
@@ -5,10 +9,16 @@ import { t } from "@/client/lib/i18n";
 import { PageHero } from "@/client/components/page-hero";
 import { ArrowLeft, ExternalLink, Search } from "lucide-react";
 
+/**
+ * Làm gì: Định nghĩa route cho URL "/credits", liên kết tới component CreditsPage để hiển thị trang bản quyền media.
+ * Được gọi ở: URL "/credits" (TanStack Router, liên kết từ footer của trang chủ).
+ * @returns Route object của TanStack Router cấu hình cho đường dẫn /credits.
+ */
 export const Route = createFileRoute("/credits")({
   component: CreditsPage,
 });
 
+// Cấu trúc dữ liệu thông tin bản quyền của từng hình ảnh/media được trả về từ API /media/credits.
 type MediaCredit = {
   id: string;
   path: string;
@@ -24,14 +34,24 @@ type MediaCredit = {
   license: string;
 };
 
+/**
+ * Làm gì: Component trang hiển thị danh sách bản quyền hình ảnh, hỗ trợ tìm kiếm từ khóa và lọc theo danh mục.
+ * Được gọi ở: Route "/credits" trong file src/routes/credits.tsx.
+ * @returns Giao diện React hoàn chỉnh của trang bản quyền hình ảnh.
+ */
 function CreditsPage() {
+  // Bước 1: Khởi tạo state và tải dữ liệu bản quyền hình ảnh từ API qua hook useRead.
+  // Gửi request GET tới /media/credits; loading là true khi chưa có data và chưa có error.
   const { data, error } = useRead<{ items: MediaCredit[] }>("/media/credits");
   const loading = !data && !error;
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [search, setSearch] = useState("");
 
+  // Trích xuất danh sách media từ kết quả API, mặc định là mảng rỗng nếu chưa có dữ liệu.
   const items = data?.items ?? [];
 
+  // Bước 2: Trích xuất danh sách các danh mục duy nhất để làm các tab lọc dữ liệu.
+  // Bỏ qua danh mục "legacy" vì đây là các tài nguyên cũ không cần hiển thị công khai.
   const categories = useMemo(() => {
     const set = new Set<string>();
     for (const it of items) {
@@ -40,6 +60,8 @@ function CreditsPage() {
     return ["all", ...Array.from(set).sort()];
   }, [items]);
 
+  // Bước 3: Lọc danh sách media theo danh mục được chọn và từ khóa tìm kiếm.
+  // Tìm kiếm không phân biệt hoa thường trên mô tả tiếng Anh/tiếng Việt, tác giả, giấy phép và danh mục.
   const filtered = useMemo(() => {
     return items.filter((it) => {
       if (selectedCategory !== "all" && it.category !== selectedCategory) return false;
@@ -55,6 +77,12 @@ function CreditsPage() {
     });
   }, [items, selectedCategory, search]);
 
+  /**
+   * Làm gì: Chuyển đổi mã định danh danh mục (slug) sang tên hiển thị đã được bản địa hóa qua hàm i18n t().
+   * Được gọi ở: Component CreditsPage (tại nút chọn danh mục và huy hiệu category trên từng thẻ media).
+   * @param cat Mã định danh của danh mục media (ví dụ: "facility", "class", "badminton").
+   * @returns Tên danh mục đã dịch tương ứng hoặc giữ nguyên mã gốc nếu không khớp.
+   */
   const formatCategory = (cat: string) => {
     switch (cat) {
       case "all": return t("All categories");
@@ -71,6 +99,7 @@ function CreditsPage() {
     }
   };
 
+  // Bước 4: Render giao diện người dùng với thanh tìm kiếm, bộ lọc danh mục và lưới thẻ media.
   return (
     <div className="min-h-screen bg-bg text-fg">
       <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">

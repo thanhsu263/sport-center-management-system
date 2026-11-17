@@ -1,3 +1,8 @@
+/**
+ * File: src/client/components/menu-settings.tsx
+ * Vai trò: Giao diện quản lý cấu hình thanh điều hướng (menu/tabs) và giới hạn độ dài danh sách rút gọn (limits).
+ * Vị trí trong app: Được nhúng trong trang cài đặt hệ thống của quản lý (/manager/settings), cho phép tùy biến thanh tab theo từng vai trò (role) và độ dài các danh sách hiển thị trước khi bấm "Xem thêm".
+ */
 import { type ReactNode, useState } from "react";
 import { toast } from "sonner";
 import { ArrowDown, ArrowUp, ExternalLink, X } from "lucide-react";
@@ -39,16 +44,34 @@ tk("An hour counts as peak from (% of the busiest)");
 
 type Draft = { nav: Record<NavRole, NavEntry[]>; limits: Record<LimitKey, string> };
 
+/**
+ * Làm gì: Chuyển đổi cấu hình giao diện chuẩn (UiConfig) thành đối tượng Draft cho form state, ép kiểu các giá trị giới hạn số thành chuỗi để thuận tiện xử lý trong ô nhập liệu.
+ * Được gọi ở:
+ * - src/client/components/menu-settings.tsx: khởi tạo state draft trong MenuSettings
+ * - src/client/components/menu-settings.tsx: hàm save, cập nhật lại draft sau khi PATCH /settings thành công
+ * - src/client/components/menu-settings.tsx: nút "Put the lengths back as shipped" (khôi phục giới hạn mặc định)
+ * @param ui Cấu hình giao diện gốc (UiConfig) nhận từ server hoặc giá trị mặc định.
+ * @returns Đối tượng Draft chứa cấu hình nav và limits dạng chuỗi.
+ */
 function draftFrom(ui: UiConfig): Draft {
   return {
     nav: ui.nav,
+    // Chuyển số thành chuỗi để ô input xử lý mượt mà khi người dùng đang nhập hoặc tạm xóa trống.
     limits: Object.fromEntries(LIMIT_KEYS.map((k) => [k, String(ui.limits[k])])) as Record<LimitKey, string>,
   };
 }
 
+/**
+ * Làm gì: Kiểm tra giá trị chuỗi nhập vào của một ô giới hạn danh sách có phải là số nguyên hợp lệ nằm trong khoảng [min, max] hay không.
+ * Được gọi ở: src/client/components/menu-settings.tsx: hàm save bên trong component MenuSettings.
+ * @param k Khóa định danh của mục giới hạn (LimitKey).
+ * @param v Chuỗi giá trị nhập từ ô input cần kiểm tra.
+ * @returns Chuỗi thông báo lỗi bản địa hóa nếu không hợp lệ, hoặc null nếu giá trị đạt yêu cầu.
+ */
 function limitProblem(k: LimitKey, v: string): string | null {
   const n = Number(v);
   const { min, max } = LIMITS[k];
+  // Number("") sẽ trả về 0 nên bắt buộc phải kiểm tra chuỗi không rỗng trước khi kiểm tra số nguyên trong khoảng [min, max].
   return v.trim() !== "" && Number.isInteger(n) && n >= min && n <= max
     ? null
     : t("Enter a whole number from {min} to {max}.", { min, max });
@@ -57,6 +80,11 @@ function limitProblem(k: LimitKey, v: string): string | null {
 /**
  * Manager › Settings: each role's tabs (which pages, their order, which sit in the phone's bottom
  * bar, links of the centre's own) and how many items the short lists show.
+ */
+/**
+ * Làm gì: Component giao diện quản lý cấu hình hệ thống, cho phép quản lý tùy biến danh sách tab điều hướng (thứ tự, ghim thanh dock điện thoại, thêm liên kết ngoài) cho từng vai trò và đặt giới hạn số lượng mục hiển thị trong các danh sách rút gọn.
+ * Được gọi ở: src/routes/manager.settings.tsx trong component ManagerSettings (route /manager/settings).
+ * @returns Khối JSX chứa 2 phần: cài đặt menu điều hướng (Menus) và cài đặt độ dài danh sách rút gọn (List lengths).
  */
 export function MenuSettings() {
   const read = useRead<{ ui?: unknown }>("/flags");
@@ -67,40 +95,58 @@ export function MenuSettings() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
 
+  // Nếu lỗi phân quyền (refused) thì không cho phép thử lại; nếu lỗi mạng thì cho phép bấm reload.
   if (read.error) return <LoadError message={read.error.message} onRetry={read.error.refused ? undefined : read.reload} />;
+  // Ưu tiên bản nháp đang chỉnh sửa d; nếu chưa sửa thì chuyển đổi cấu hình ui từ server thành Draft.
   const d = draft ?? (read.data ? draftFrom(uiConfigFrom(read.data.ui)) : null);
   if (!d) return <Skeleton className="h-64" />;
 
   const items = d.nav[role];
+  // Cập nhật danh sách tab cho vai trò hiện tại và xóa bỏ lỗi cũ của vai trò đó trong errors state.
   const setItems = (next: NavEntry[]) => {
     setDraft({ ...d, nav: { ...d.nav, [role]: next } });
     setErrors(({ [`nav.${role}`]: _gone, ...rest }) => rest);
   };
+  // Hoán đổi vị trí tab tại chỉ số i với phần tử liền kề (by = -1 là lên trên, 1 là xuống dưới).
   const move = (i: number, by: -1 | 1) => {
     const next = [...items];
     [next[i], next[i + by]] = [next[i + by], next[i]];
     setItems(next);
   };
+  // Lọc ra các trang hệ thống của vai trò này chưa được thêm vào thanh tab, để hiển thị trong dropdown "Add a page".
   const unused = NAV_PAGES[role].filter((p) => !items.some((it) => it.to === p.to));
   const links = items.filter((it) => isLinkTab(it.to)).length;
+  // Lỗi của vai trò hiện tại: ưu tiên lỗi trả về từ API backend, sau đó mới đến lỗi kiểm tra tại client.
   const problem = errors[`nav.${role}`] ?? (navProblem(role, items) ? tServer(navProblem(role, items)!) : null);
 
+  /**
+   * Làm gì: Thêm một liên kết ngoài mới vào danh sách tab của vai trò hiện tại sau khi kiểm tra tính hợp lệ bằng navProblem.
+   * Được gọi ở: Sự kiện onClick của nút "Add" liên kết trong component MenuSettings.
+   */
   function addLink() {
+    // Bước 1: Chuẩn hóa nhãn và URL liên kết (cắt khoảng trắng thừa), tạo danh sách tab mới (mặc định không ghim dock)
     const label = linkLabel.trim();
     const to = linkUrl.trim();
     const next = [...items, { to, label, dock: false }];
+    // Bước 2: Kiểm tra tính hợp lệ của menu (số lượng liên kết tối đa, URL hợp lệ); nếu vi phạm thì ghi nhận lỗi và dừng
     const why = navProblem(role, next);
     if (why) {
       setErrors({ ...errors, link: tServer(why) });
       return;
     }
+    // Bước 3: Cập nhật danh sách tab mới vào state, xóa trắng các ô nhập và xóa lỗi liên kết cũ
     setItems(next);
     setLinkLabel("");
     setLinkUrl("");
     setErrors(({ link: _gone, ...rest }) => rest);
   }
 
+  /**
+   * Làm gì: Xác thực toàn bộ cấu hình menu của tất cả vai trò và các giá trị giới hạn, sau đó gửi PATCH /settings để lưu cấu hình giao diện lên hệ thống.
+   * Được gọi ở: Sự kiện onClick của nút "Save menus and lengths" trong component MenuSettings.
+   */
   async function save() {
+    // Bước 1: Kiểm tra tính hợp lệ của menu từng vai trò (navProblem) và các giá trị giới hạn (limitProblem)
     const found: Record<string, string> = {};
     for (const r of NAV_ROLES) {
       const why = navProblem(r, d!.nav[r]);
@@ -111,12 +157,15 @@ export function MenuSettings() {
       if (why) found[`limits.${k}`] = why;
     }
     setErrors(found);
+    // Bước 2: Tự động chuyển tab sang vai trò đầu tiên có lỗi để người dùng thấy ngay vấn đề cần sửa
     const firstNav = NAV_ROLES.find((r) => found[`nav.${r}`]);
     if (firstNav) setRole(firstNav);
+    // Bước 3: Nếu có bất kỳ lỗi nào thì hiển thị thông báo lỗi (toast.error) và dừng, không gửi API
     if (Object.keys(found).length) {
       toast.error(t("Some settings need fixing before they can be saved."));
       return;
     }
+    // Bước 4: Chuyển đổi các giới hạn từ chuỗi sang số nguyên và gửi PATCH /settings lên server
     setSaving(true);
     try {
       const limits = Object.fromEntries(LIMIT_KEYS.map((k) => [k, Number(d!.limits[k])]));
@@ -124,6 +173,7 @@ export function MenuSettings() {
       setDraft(draftFrom(uiConfigFrom(r.ui_config)));
       toast.success(t("Saved. Menus change as people move to their next page."));
     } catch (e) {
+      // Bước 5: Bắt lỗi trả về từ API backend; nếu có lỗi trường cụ thể thì gán lỗi và chuyển tab tương ứng
       if (e instanceof ApiClientError && e.body.field) {
         const field = e.body.field;
         setErrors({ [field]: tServer(e.message) });
@@ -132,6 +182,7 @@ export function MenuSettings() {
       }
       toast.error(e instanceof Error ? tServer(e.message) : t("Something went wrong"));
     } finally {
+      // Bước 6: Tắt cờ trạng thái saving khi hoàn tất (dù thành công hay thất bại)
       setSaving(false);
     }
   }
@@ -287,6 +338,15 @@ export function MenuSettings() {
   );
 }
 
+/**
+ * Làm gì: Nút bấm hình vuông nhỏ gọn hiển thị icon thao tác (di chuyển lên/xuống, xóa tab), hỗ trợ nhãn tiếp cận (aria-label) và tooltip (title).
+ * Được gọi ở: Nội bộ file src/client/components/menu-settings.tsx (các nút di chuyển và xóa tab trong MenuSettings).
+ * @param props.label Nhãn mô tả hành động dành cho tooltip và công nghệ hỗ trợ đọc màn hình (screen reader).
+ * @param props.disabled Cờ vô hiệu hóa nút bấm khi không thể thao tác (ví dụ đang ở đầu/cuối danh sách).
+ * @param props.onClick Hàm xử lý khi người dùng bấm nút.
+ * @param props.children Phần tử icon SVG con hiển thị bên trong nút.
+ * @returns Khối button đã được định dạng kích thước và hiệu ứng hover.
+ */
 function IconButton({ label, disabled, onClick, children }: { label: string; disabled?: boolean; onClick: () => void; children: ReactNode }) {
   return (
     <button

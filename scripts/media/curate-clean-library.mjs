@@ -1,10 +1,20 @@
+/**
+ * Quản lý dữ liệu và metadata chuẩn hóa cho thư viện ảnh thể thao của Arena3.
+ * File này định nghĩa danh sách tái cấu trúc các ảnh trùng lặp (GROUP_SURVIVORS) và bộ sưu tập ảnh chất lượng cao từ Unsplash (NEW_UNSPLASH_PHOTOS).
+ * Được sử dụng bởi scripts/media/sync-manifest.mjs để sinh file manifest library.json, ghi công bản quyền CREDITS.md và danh mục tệp hợp lệ media-files.ts.
+ */
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
 
+// Thư mục gốc lưu trữ các tệp media của thư viện ảnh tĩnh trong dự án.
 const BASE_DIR = "public/media/library";
 
 // 1. Map of 20 duplicate group hashes to their kept location and new name
+/**
+ * Làm gì: Danh sách ánh xạ 20 nhóm ảnh trùng lặp (dựa theo mã hash MD5) cần giữ lại một bản duy nhất, định nghĩa lại đường dẫn lưu trữ mới, danh mục chuẩn hóa, thông tin bản quyền và mô tả song ngữ Anh - Việt.
+ * Được gọi ở: scripts/media/sync-manifest.mjs (xây dựng survivorMap để gán metadata cho các file ảnh giữ lại khi sinh library.json và CREDITS.md).
+ */
 export const GROUP_SURVIVORS = [
   {
     // Group 1: 4e3dd04af855b24a6ed4c1774f632aa2 (treadmills and weight gym)
@@ -269,6 +279,10 @@ export const GROUP_SURVIVORS = [
 ];
 
 // 2. New genuine Unsplash photos to download (no duplicate IDs, matching content)
+/**
+ * Làm gì: Danh sách các ảnh thể thao thực tế mới từ Unsplash (không trùng lặp ID) theo từng môn (cầu lông, bóng rổ, bóng chuyền, pickleball, bóng bàn, tennis, futsal, cơ sở vật chất, sự kiện) kèm URL tải về, bản quyền và mô tả song ngữ Anh - Việt.
+ * Được gọi ở: scripts/media/sync-manifest.mjs (xây dựng newPhotosMap để đồng bộ metadata vào library.json và CREDITS.md).
+ */
 export const NEW_UNSPLASH_PHOTOS = [
   // --- Badminton (10 photos) ---
   {

@@ -8,10 +8,19 @@
  * the scroll story live in `shuttle3d-scene.ts` and `shuttle3d.tsx`.
  */
 
+/**
+ * Làm gì: Giới hạn giá trị số trong khoảng [a, b] (không nhỏ hơn a và không vượt quá b).
+ * Được gọi ở: src/client/components/landing/shuttle3d-gl.ts (hàm sstep khi dựng cánh cầu lông).
+ * @param v Giá trị số đầu vào cần giới hạn.
+ * @param a Giá trị cận dưới (ngưỡng tối thiểu).
+ * @param b Giá trị cận trên (ngưỡng tối đa).
+ * @returns Giá trị v sau khi đã ép vào khoảng [a, b].
+ */
 const clamp = (v: number, a: number, b: number) => Math.min(b, Math.max(a, v));
 
 // ── Shaders ────────────────────────────────────────────────────────────────
 
+// Vertex shader dựng hình các vật thể 3D (cầu lông, bóng, vợt): biến đổi không gian (uP, uMV), tính pháp tuyến, dịch vị trí (uShift) và biến dạng theo môn thể thao (uSport).
 const MESH_VS = `#version 300 es
 layout(location=0) in vec3 aPos; layout(location=1) in vec3 aNor; layout(location=2) in vec2 aUv; layout(location=3) in float aMat;
 uniform mat4 uP; uniform mat4 uMV; uniform vec2 uShift; uniform float uSport;
@@ -34,6 +43,7 @@ void main(){
   vec4 c = uP * p; c.xy += uShift * c.w; gl_Position = c;
 }`;
 
+// Fragment shader cho vật thể 3D: tính toán ánh sáng nhiều nguồn, tán xạ bề mặt, vân chất liệu và hiệu ứng ánh kim bất đẳng hướng (anisotropic sheen) trên cánh cầu lông.
 const MESH_FS = `#version 300 es
 precision highp float;
 in vec3 vN; in vec3 vP; in vec2 vUv; flat in int vMat;
@@ -161,12 +171,14 @@ void main(){
   o = vec4(col * a, a);
 }`;
 
+// Vertex shader chiếu phẳng bóng đổ tiếp xúc (contact shadow) của vật thể xuống mặt sàn (mặt phẳng Y = 0).
 const SHADOW_VS = `#version 300 es
 layout(location=0) in vec2 aQ;
 uniform mat4 uP; uniform mat4 uMV; uniform vec2 uShift;
 out vec2 vQ;
 void main(){ vQ = aQ; vec4 c = uP * (uMV * vec4(aQ.x, 0.0, aQ.y, 1.0)); c.xy += uShift * c.w; gl_Position = c; }`;
 
+// Fragment shader tính độ mờ của bóng đổ tiếp xúc theo bán kính bằng hàm suy giảm Gaussian exp(-3*r^2).
 const SHADOW_FS = `#version 300 es
 precision mediump float;
 in vec2 vQ; uniform float uA; out vec4 o;
@@ -199,21 +211,42 @@ void main(){
   o = vec4(col * a, a);
 }`;
 
+/**
+ * Làm gì: Biên dịch vertex shader và fragment shader rồi liên kết (link) thành một WebGLProgram hoàn chỉnh để vẽ.
+ * Được gọi ở: src/client/components/landing/shuttle3d-gl.ts (hàm build bên trong createShuttle3D để tạo L.pm, L.ps, L.pf).
+ * @param gl Ngữ cảnh đồ họa WebGL2RenderingContext.
+ * @param vs Mã nguồn GLSL của Vertex Shader.
+ * @param fs Mã nguồn GLSL của Fragment Shader.
+ * @returns WebGLProgram hoàn chỉnh đã được liên kết thành công trên GPU.
+ * @throws Error Quăng lỗi "shader" nếu biên dịch thất bại, hoặc "link" nếu liên kết chương trình thất bại (khi context chưa mất).
+ */
 function glProgram(gl: WebGL2RenderingContext, vs: string, fs: string): WebGLProgram {
+  // Bước 1: Khởi tạo hàm phụ trợ sh để cấp phát, nạp mã nguồn và biên dịch từng shader.
+  /**
+   * Làm gì: Tạo và biên dịch một WebGLShader từ mã nguồn GLSL.
+   * Được gọi ở: glProgram (dòng 214 và 215, khi đính kèm vertex shader và fragment shader).
+   * @param type Loại shader (gl.VERTEX_SHADER hoặc gl.FRAGMENT_SHADER).
+   * @param src Chuỗi mã nguồn GLSL của shader.
+   * @returns Đối tượng WebGLShader đã biên dịch xong trên GPU.
+   * @throws Error Quăng lỗi "shader" nếu biên dịch thất bại và WebGL context chưa bị mất.
+   */
   const sh = (type: number, src: string) => {
     const s = gl.createShader(type)!;
     gl.shaderSource(s, src);
     gl.compileShader(s);
+    // Bỏ qua lỗi nếu WebGL context đã bị mất (tránh quăng ngoại lệ làm crash ứng dụng khi chuyển tab hoặc GPU bị reset).
     if (!gl.getShaderParameter(s, gl.COMPILE_STATUS) && !gl.isContextLost()) {
       console.warn("Shuttle shader:", gl.getShaderInfoLog(s));
       throw new Error("shader");
     }
     return s;
   };
+  // Bước 2: Tạo WebGLProgram, đính kèm cả vertex shader và fragment shader rồi tiến hành liên kết (link).
   const p = gl.createProgram()!;
   gl.attachShader(p, sh(gl.VERTEX_SHADER, vs));
   gl.attachShader(p, sh(gl.FRAGMENT_SHADER, fs));
   gl.linkProgram(p);
+  // Kiểm tra trạng thái liên kết; chỉ cảnh báo và quăng lỗi nếu WebGL context vẫn còn hiệu lực.
   if (!gl.getProgramParameter(p, gl.LINK_STATUS) && !gl.isContextLost()) {
     console.warn("Shuttle program:", gl.getProgramInfoLog(p));
     throw new Error("link");
@@ -223,16 +256,46 @@ function glProgram(gl: WebGL2RenderingContext, vs: string, fs: string): WebGLPro
 
 // ── Geometry ───────────────────────────────────────────────────────────────
 
+// Cấu trúc dữ liệu hình học (geometry): mảng đỉnh v (Float32Array) và mảng chỉ số tam giác i (Uint16Array).
 type Geo = { v: Float32Array; i: Uint16Array };
 
+/**
+ * Làm gì: Dựng cấu trúc hình học (mesh geometry) 3D cho quả cầu lông bằng thuật toán tham số (procedural).
+ * Bao gồm đầu nút bần (cork), đai viền cổ (collar band), 16 cánh lông xếp lớp hình nón (feathers) và 2 vòng chỉ buộc.
+ * Được gọi ở: src/client/components/landing/shuttle3d-gl.ts (hàm createShuttle3D).
+ * @returns Đối tượng Geo chứa mảng dữ liệu đỉnh (v) và mảng chỉ số tam giác (i).
+ */
 /** Model units: cork centre at the origin, axis +Y, feather tips at y = 1.98. */
 function shuttleGeometry(): Geo {
+  // Bước 1: Khởi tạo mảng lưu dữ liệu đỉnh V (mỗi đỉnh gồm 9 float: x, y, z, nx, ny, nz, u, v, m) và mảng chỉ số tam giác I.
   const V: number[] = [];
   const I: number[] = [];
+  /**
+   * Làm gì: Thêm một đỉnh mới vào mảng V và trả về chỉ số (index) của đỉnh đó trong danh sách đỉnh.
+   * Được gọi ở: shuttleGeometry (bên trong các hàm lathe, torus và vòng lặp dựng cánh lông).
+   * @param x Toạ độ X trong không gian vật thể.
+   * @param y Toạ độ Y trong không gian vật thể.
+   * @param z Toạ độ Z trong không gian vật thể.
+   * @param nx Thành phần X của vectơ pháp tuyến bề mặt.
+   * @param ny Thành phần Y của vectơ pháp tuyến bề mặt.
+   * @param nz Thành phần Z của vectơ pháp tuyến bề mặt.
+   * @param u Toạ độ texture U (ngang).
+   * @param v Toạ độ texture V (dọc).
+   * @param m Mã vật liệu (material ID) để phân loại shader.
+   * @returns Chỉ số của đỉnh vừa tạo trong mảng đỉnh.
+   */
   const vert = (x: number, y: number, z: number, nx: number, ny: number, nz: number, u: number, v: number, m: number) => {
     V.push(x, y, z, nx, ny, nz, u, v, m);
     return V.length / 9 - 1;
   };
+  /**
+   * Làm gì: Tạo lưới bề mặt tham số (parametric grid) từ các hàng và cột, tự động nối các ô vuông thành cặp tam giác.
+   * Được gọi ở: shuttleGeometry (dùng trong lathe, torus và dựng bề mặt cánh lông).
+   * @param rows Số hàng của lưới đỉnh.
+   * @param cols Số cột của lưới đỉnh.
+   * @param fn Hàm callback tính toán và trả về chỉ số đỉnh tại vị trí hàng i, cột j.
+   * @returns Không trả về giá trị (ghi trực tiếp các chỉ số tam giác vào mảng I).
+   */
   const grid = (rows: number, cols: number, fn: (i: number, j: number) => number) => {
     const idx: number[][] = [];
     for (let i = 0; i < rows; i++) {
@@ -241,42 +304,75 @@ function shuttleGeometry(): Geo {
     }
     for (let i = 0; i < rows - 1; i++)
       for (let j = 0; j < cols - 1; j++) {
+        // Chia mỗi ô vuông (quad) thành 2 tam giác (a-b-c và a-c-d) theo thứ tự ngược chiều kim đồng hồ để GPU nhận diện mặt trước.
         const a = idx[i][j], b = idx[i + 1][j], c = idx[i + 1][j + 1], d = idx[i][j + 1];
         I.push(a, b, c, a, c, d);
       }
   };
+  /**
+   * Làm gì: Tạo hình tròn xoay (surface of revolution) quanh trục Y từ một đường biên dạng (profile).
+   * Được gọi ở: shuttleGeometry (dùng để tiện đầu nút bần và đai viền cổ).
+   * @param prof Mảng các điểm biên dạng dạng [bán kính r, toạ độ y, pháp tuyến r, pháp tuyến y].
+   * @param m Mã vật liệu (material ID) gán cho các đỉnh được tạo.
+   * @param seg Số phân đoạn chia vòng tròn (độ mịn góc xoay quanh trục Y).
+   * @returns Không trả về giá trị (thêm đỉnh vào V và chỉ số vào I thông qua grid).
+   */
   const lathe = (prof: number[][], m: number, seg: number) => {
     grid(prof.length, seg + 1, (i, j) => {
       const a = (j / seg) * Math.PI * 2, c = Math.cos(a), s = Math.sin(a), p = prof[i];
       return vert(p[0] * c, p[1], p[0] * s, p[2] * c, p[3], p[2] * s, j / seg, i / (prof.length - 1), m);
     });
   };
+  /**
+   * Làm gì: Tạo hình vành khuyên (torus) nằm ngang tại cao độ y, dùng làm các vòng chỉ buộc giữ khung lông cầu.
+   * Được gọi ở: shuttleGeometry (dựng 2 vòng chỉ siết quanh váy lông).
+   * @param R Bán kính chính từ tâm trục Y đến tâm ống khuyên (major radius).
+   * @param y Cao độ trên trục Y đặt vòng chỉ.
+   * @param r Bán kính mặt cắt ống khuyên (minor/tube radius).
+   * @param m Mã vật liệu (material ID).
+   * @returns Không trả về giá trị (thêm đỉnh vào V và chỉ số vào I thông qua grid).
+   */
   const torus = (R: number, y: number, r: number, m: number) => {
     grid(13, 65, (i, j) => {
       const a = (i / 12) * Math.PI * 2, b = (j / 64) * Math.PI * 2, nr = Math.cos(a), ny = Math.sin(a), rr = R + r * nr;
       return vert(rr * Math.cos(b), y + r * ny, rr * Math.sin(b), nr * Math.cos(b), ny, nr * Math.sin(b), j / 64, i / 12, m);
     });
   };
+  /**
+   * Làm gì: Hàm nội suy mượt Hermite (smoothstep), làm trơn chuyển tiếp trong khoảng [a, b].
+   * Được gọi ở: shuttleGeometry (dùng để tính toán độ mở rộng và độ cong lòng máng cánh lông).
+   * @param a Ngưỡng biên dưới.
+   * @param b Ngưỡng biên trên.
+   * @param x Giá trị biến số cần nội suy.
+   * @returns Hệ số nội suy đã được làm mượt nằm trong khoảng [0, 1].
+   */
   const sstep = (a: number, b: number, x: number) => {
     const t = clamp((x - a) / (b - a), 0, 1);
     return t * t * (3 - 2 * t);
   };
 
+  // Bước 2: Dựng phần đầu nút bần (cork head) hình chỏm cầu bằng cách xoay tròn biên dạng nửa cung tròn quanh trục Y.
   // Cork head: sphere cap from the bottom pole up to the collar.
   const cork: number[][] = [];
   for (let i = 0; i <= 24; i++) {
+    // Quét góc từ cực đáy (-PI/2) lên quá xích đạo (+0.25 rad) để tiếp giáp khít với phần đai cổ (collar).
     const f = -Math.PI / 2 + ((Math.PI / 2 + 0.25) * i) / 24;
     cork.push([0.42 * Math.cos(f), 0.42 * Math.sin(f), Math.cos(f), Math.sin(f)]);
   }
+  // Tiện xoay biên dạng chỏm cầu quanh trục Y với 64 phân đoạn tròn, gán material ID = 0 (chất liệu bần).
   lathe(cork, 0, 64);
+  // Bước 3: Dựng đai viền cổ (collar band màu đen) bao gồm mép đáy, thành trụ và nắp phẳng trên (material ID = 1).
   // Collar band: bottom lip, side, top cap.
   lathe([[0.405, 0.06, 0, -1], [0.43, 0.06, 0, -1]], 1, 64);
   lathe([[0.43, 0.06, 1, 0], [0.43, 0.30, 1, 0]], 1, 64);
   lathe([[0.43, 0.30, 0, 1], [0.0, 0.30, 0, 1]], 1, 64);
 
   // 16 feather blades on a cone, twisted so they shingle. Slight flare per blade.
+  // Bước 4: Khởi tạo các tham số hình học cho 16 cánh lông xếp lớp trên mặt nón (R0, Y0: gốc cánh; R1, Y1: đỉnh chóp lông; ROWS x COLS: lưới đỉnh; WM: bề rộng cánh; TW: góc xoắn).
   const R0 = 0.30, Y0 = 0.22, R1 = 1.08, Y1 = 2.08, ROWS = 32, COLS = 9, WM = 0.28, TW = 0.36;
+  // Bước 3: Tạo 16 phiến lông vũ xếp chồng chéo (shingle) quanh hình nón với góc xoắn và độ uốn cong tự nhiên.
   for (let k = 0; k < 16; k++) {
+    // Tính độ loe (flare), góc xoắn (twist) và vector pháp tuyến (normal) cho từng phiến lông vũ để tạo độ bất đối xứng tự nhiên.
     const flare = 1 + 0.05 * Math.sin(k * 1.7);
     const R1k = R1 * flare, Y1k = Y1 * (1 + 0.028 * Math.cos(k * 2.2));
     const tw = TW + 0.05 * Math.sin(k * 0.9);
@@ -287,6 +383,7 @@ function shuttleGeometry(): Geo {
     const nl = Math.hypot(nx, ny, nz);
     nx /= nl; ny /= nl; nz /= nl;
     if (nx * cr + nz * sr < 0) { nx = -nx; ny = -ny; nz = -nz; }
+    // Dựng lưới đỉnh cho từng phiến lông: tính bề rộng, độ khum máng lông (cup) và gán vật liệu lông (m = 2).
     grid(ROWS, COLS, (i, j) => {
       const t = i / (ROWS - 1), u = (j / (COLS - 1)) * 2 - 1;
       let hw = 0.012 + WM * sstep(0.12, 0.5, t);
@@ -298,16 +395,25 @@ function shuttleGeometry(): Geo {
     });
   }
   // Skirt rings (thread binding).
+  // Bước 4: Tạo 2 vòng chỉ buộc (skirt rings) bằng hình xuyến torus để cố định tán lông cầu.
   torus(R0 + (R1 - R0) * 0.44 + 0.06, Y0 + (Y1 - Y0) * 0.44, 0.022, 1);
   torus(R0 + (R1 - R0) * 0.64 + 0.06, Y0 + (Y1 - Y0) * 0.64, 0.02, 1);
+  // Bước 5: Đóng gói và trả về mảng thuộc tính đỉnh Float32Array cùng mảng chỉ số tam giác Uint16Array.
   return { v: new Float32Array(V), i: new Uint16Array(I) };
 }
 
 /** Unit ball. `uSport` bends it from a seamed basketball into a paneled volleyball. */
+/**
+ * Làm gì: Tạo lưới hình học quả bóng hình cầu đơn vị (bán kính R = 1.08) với tọa độ UV; shader sẽ biến đổi quả bóng thành bóng rổ hoặc bóng chuyền qua uniform uSport.
+ * Được gọi ở: src/client/components/landing/shuttle3d-gl.ts (hàm createShuttle3D).
+ * @returns Đối tượng Geo chứa mảng dữ liệu đỉnh Float32Array và mảng chỉ số tam giác Uint16Array của quả bóng.
+ */
 function ballGeometry(): Geo {
   const V: number[] = [];
   const I: number[] = [];
+  // Bước 1: Khởi tạo thông số lưới cầu (28 tầng vĩ độ stacks, 40 lát kinh độ slices, bán kính R = 1.08).
   const stacks = 28, slices = 40, R = 1.08;
+  // Bước 2: Tạo danh sách đỉnh tọa độ cầu cùng vector pháp tuyến (normal) và tọa độ UV (vật liệu bóng m = 3).
   for (let i = 0; i <= stacks; i++) {
     const v = i / stacks, phi = v * Math.PI, sp = Math.sin(phi), cp = Math.cos(phi);
     for (let j = 0; j <= slices; j++) {
@@ -316,21 +422,35 @@ function ballGeometry(): Geo {
     }
   }
   const row = slices + 1;
+  // Bước 3: Tạo danh sách chỉ số tam giác (index buffer) nối các đỉnh liền kề thành bề mặt quả cầu.
   for (let i = 0; i < stacks; i++)
     for (let j = 0; j < slices; j++) {
       const a = i * row + j;
       I.push(a, a + row, a + row + 1, a, a + row + 1, a + 1);
     }
+  // Bước 4: Đóng gói và trả về mảng thuộc tính đỉnh Float32Array cùng mảng chỉ số tam giác Uint16Array.
   return { v: new Float32Array(V), i: new Uint16Array(I) };
 }
 
 /** Where the racket's string bed sits, in racket model units (grip point at the origin). */
+/**
+ * Làm gì: Tọa độ và kích thước khung vợt cầu lông trong không gian mô hình (gốc tọa độ đặt tại điểm cầm tay): tâm mặt vợt headY = 3.85, bán kính trục ngang Rx = 0.8, bán kính trục dọc Ry = 1.25, bán kính vành rad = 0.05.
+ * Được gọi ở:
+ * - src/client/components/landing/shuttle3d-gl.ts (hàm racketGeometry dựng khung và dây vợt)
+ * - src/client/components/landing/shuttle3d-scene.ts (hàm racketAt tính điểm tiếp xúc mặt vợt)
+ */
 export const RK = { headY: 3.85, Rx: 0.8, Ry: 1.25, rad: 0.05 };
 
 /** Badminton racket. Mats: 4 frame and shaft, 5 strings, 6 grip wrap, 1 dark fittings. */
+/**
+ * Làm gì: Dựng toàn bộ lưới hình học vợt cầu lông: chóp cán (butt cap), cán quấn cuốn cán (grip), cổ vợt (collar), thân vợt (shaft), khớp chữ T (T-joint), khung hình elip và mặt lưới đan cước.
+ * Được gọi ở: src/client/components/landing/shuttle3d-gl.ts (hàm createShuttle3D).
+ * @returns Đối tượng Geo chứa mảng dữ liệu đỉnh Float32Array và mảng chỉ số tam giác Uint16Array của cây vợt.
+ */
 function racketGeometry(): Geo {
   const V: number[] = [];
   const I: number[] = [];
+  // Bước 1: Định nghĩa các hàm trợ giúp dựng hình (thêm đỉnh vert, thêm tứ giác quad, quét hình ống tube, nắp đáy cap).
   const vert = (x: number, y: number, z: number, nx: number, ny: number, nz: number, u: number, v: number, m: number) => {
     const l = Math.hypot(nx, ny, nz) || 1;
     V.push(x, y, z, nx / l, ny / l, nz / l, u, v, m);
@@ -361,8 +481,10 @@ function racketGeometry(): Geo {
   };
   const fixed = (r: number) => () => r;
   // Butt cap, grip with a raised helical overgrip ridge, collar, tapered shaft, T-joint and the two throat arms.
+  // Bước 2: Dựng phần chuôi vợt (butt cap), tay cầm quấn cán (grip có gân xoắn ốc ridge), cổ vợt, thân vợt vát côn, khớp nối chữ T và 2 chạc cổ họng.
   cap(-0.62, 0.086, -1, 1);
   tube(0, -0.62, 0, -0.5, fixed(0.086), 1, 1, 16);
+  // Tạo cán cầm với gờ xoắn ốc (helical ridge) nổi nhẹ mô phỏng lớp băng quấn cuốn cán (m = 6).
   tube(0, -0.5, 0, 0.78, (v, ang) => {
     const ridge = Math.pow(0.5 + 0.5 * Math.cos((v * 9 + ang / (Math.PI * 2)) * Math.PI * 2), 6);
     return 0.077 - 0.008 * v + 0.007 * ridge;
@@ -374,6 +496,7 @@ function racketGeometry(): Geo {
   tube(0, 2.36, -thX, thY, fixed(0.033), 4, 4, 12);
   tube(0, 2.36, thX, thY, fixed(0.033), 4, 4, 12);
   // Oval frame: a torus-like tube swept round the ellipse, slightly flattened front to back. Lime runs on the outer edge.
+  // Bước 3: Dựng vành khung vợt hình elip (84 phân đoạn x 12 lát cắt), hơi dẹt nhẹ theo trục z để tạo tiết diện khí động học.
   const N = 84, S = 12, { Rx, Ry, rad, headY: hy } = RK;
   const ring: number[][] = [];
   for (let i = 0; i <= N; i++) {
@@ -389,6 +512,7 @@ function racketGeometry(): Geo {
   }
   for (let i = 0; i < N; i++) for (let j = 0; j < S; j++) quad(ring[i][j], ring[i + 1][j], ring[i + 1][j + 1], ring[i][j + 1]);
   // String bed: thin flat strings, crosses just in front of the mains.
+  // Bước 4: Dựng mặt lưới đan cước: 13 dây ngang (cross strings) và 11 dây dọc (main strings) so le trước/sau trục z.
   const string = (x0: number, y0: number, x1: number, y1: number, z: number) => {
     const dx = x1 - x0, dy = y1 - y0, dl = Math.hypot(dx, dy) || 1, w = 0.011, qx = (-dy / dl) * w, qy = (dx / dl) * w;
     quad(vert(x0 + qx, y0 + qy, z, 0, 0, 1, 0, 0, 5), vert(x1 + qx, y1 + qy, z, 0, 0, 1, 1, 0, 5),
@@ -403,17 +527,30 @@ function racketGeometry(): Geo {
     const xx = -bx + (2 * bx * n) / 12, exx = xx / bx, hh = by * Math.sqrt(Math.max(0, 1 - exx * exx));
     string(xx, hy - hh, xx, hy + hh, -0.006);
   }
+  // Bước 5: Đóng gói và trả về mảng thuộc tính đỉnh Float32Array cùng mảng chỉ số tam giác Uint16Array.
   return { v: new Float32Array(V), i: new Uint16Array(I) };
 }
 
 // ── Column-major 4x4 helpers ───────────────────────────────────────────────
 
 export type M4 = Float32Array;
+/**
+ * Làm gì: Tạo ma trận đơn vị 4x4 (identity matrix) dạng mảng Float32Array 16 phần tử theo thứ tự column-major chuẩn WebGL.
+ * Được gọi ở: Nội bộ src/client/components/landing/shuttle3d-gl.ts (các hàm rx, ry, rz, tr, sc, sc3).
+ * @returns Ma trận 4x4 đơn vị Float32Array với đường chéo chính bằng 1.
+ */
 const m4 = (): M4 => {
   const m = new Float32Array(16);
   m[0] = m[5] = m[10] = m[15] = 1;
   return m;
 };
+/**
+ * Làm gì: Nhân hai ma trận 4x4 column-major (a * b) để kết hợp các phép biến đổi không gian.
+ * Được gọi ở: src/client/components/landing/shuttle3d-gl.ts (hàm chain).
+ * @param a Ma trận 4x4 biến đổi bên trái.
+ * @param b Ma trận 4x4 biến đổi bên phải.
+ * @returns Ma trận 4x4 mới Float32Array là tích của a và b.
+ */
 const mul = (a: M4, b: M4): M4 => {
   const o = new Float32Array(16);
   for (let c = 0; c < 4; c++)
@@ -424,13 +561,69 @@ const mul = (a: M4, b: M4): M4 => {
     }
   return o;
 };
+/**
+ * Làm gì: Nhân chuỗi nhiều ma trận 4x4 theo thứ tự từ trái sang phải bằng hàm reduce và mul.
+ * Được gọi ở:
+ * - src/client/components/landing/shuttle3d-scene.ts (các hàm swingPose, racketAt, drawScene khi tính ma trận model-view cho bóng, vợt, cầu và bóng đổ)
+ * @param ms Danh sách các ma trận 4x4 Float32Array cần nhân liên tiếp.
+ * @returns Ma trận 4x4 tổng hợp kết quả của toàn bộ chuỗi biến đổi.
+ */
 export const chain = (...ms: M4[]): M4 => ms.reduce((acc, m) => mul(acc, m));
+/**
+ * Làm gì: Tạo ma trận xoay 4x4 quanh trục X một góc t (radian) theo thứ tự column-major.
+ * Được gọi ở: src/client/components/landing/shuttle3d-scene.ts (hàm drawScene khi xoay góc nghiêng sân và bóng đổ).
+ * @param t Góc xoay quanh trục X tính bằng radian.
+ * @returns Ma trận 4x4 xoay quanh trục X Float32Array.
+ */
 export const rx = (t: number): M4 => { const m = m4(), c = Math.cos(t), s = Math.sin(t); m[5] = c; m[6] = s; m[9] = -s; m[10] = c; return m; };
+/**
+ * Làm gì: Tạo ma trận xoay 4x4 quanh trục Y một góc t (radian) theo thứ tự column-major.
+ * Được gọi ở: src/client/components/landing/shuttle3d-scene.ts (hàm drawScene khi xoay quả cầu và quả bóng).
+ * @param t Góc xoay quanh trục Y tính bằng radian.
+ * @returns Ma trận 4x4 xoay quanh trục Y Float32Array.
+ */
 export const ry = (t: number): M4 => { const m = m4(), c = Math.cos(t), s = Math.sin(t); m[0] = c; m[2] = -s; m[8] = s; m[10] = c; return m; };
+/**
+ * Làm gì: Tạo ma trận xoay 4x4 quanh trục Z một góc t (radian) theo thứ tự column-major.
+ * Được gọi ở: src/client/components/landing/shuttle3d-scene.ts (các hàm racketAt, drawScene khi xoay vung vợt và xoay cầu).
+ * @param t Góc xoay quanh trục Z tính bằng radian.
+ * @returns Ma trận 4x4 xoay quanh trục Z Float32Array.
+ */
 export const rz = (t: number): M4 => { const m = m4(), c = Math.cos(t), s = Math.sin(t); m[0] = c; m[1] = s; m[4] = -s; m[5] = c; return m; };
+/**
+ * Làm gì: Tạo ma trận tịnh tiến (translation matrix) 4x4 theo tọa độ (x, y, z) theo thứ tự column-major.
+ * Được gọi ở: src/client/components/landing/shuttle3d-scene.ts (các hàm racketAt, drawScene khi đặt vị trí vật thể trong không gian 3D).
+ * @param x Khoảng tịnh tiến theo trục X.
+ * @param y Khoảng tịnh tiến theo trục Y.
+ * @param z Khoảng tịnh tiến theo trục Z.
+ * @returns Ma trận 4x4 tịnh tiến Float32Array.
+ */
 export const tr = (x: number, y: number, z: number): M4 => { const m = m4(); m[12] = x; m[13] = y; m[14] = z; return m; };
+/**
+ * Làm gì: Tạo ma trận tỉ lệ đồng dạng (uniform scale) 4x4 với hệ số s trên cả 3 trục (X, Y, Z).
+ * Được gọi ở: src/client/components/landing/shuttle3d-scene.ts (các hàm racketAt, drawScene khi phóng to/thu nhỏ vật thể và hiệu ứng).
+ * @param s Hệ số tỉ lệ co giãn áp dụng cho cả 3 trục.
+ * @returns Ma trận 4x4 co giãn Float32Array.
+ */
 export const sc = (s: number): M4 => { const m = m4(); m[0] = m[5] = m[10] = s; return m; };
+/**
+ * Làm gì: Tạo ma trận tỉ lệ không đồng dạng (non-uniform scale) 4x4 với các hệ số riêng biệt x, y, z trên từng trục.
+ * Được gọi ở: src/client/components/landing/shuttle3d-scene.ts (hàm drawScene khi ép méo/kéo giãn bóng squash-and-stretch).
+ * @param x Hệ số tỉ lệ trục X.
+ * @param y Hệ số tỉ lệ trục Y.
+ * @param z Hệ số tỉ lệ trục Z.
+ * @returns Ma trận 4x4 tỉ lệ không đồng dạng Float32Array.
+ */
 export const sc3 = (x: number, y: number, z: number): M4 => { const m = m4(); m[0] = x; m[5] = y; m[10] = z; return m; };
+/**
+ * Làm gì: Tạo ma trận chiếu phối cảnh (perspective projection matrix) 4x4 theo chuẩn WebGL.
+ * Được gọi ở: src/client/components/landing/shuttle3d-scene.ts (hàm drawScene khi tính ma trận chiếu phối cảnh camera uP).
+ * @param f Góc mở nhìn dọc (field of view) theo radian.
+ * @param a Tỉ lệ khung hình (aspect ratio = width / height).
+ * @param n Khoảng cách mặt phẳng cắt gần (near plane).
+ * @param fr Khoảng cách mặt phẳng cắt xa (far plane).
+ * @returns Ma trận 4x4 chiếu phối cảnh Float32Array.
+ */
 export const persp = (f: number, a: number, n: number, fr: number): M4 => {
   const m = new Float32Array(16), t = 1 / Math.tan(f / 2);
   m[0] = t / a; m[5] = t; m[10] = (fr + n) / (n - fr); m[11] = -1; m[14] = (2 * fr * n) / (n - fr);
@@ -460,9 +653,17 @@ export type Shuttle3D = {
 
 /** True when a WebGL2 context can be made at all. Probed once, in the browser. */
 let probed: boolean | null = null;
+/**
+ * Làm gì: Kiểm tra trình duyệt hiện tại có hỗ trợ WebGL2 hay không bằng cách tạo canvas tạm và khởi tạo context thử nghiệm một lần duy nhất (kết quả được lưu vào biến probed).
+ * Được gọi ở: src/client/components/landing/shuttle3d.tsx (hook useEffect trong component ShuttleScene để quyết định render canvas 3D hay giữ ảnh tĩnh).
+ * @returns boolean True nếu trình duyệt hỗ trợ WebGL2, ngược lại false (kể cả khi chạy môi trường SSR/server).
+ */
 export function canShuttle3D(): boolean {
+  // Bước 1: Tránh lỗi khi chạy SSR phía server (nơi không có đối tượng document).
   if (typeof document === "undefined") return false;
+  // Bước 2: Tận dụng kết quả đã kiểm tra từ trước để tránh khởi tạo WebGL context lặp lại nhiều lần.
   if (probed != null) return probed;
+  // Bước 3: Thử khởi tạo context webgl2 và giải phóng ngay qua WEBGL_lose_context để không rò rỉ tài nguyên GPU.
   try {
     const c = document.createElement("canvas");
     const g = c.getContext("webgl2");
@@ -474,7 +675,14 @@ export function canShuttle3D(): boolean {
   return probed;
 }
 
+/**
+ * Làm gì: Khởi tạo wrapper ngữ cảnh WebGL2 hoàn chỉnh (Shuttle3D) cho canvas landing: biên dịch 3 shader program, nạp dữ liệu hình học (quả cầu, bóng, vợt, quad bóng đổ) lên GPU qua VAO, đăng ký phục hồi khi mất context (context loss) và cung cấp hàm draw/dispose an toàn.
+ * Được gọi ở: src/client/components/landing/shuttle3d.tsx (component ShuttleScene khi khởi tạo màn diễn 3D).
+ * @param canvas Thẻ HTMLCanvasElement được dùng để vẽ hiệu ứng 3D.
+ * @returns Đối tượng Shuttle3D chứa các VAO, shader program và hàm render, hoặc null nếu không thể tạo WebGL2 context.
+ */
 export function createShuttle3D(canvas: HTMLCanvasElement): Shuttle3D | null {
+  // Bước 1: Khởi tạo context WebGL2 với cấu hình độ trong suốt (alpha/premultipliedAlpha) và bộ đệm độ sâu (depth buffer).
   let gl: WebGL2RenderingContext | null = null;
   try {
     gl = canvas.getContext("webgl2", { alpha: true, premultipliedAlpha: true, antialias: true, depth: true, stencil: false });
@@ -483,13 +691,16 @@ export function createShuttle3D(canvas: HTMLCanvasElement): Shuttle3D | null {
   }
   if (!gl) return null;
   const g = gl;
+  // Bước 2: Chuẩn bị đối tượng quản lý Shuttle3D và tạo dữ liệu hình học CPU cho quả cầu, bóng và vợt.
   const L = { ready: false, failed: false, onRestore: null } as unknown as Shuttle3D;
   const geo = shuttleGeometry(), ball = ballGeometry(), racket = racketGeometry();
+  // Hàm trợ giúp tra cứu vị trí biến uniform trong shader program.
   const U = (p: WebGLProgram, names: string[]) => {
     const o: Uniforms = {};
     names.forEach((n) => (o[n] = g.getUniformLocation(p, n)));
     return o;
   };
+  // Hàm nạp dữ liệu thuộc tính đỉnh (vị trí 3, pháp tuyến 3, UV 2, vật liệu 1 -> stride 36 bytes) và chỉ số tam giác lên GPU qua VAO.
   const upload = (vao: WebGLVertexArrayObject, geom: Geo) => {
     g.bindVertexArray(vao);
     g.bindBuffer(g.ARRAY_BUFFER, g.createBuffer());
@@ -501,6 +712,7 @@ export function createShuttle3D(canvas: HTMLCanvasElement): Shuttle3D | null {
     g.enableVertexAttribArray(2); g.vertexAttribPointer(2, 2, g.FLOAT, false, 36, 24);
     g.enableVertexAttribArray(3); g.vertexAttribPointer(3, 1, g.FLOAT, false, 36, 32);
   };
+  // Bước 3: Hàm biên dịch các shader program (mesh, shadow, fx) và cấu hình toàn bộ VAO lên card đồ họa.
   const build = () => {
     try {
       L.pm = glProgram(g, MESH_VS, MESH_FS);
@@ -525,16 +737,19 @@ export function createShuttle3D(canvas: HTMLCanvasElement): Shuttle3D | null {
       L.failed = true;
     }
   };
+  // Bước 4: Lắng nghe sự kiện mất (context lost) và phục hồi (context restored) của WebGL để tự động dựng lại tài nguyên GPU.
   const onLost = (e: Event) => { e.preventDefault(); L.ready = false; };
   const onRestored = () => { build(); L.onRestore?.(); };
   canvas.addEventListener("webglcontextlost", onLost, false);
   canvas.addEventListener("webglcontextrestored", onRestored, false);
+  // Thực hiện biên dịch lần đầu; nếu thất bại thì dọn dẹp listener và trả về null.
   build();
   if (L.failed) {
     canvas.removeEventListener("webglcontextlost", onLost);
     canvas.removeEventListener("webglcontextrestored", onRestored);
     return null;
   }
+  // Bước 5: Cài đặt phương thức draw: tự động đồng bộ kích thước canvas theo DPR (giới hạn tối đa 1.5 để tối ưu hiệu năng), xóa bộ đệm và gọi callback render.
   L.draw = (fn) => {
     if (!L.ready || g.isContextLost()) return false;
     // Same cap as the shaders in gl.tsx: past 1.5 the cost is real and the gain is not.
@@ -546,6 +761,7 @@ export function createShuttle3D(canvas: HTMLCanvasElement): Shuttle3D | null {
     fn(g, L, Math.max(1, cw), Math.max(1, ch));
     return true;
   };
+  // Bước 6: Cài đặt phương thức dispose: gỡ bỏ event listeners và chủ động hủy context WebGL qua extension.
   L.dispose = () => {
     canvas.removeEventListener("webglcontextlost", onLost);
     canvas.removeEventListener("webglcontextrestored", onRestored);

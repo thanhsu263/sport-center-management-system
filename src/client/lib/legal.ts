@@ -12,13 +12,31 @@
  * than written in, so the text cannot drift from the settings.
  */
 
+/**
+ * Làm gì: Định nghĩa cấu trúc cho một phần/mục của văn bản pháp lý, gồm tiêu đề mục (heading) và các đoạn nội dung chi tiết (body).
+ * Được gọi ở: src/client/lib/legal.ts (type LegalDoc), src/client/components/legal-page.tsx (component LegalBody khi hiển thị từng mục).
+ */
 export type LegalSection = { heading: string; body: string[] };
+/**
+ * Làm gì: Định nghĩa cấu trúc tài liệu pháp lý hoàn chỉnh, bao gồm tiêu đề chính (title), lời mở đầu (intro) và mảng các mục điều khoản (sections).
+ * Được gọi ở: src/client/lib/legal.ts (hằng số PRIVACY, TERMS), src/client/components/legal-page.tsx (props doc của component LegalBody và LegalPage).
+ */
 export type LegalDoc = { title: string; intro: string; sections: LegalSection[] };
 
 /** Flip once the centre has approved the text. */
 export const LEGAL_DRAFT = true;
+/**
+ * Làm gì: Ngày cập nhật hiệu lực gần nhất của các văn bản pháp lý (dạng chuỗi ISO 'YYYY-MM-DD').
+ * Được gọi ở: src/client/components/legal-page.tsx (component LegalBody, hiển thị ở dòng thông tin "Last updated {date}").
+ */
 export const LEGAL_UPDATED = "2026-10-15";
 
+/**
+ * Làm gì: Lưu trữ nội dung văn bản Thông báo về dữ liệu cá nhân (Personal data notice) song ngữ Anh - Việt theo Nghị định 13/2023/NĐ-CP, quy định rõ dữ liệu thu thập, mục đích sử dụng, bên được tiếp cận, thời hạn lưu trữ và quyền của người dùng.
+ * Được gọi ở:
+ * - src/routes/privacy.tsx: component Route (trang toàn màn hình tại URL /privacy)
+ * - src/routes/register.tsx: component Register (hiển thị trong modal khi người dùng bấm xem chính sách lúc đăng ký tài khoản mới)
+ */
 export const PRIVACY: Record<"en" | "vi", LegalDoc> = {
   en: {
     title: "Personal data notice",
@@ -144,6 +162,12 @@ export const PRIVACY: Record<"en" | "vi", LegalDoc> = {
   },
 };
 
+/**
+ * Làm gì: Lưu trữ nội dung văn bản Điều khoản sử dụng (Terms of use) song ngữ Anh - Việt của trung tâm thể thao, quy định quy tắc tài khoản, giữ chỗ và đặt sân, lớp học, thanh toán, hoàn tiền và nội quy an toàn tại trung tâm.
+ * Được gọi ở:
+ * - src/routes/terms.tsx: component Route (trang toàn màn hình tại URL /terms)
+ * - src/routes/register.tsx: component Register (hiển thị trong modal khi người dùng bấm xem điều khoản lúc đăng ký tài khoản mới)
+ */
 export const TERMS: Record<"en" | "vi", LegalDoc> = {
   en: {
     title: "Terms of use",
