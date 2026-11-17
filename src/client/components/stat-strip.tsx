@@ -1,8 +1,18 @@
+/**
+ * File: src/client/components/stat-strip.tsx
+ * Vai trò: Thành phần giao diện dải thẻ thống kê (Stat Strip / KPI Cards) dùng chung.
+ * Phục vụ các trang Dashboard quản trị (manager.*) và bàn lễ tân (desk.*)
+ * hiển thị nhanh các chỉ số trọng yếu (doanh thu, lượt đặt sân, hội viên, xu hướng tăng giảm).
+ */
 import { type ComponentType } from "react";
 import { ArrowDownRight, ArrowUpRight, Minus } from "lucide-react";
 import { cn } from "@/client/lib/cn";
 import { CountUp, useReducedMotionAfterMount } from "./motion";
 
+/**
+ * Kiểu dữ liệu mô tả từng thẻ chỉ số thống kê (KPI item) trong dải StatStrip.
+ * Chứa nhãn (label), giá trị (value), tiền tố/hậu tố, xu hướng tăng giảm (trend), icon và cờ trạng thái trực tiếp (live).
+ */
 export type StatItem = {
   id?: string;
   label: string;
@@ -20,6 +30,18 @@ export type StatItem = {
   live?: boolean;
 };
 
+/**
+ * Làm gì: Hiển thị dải thẻ thống kê (KPI cards) theo bố cục lưới responsive (2, 3 hoặc 4 cột).
+ * Hỗ trợ hiệu ứng số nhảy (CountUp), nhãn xu hướng (trend % tăng/giảm), icon và chấm xung nhịp trực tiếp (live pulse).
+ * Được gọi ở: desk.courts.tsx, manager.courts.tsx, manager.classes.tsx, manager.members.tsx,
+ * manager.plans.tsx, manager.prices.tsx, manager.promos.tsx, manager.settings.tsx,
+ * manager.staff.tsx, manager.media.tsx (hoặc re-export qua src/client/components/ui/index.tsx).
+ * @param props Các thuộc tính giao diện:
+ * - stats, items: Danh sách thẻ chỉ số (StatItem[]), hỗ trợ cả 2 tên prop để tương thích ngược.
+ * - columns: Số cột hiển thị ở desktop (2 | 3 | 4, mặc định là 4).
+ * - className: Lớp CSS tùy biến bổ sung cho thẻ bọc container.
+ * @returns JSX.Element Lưới các thẻ chỉ số thống kê hoàn chỉnh kèm hiệu ứng số động.
+ */
 export function StatStrip({
   stats,
   items,
@@ -31,9 +53,12 @@ export function StatStrip({
   className?: string;
   columns?: 2 | 3 | 4;
 }) {
+  // Bước 1: Chuẩn hóa dữ liệu đầu vào và kiểm tra chế độ giảm chuyển động của hệ điều hành
+  // Hỗ trợ cả 2 prop `stats` và `items` để tương thích ngược; nếu bật reduced motion thì tắt animation CountUp
   const list = stats ?? items ?? [];
   const reduced = useReducedMotionAfterMount();
 
+  // Bước 2: Thiết lập class lưới responsive tùy theo số cột mong muốn (columns: 2, 3 hoặc 4 cột)
   const colClass =
     columns === 2
       ? "grid-cols-1 sm:grid-cols-2"
@@ -41,6 +66,7 @@ export function StatStrip({
         ? "grid-cols-1 sm:grid-cols-3"
         : "grid-cols-2 lg:grid-cols-4";
 
+  // Bước 3: Render giao diện lưới chứa các thẻ thống kê (card) kèm hiệu ứng động
   return (
     <div className={cn("grid gap-3 sm:gap-4", colClass, className)}>
       {list.map((s, idx) => {

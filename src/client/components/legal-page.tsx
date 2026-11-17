@@ -1,3 +1,8 @@
+/**
+ * File: src/client/components/legal-page.tsx
+ * Vai trò: Cung cấp các component hiển thị văn bản pháp lý (Điều khoản sử dụng và Chính sách bảo vệ dữ liệu).
+ * Vị trí trong app: Chạy ở client, gồm LegalBody (hiển thị nội dung chi tiết theo ngôn ngữ, dùng trong modal hoặc trang) và LegalPage (layout trang đầy đủ cho các route /terms và /privacy).
+ */
 import { Link } from "@tanstack/react-router";
 import { ArenaMark } from "@/client/components/mark";
 import { LangSwitch } from "@/client/components/lang-switch";
@@ -5,6 +10,15 @@ import { formatDate } from "@/shared/arena3/labels";
 import { t, useLang } from "@/client/lib/i18n";
 import { LEGAL_DRAFT, LEGAL_UPDATED, type LegalDoc } from "@/client/lib/legal";
 
+/**
+ * Làm gì: Hiển thị nội dung chi tiết của văn bản pháp lý (tiêu đề, ngày cập nhật, trạng thái bản nháp, lời mở đầu và các điều khoản) theo ngôn ngữ đang chọn.
+ * Được gọi ở:
+ * - src/client/components/legal-page.tsx: component LegalPage
+ * - src/routes/register.tsx: component Register (bên trong modal xem điều khoản khi đăng ký)
+ * @param doc Đối tượng chứa nội dung tài liệu pháp lý theo hai ngôn ngữ ("en" và "vi").
+ * @param showTitle Cờ bật/tắt hiển thị tiêu đề cấp h1 (mặc định false khi nhúng trong modal, true khi xem toàn trang).
+ * @returns Phần tử JSX (<article>) chứa toàn bộ nội dung văn bản pháp lý.
+ */
 export function LegalBody({
   doc,
   showTitle = false,
@@ -13,6 +27,7 @@ export function LegalBody({
   showTitle?: boolean;
 }) {
   const lang = useLang();
+  // Lấy nội dung tài liệu theo ngôn ngữ đang chọn (nếu không phải "vi" thì mặc định dùng "en")
   const d = doc[lang === "vi" ? "vi" : "en"];
   return (
     <article className="text-fg">

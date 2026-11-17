@@ -1,3 +1,9 @@
+/**
+ * File: src/client/components/illustrations.tsx
+ * Vai trò: Thư viện hình minh họa vector phẳng (spot illustrations) dạng SVG cho toàn bộ ứng dụng.
+ * Cung cấp các biểu tượng trực quan đại diện cho từng phân hệ màn hình (desk, manager, coach, app)
+ * và các trạng thái dữ liệu trống (empty state), giúp giao diện nhất quán mà không cần tải ảnh ngoài.
+ */
 import { type ReactNode } from "react";
 import { cn } from "@/client/lib/cn";
 
@@ -28,6 +34,7 @@ export type SpotName =
   | "chat"
   | "empty";
 
+// Các biến màu sắc và CSS variables dùng cho các hình vẽ SVG để đồng bộ với theme của ứng dụng
 const G = "var(--color-accent)";
 const G2 = "var(--color-accent-2)";
 const AMBER = "#f5a30a";
@@ -36,6 +43,7 @@ const PAPER = "var(--color-surface)";
 const WOOD = "var(--color-wood)";
 const LINE = "var(--color-line-strong)";
 
+// Bảng ánh xạ tập hợp các đồ họa vector SVG phẳng tương ứng với từng SpotName
 const ART: Record<SpotName, ReactNode> = {
   court: (
     <>
@@ -273,6 +281,16 @@ const ART: Record<SpotName, ReactNode> = {
   ),
 };
 
+/**
+ * Làm gì: Component React vẽ hình minh họa vector SVG (spot illustration) đại diện cho màn hình hoặc trạng thái trống, kèm bóng mờ và nền tròn.
+ * Được gọi ở:
+ * - src/client/components/empty-state.tsx: component EmptyState
+ * - src/client/components/page-hero.tsx: component PageHero
+ * - src/client/components/shell.tsx: component Shell
+ * @param props.name Tên định danh của hình minh họa (SpotName) cần vẽ
+ * @param props.className Lớp CSS bổ sung (Tailwind CSS) để tùy biến kích thước hoặc vị trí
+ * @returns Phần tử JSX <svg> chứa đồ họa vector minh họa hoàn chỉnh
+ */
 export function Spot({ name, className }: { name: SpotName; className?: string }) {
   return (
     <svg
@@ -323,14 +341,25 @@ const BY_PATH: [string, SpotName][] = [
   ["/account", "profile"],
 ];
 
+/**
+ * Làm gì: Xác định tên hình minh họa (SpotName) tương ứng với đường dẫn URL theo quy tắc khớp tiền tố dài nhất (longest matching prefix).
+ * Được gọi ở: src/client/components/shell.tsx: component Shell (dùng để hiển thị hình minh họa trên thanh banner theo URL hiện tại)
+ * @param pathname Chuỗi đường dẫn URL cần tra cứu (ví dụ: "/desk/gate", "/manager/members")
+ * @returns Tên định danh hình minh họa (SpotName), trả về "empty" nếu không tìm thấy tiền tố phù hợp
+ */
 export function spotForPath(pathname: string): SpotName {
+  // Bước 1: Khởi tạo kết quả mặc định là "empty" và độ dài tiền tố dài nhất ban đầu là -1
   let best: SpotName = "empty";
   let len = -1;
+  // Bước 2: Duyệt qua từng cặp quy tắc [tiền tố đường dẫn, tên hình] trong mảng BY_PATH
   for (const [p, s] of BY_PATH) {
+    // Khớp chính xác hoặc khớp tiền tố thư mục con (có dấu '/') để tránh nhận nhầm tiền tố tương tự
+    // Quy tắc nào có độ dài tiền tố dài hơn sẽ được ưu tiên chọn (longest matching prefix)
     if ((pathname === p || pathname.startsWith(`${p}/`)) && p.length > len) {
       best = s;
       len = p.length;
     }
   }
+  // Bước 3: Trả về tên hình minh họa khớp nhất tìm được
   return best;
 }

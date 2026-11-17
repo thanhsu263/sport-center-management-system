@@ -1,3 +1,8 @@
+/**
+ * File: src/client/components/assistant-widget.tsx
+ * Vai trò: Cung cấp widget trợ lý ảo AI (linh vật Shuttle) dạng cửa sổ nổi ở góc dưới màn hình.
+ * Vị trí trong app: Được nhúng trong shell ứng dụng (src/client/components/shell.tsx) cho tài khoản hội viên khi bật cờ F6, giúp gửi tin nhắn hỏi đáp nhanh về lịch sân, học phí, giờ mở cửa hoặc chuyển tiếp sang trang đầy đủ /app/assistant.
+ */
 import { Link } from "@tanstack/react-router";
 import { Maximize2, RotateCcw, Send, X } from "lucide-react";
 import { AnimatePresence, motion, useMotionValue, useSpring, useTransform } from "motion/react";
@@ -17,17 +22,31 @@ import { t, tk } from "@/client/lib/i18n";
  * then tilted in 3D towards the pointer. It blinks and bobs while idle, and bounces while the
  * assistant is answering, so the motion says "awake" or "thinking". Reduced motion keeps it still.
  */
+/**
+ * Làm gì: Hiển thị linh vật quả cầu lông 3D (Shuttle) tương tác theo con trỏ chuột, chớp mắt và nhún nhảy khi rảnh hoặc nảy nhanh khi AI đang suy nghĩ.
+ * Được gọi ở:
+ * - src/client/components/assistant-widget.tsx: trong AssistantWidget (thanh tiêu đề hộp thoại chat và nút tròn mở widget góc màn hình).
+ * @param thinking Trạng thái AI đang xử lý câu trả lời (true: nảy nhanh và há miệng suy nghĩ; false: nhún chậm).
+ * @param size Kích thước hiển thị theo pixel (mặc định 64px).
+ * @param className Các class CSS bổ sung cho container bên ngoài.
+ * @returns Khung div chứa đồ họa SVG 3D của linh vật quả cầu lông.
+ */
 export function Mascot({ thinking = false, size = 64, className }: { thinking?: boolean; size?: number; className?: string }) {
+  // Bước 1: Khởi tạo cờ giảm chuyển động (reduced motion) và id ngẫu nhiên cho SVG defs để tránh xung đột gradient.
   const calm = useReducedMotionAfterMount();
   const uid = useId().replace(/:/g, "");
   const box = useRef<HTMLDivElement>(null);
+  // Bước 2: Thiết lập MotionValue và hiệu ứng lò xo vật lý (spring) để tạo độ mượt khi xoay 3D và liếc mắt.
   const mx = useMotionValue(0);
   const my = useMotionValue(0);
+  // Ánh xạ tọa độ chuột [-1, 1] sang góc xoay 3D (độ) quanh trục X và Y với lò xo giảm chấn.
   const rx = useSpring(useTransform(my, [-1, 1], [16, -16]), { stiffness: 160, damping: 14 });
   const ry = useSpring(useTransform(mx, [-1, 1], [-22, 22]), { stiffness: 160, damping: 14 });
+  // Ánh xạ độ lệch mắt (pixel) theo hướng chuột để tròng mắt liếc nhìn theo con trỏ.
   const ex = useSpring(useTransform(mx, [-1, 1], [-3, 3]), { stiffness: 200, damping: 18 });
   const ey = useSpring(useTransform(my, [-1, 1], [-2, 2]), { stiffness: 200, damping: 18 });
 
+  // Bước 3: Lắng nghe sự kiện di chuyển con trỏ trên toàn màn hình để tính toán góc nghiêng hướng về phía chuột.
   useEffect(() => {
     if (calm) return;
     const onMove = (e: PointerEvent) => {
@@ -36,6 +55,7 @@ export function Mascot({ thinking = false, size = 64, className }: { thinking?: 
       const r = el.getBoundingClientRect();
       const cx = r.left + r.width / 2;
       const cy = r.top + r.height / 2;
+      // Chuẩn hóa khoảng cách từ tâm mascot đến con trỏ theo bán kính 320px về đoạn [-1, 1].
       mx.set(Math.max(-1, Math.min(1, (e.clientX - cx) / 320)));
       my.set(Math.max(-1, Math.min(1, (e.clientY - cy) / 320)));
     };
@@ -43,6 +63,7 @@ export function Mascot({ thinking = false, size = 64, className }: { thinking?: 
     return () => window.removeEventListener("pointermove", onMove);
   }, [calm, mx, my]);
 
+  // Hàm tạo id duy nhất cho defs SVG theo uid, tránh xung đột id khi có nhiều linh vật trên cùng trang.
   const g = (n: string) => `${n}-${uid}`;
 
   return (
@@ -115,8 +136,11 @@ export function Mascot({ thinking = false, size = 64, className }: { thinking?: 
   );
 }
 
+// Giới hạn 800 ký tự cho mỗi câu hỏi, đồng bộ với ngưỡng cắt chuỗi tối đa của API /v1/assistant trên server.
 const MAX_CHARS = 800;
+// Danh sách các câu hỏi gợi ý nhanh dạng chip hiển thị khi hộp thoại chat chưa có tin nhắn nào.
 const CHIPS = [tk("What are your opening hours?"), tk("How do I cancel a court?")];
+// Lời chào mở đầu của linh vật Shuttle giới thiệu các chủ đề có thể hỗ trợ giải đáp.
 const WELCOME = tk("Hi, I'm Shuttle. Ask me about the timetable, prices, coaches or cancelling.");
 
 /**
@@ -124,21 +148,32 @@ const WELCOME = tk("Hi, I'm Shuttle. Ask me about the timetable, prices, coaches
  * member can ask something without leaving the page they are on. The full page stays at
  * /app/assistant for longer conversations.
  */
+/**
+ * Làm gì: Widget trợ lý ảo dạng cửa sổ nổi ở góc màn hình, cho phép hội viên nhắn tin hỏi đáp nhanh với AI về lịch mở cửa, giá sân, đặt/hủy sân mà không cần rời trang hiện tại.
+ * Được gọi ở:
+ * - src/client/components/shell.tsx: trong AppShell (chỉ hiển thị cho tài khoản member khi cờ tính năng F6 bật và không nằm trong trang /app/assistant).
+ * @param docked Cờ xác định widget có cần nâng cao vị trí để tránh đè lên thanh điều hướng mobile dưới đáy màn hình hay không.
+ * @returns Giao diện widget gồm nút tròn linh vật và hộp thoại chat thu nhỏ.
+ */
 export function AssistantWidget({ docked }: { docked: boolean }) {
+  // Bước 1: Khởi tạo các state điều khiển giao diện (đóng/mở, câu hỏi, trạng thái chờ AI, lỗi) và hook nhật ký chat.
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
   const user = useSessionUser();
+  // Quản lý nhật ký chat lưu trong localStorage theo user.id của hội viên đang đăng nhập, giữ ngữ cảnh qua các trang.
   const { log, append, clear } = useChatLog(user?.id);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const thread = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLInputElement>(null);
 
+  // Bước 2: Tự động cuộn xuống đáy danh sách tin nhắn mỗi khi có tin mới, trạng thái bận hoặc có lỗi xuất hiện.
   useEffect(() => {
     const el = thread.current;
     if (el) el.scrollTo({ top: el.scrollHeight, behavior: scrollBehavior() });
   }, [log, busy, err]);
 
+  // Bước 3: Tự động focus vào ô nhập liệu khi mở widget và lắng nghe phím Escape để đóng nhanh.
   useEffect(() => {
     if (!open) return;
     input.current?.focus();
@@ -147,20 +182,35 @@ export function AssistantWidget({ docked }: { docked: boolean }) {
     return () => window.removeEventListener("keydown", onKey);
   }, [open]);
 
+  /**
+   * Làm gì: Chuẩn hóa câu hỏi, cập nhật nhật ký chat và gọi API POST /v1/assistant để nhận câu trả lời từ AI.
+   * Được gọi ở:
+   * - Nội bộ component AssistantWidget (sự kiện onSubmit của form chat và onClick của các nút chip gợi ý CHIPS).
+   * @param text Nội dung tin nhắn tùy chọn (nếu không truyền sẽ lấy từ state ô nhập liệu q).
+   * @returns Không trả về dữ liệu (Promise<void>).
+   */
   async function send(text?: string) {
+    // Bước 1: Lấy nội dung tin nhắn, cắt khoảng trắng thừa và giới hạn tối đa 800 ký tự theo quy định server.
     const message = (text ?? q).trim().slice(0, MAX_CHARS);
+    // Bỏ qua nếu tin nhắn quá ngắn (dưới 2 ký tự) hoặc hệ thống đang chờ API phản hồi.
     if (message.length < 2 || busy) return;
+    // Bước 2: Xóa trắng ô nhập liệu và xóa thông báo lỗi cũ trước khi gửi request mới.
     setQ("");
     setErr(null);
+    // Bước 3: Thu thập lịch sử câu hỏi của người dùng (chỉ lấy role "me") và thêm tin nhắn mới vào nhật ký chat.
     const history = log.filter((m) => m.role === "me").map((m) => ({ role: m.role, text: m.text }));
     append({ role: "me", text: message });
+    // Bước 4: Đánh dấu trạng thái bận và gọi API /assistant (POST /v1/assistant) với câu hỏi cùng lịch sử.
     setBusy(true);
     try {
       const r = await apiPost<{ reply: string; source?: "gemini" | "xai" | "rules" }>("/assistant", { message, history });
+      // Bước 5: Nhận câu trả lời và lưu vào nhật ký chat với role "bot" kèm nguồn xử lý (gemini, xai hoặc rules).
       append({ role: "bot", text: r.reply, source: r.source });
     } catch (e) {
+      // Bắt lỗi khi mất kết nối mạng hoặc tính năng trợ lý ảo bị tắt phía server.
       setErr(e instanceof Error ? e.message : t("The assistant is switched off"));
     } finally {
+      // Giải phóng trạng thái bận để mở lại ô nhập và nút gửi cho câu hỏi tiếp theo.
       setBusy(false);
     }
   }

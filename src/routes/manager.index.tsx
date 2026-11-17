@@ -1,3 +1,14 @@
+/**
+ * File: src/routes/manager.index.tsx
+ * Vai trò: Trang tổng quan báo cáo và thống kê (Reports / Dashboard) dành cho quản lý cơ sở thể thao (Manager).
+ * Vị trí trong app:
+ * - Route: /manager/ (hiển thị khi quản lý truy cập dashboard, nằm trong layout cha src/routes/manager.tsx với quyền role="manager").
+ * - Là trang chủ mặc định của quản lý để nắm bắt toàn bộ hoạt động tài chính và vận hành trung tâm.
+ * - Hiển thị các chỉ số doanh thu thực nhận (tổng thu trừ tiền hoàn), tiền hoàn trả (refunds) và so sánh tăng trưởng với kỳ trước.
+ * - Trực quan hóa dữ liệu qua biểu đồ xu hướng doanh thu theo ngày (AreaChart), cơ cấu theo phương thức thanh toán và nguồn thu.
+ * - Cảnh báo vận hành khi cơ sở chưa có lễ tân (receptionist) hoặc huấn luyện viên (coach) đang hoạt động.
+ * - Hỗ trợ lọc theo nhiều mốc thời gian (hôm nay, 7 ngày, tháng này, tùy chỉnh) và xuất dữ liệu báo cáo ra file CSV/Excel.
+ */
 import { createFileRoute } from "@tanstack/react-router";
 import { Banknote, Clock, Layers, PiggyBank, TrendingUp, Undo2, UserPlus, Wallet } from "lucide-react";
 import { CardTitle } from "@/client/components/section";
@@ -13,17 +24,38 @@ import { formatDate, methodLabel, sourceLabel } from "@/shared/arena3/labels";
 import { useManagerOverview, delta, compactVnd, TOOLTIP, downloadCsv } from "@/client/lib/pages/manager.index";
 
 
+/**
+ * Làm gì: Định nghĩa route cho trang báo cáo tổng quan của Manager tại đường dẫn /manager/.
+ * Được gọi ở: TanStack Router (URL: /manager/), tự động liên kết trong src/routeTree.gen.ts.
+ * @returns Đối tượng Route của TanStack Router cấu hình cho đường dẫn /manager/ với component hiển thị là Page.
+ */
 export const Route = createFileRoute("/manager/")({
   component: Page,
 });
 
+/**
+ * Làm gì: Component hiển thị trang báo cáo tổng quan dành cho quản lý; tổng hợp số liệu doanh thu, hoàn tiền, cảnh báo thiếu nhân sự và biểu đồ xu hướng.
+ * Được gọi ở: Route /manager/ (src/routes/manager.index.tsx, thuộc tính component của Route).
+ * @returns Giao diện bảng điều khiển báo cáo quản lý (JSX.Element).
+ */
 function Page() {
+  // Bước 1: Khởi tạo và lấy toàn bộ dữ liệu báo cáo cùng các hàm điều khiển từ hook useManagerOverview:
+  // - Bộ lọc thời gian: from, to, period (today/week/month/custom), method (phương thức thanh toán).
+  // - Dữ liệu doanh thu (rev), dữ liệu kỳ trước (prev) để so sánh tăng trưởng delta, dữ liệu công suất sân (occ).
+  // - Cảnh báo nhân sự: missingReceptionist (chưa có lễ tân active), missingCoach (chưa có HLV active).
+  // - Dữ liệu biểu đồ: chartData (theo phương thức), sourceData (theo nguồn), trendData (theo ngày), showTrend (hiển thị khi khoảng ngày >= 2).
   const {
     from, setFrom, to, setTo, period, setPeriod, method, setMethod, revRead, occRead, mapRead, rev,
     prev, occ, missingReceptionist, missingCoach, revError, refused, faulty, dayError,
     chartReady, applyPeriod, chartData, sourceData, trendData, showTrend,
   } = useManagerOverview();
 
+  // Bước 2: Render giao diện báo cáo tổng quan bọc trong Shell dành cho vai trò manager:
+  // - PageHero & GLBackground: Banner tiêu đề kèm ngày báo cáo và hiệu ứng nền lưới điểm xanh lá (#3f7d20).
+  // - Cảnh báo nhân sự: Hiển thị banner nhắc nhở nếu thiếu lễ tân (để check-in khách) hoặc thiếu HLV (để mở lớp học).
+  // - Thanh công cụ lọc: Chọn nhanh kỳ báo cáo (Seg), chọn khoảng ngày tùy chỉnh (DateField), lọc phương thức thanh toán và nút xuất CSV.
+  // - Thẻ chỉ số Stat: Tổng doanh thu (revenue_vnd = tiền thu - hoàn tiền) và tổng tiền hoàn (refund_vnd) kèm tỷ lệ tăng/giảm so với kỳ trước.
+  // - Biểu đồ AreaChart: Xu hướng doanh thu từng ngày trong khoảng thời gian đã chọn (SpotlightCard).
   return (
     <Shell role="manager">
       <PageHero
@@ -279,6 +311,7 @@ function Page() {
                       <Cell
                         key={`cell-${index}`}
                         fill="var(--color-accent)"
+                        // Làm nổi bật (opacity 1) cột phương thức có doanh thu cao nhất, các cột còn lại làm mờ (opacity 0.45) để trực quan hóa dữ liệu
                         fillOpacity={d.vnd === Math.max(...chartData.map((x) => x.vnd)) ? 1 : 0.45}
                       />
                     ))}
@@ -425,9 +458,11 @@ function Page() {
           <LoadError
             message={dayError.message}
             onRetry={
+              // Nếu lỗi do bị từ chối quyền truy cập (refused) thì ẩn nút thử lại, ngược lại cung cấp hàm reload để tải lại dữ liệu
               dayError.refused
                 ? undefined
                 : () => {
+                    // Tải lại đồng bộ cả tỷ lệ lấp đầy sân (occRead) và sơ đồ sử dụng sân theo giờ (mapRead) để cập nhật trạng thái mới nhất
                     occRead.reload();
                     mapRead.reload();
                   }
@@ -451,6 +486,7 @@ function Page() {
               <motion.div
                 className="h-full bg-accent"
                 initial={{ width: 0 }}
+                // Giới hạn thanh tiến độ tối đa 100% tránh tràn viền; kích hoạt hiệu ứng bung thanh ngang mượt mà khi cuộn vào tầm nhìn (viewport)
                 whileInView={{ width: `${Math.min(100, c.pct)}%` }}
                 viewport={{ once: true, margin: "-40px" }}
                 transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}

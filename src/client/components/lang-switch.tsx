@@ -1,15 +1,35 @@
+/**
+ * File: src/client/components/lang-switch.tsx
+ * Vai trò: Component nút chuyển đổi ngôn ngữ (EN | VI) trên giao diện người dùng.
+ * Vị trí trong app: Được gắn trên các trang xác thực (login, register, forgot password, verify code) để người dùng thay đổi ngôn ngữ hiển thị giữa tiếng Anh và tiếng Việt qua hệ thống i18n.
+ */
 import { Globe } from "lucide-react";
 import { cn } from "@/client/lib/cn";
 import { setLang, t, useLang, type Lang } from "@/client/lib/i18n";
 
+// Danh sách cấu hình các ngôn ngữ hỗ trợ: mã ngôn ngữ (value), nhãn ngắn (short) và tên hiển thị đầy đủ (full).
 const OPTIONS: { value: Lang; short: string; full: string }[] = [
   { value: "en", short: "EN", full: "English" },
   { value: "vi", short: "VI", full: "Tiếng Việt" },
 ];
 
 /** EN | VI toggle. Names stay in their own language so it can be found whichever one is on. */
+/**
+ * Làm gì: Component nút gạt (toggle) chuyển đổi qua lại giữa tiếng Anh (EN) và tiếng Việt (VI) cho giao diện người dùng.
+ * Được gọi ở:
+ * - src/routes/login.tsx (trang Đăng nhập)
+ * - src/routes/register.tsx (trang Đăng ký tài khoản)
+ * - src/routes/forgot.tsx (trang Quên mật khẩu)
+ * - src/routes/verify.$code.tsx (trang Xác thực mã kích hoạt)
+ * Các props:
+ * - className: Lớp CSS tùy biến bổ sung cho khung bọc ngoài (thường dùng để định vị như absolute).
+ * @returns Khối JSX thanh gạt chọn ngôn ngữ với biểu tượng quả địa cầu Globe và các nút bấm EN / VI.
+ */
 export function LangSwitch({ className }: { className?: string }) {
+  // Bước 1: Lấy mã ngôn ngữ hiện tại ("en" | "vi") từ hook useLang để xác định nút nào đang được kích hoạt.
   const lang = useLang();
+  // Bước 2: Render khung nhóm (role="group") gồm biểu tượng Globe và danh sách nút bấm tương ứng với từng ngôn ngữ.
+  // Khi click vào nút, gọi setLang để cập nhật ngôn ngữ toàn ứng dụng và lưu vào localStorage.
   return (
     <div
       role="group"

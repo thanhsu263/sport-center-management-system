@@ -1,3 +1,10 @@
+/**
+ * Tệp này chứa các hiệu ứng nền WebGL động (live shader backdrops) sử dụng thư viện OGL.
+ * Vai trò trong ứng dụng:
+ * - Cung cấp các hiệu ứng nền canvas (Aurora, Silk, Threads, Court...) làm phông nền nghệ thuật cho Landing Page và các trang quản trị.
+ * - Được nạp động (lazy import) qua component GLBackground trong src/client/components/fx.tsx nhằm tách OGL ra khỏi bundle chính, tối ưu tốc độ tải trang ban đầu.
+ * - Đảm bảo hiệu năng trên thiết bị di động: giới hạn DPR tối đa 1.5, tự ngắt vòng lặp render khi ẩn tab và dọn dẹp WebGL context khi unmount.
+ */
 import { Color, Flowmap, Mesh, Program, Renderer, Texture, Triangle, Vec2 } from "ogl";
 import { useEffect, useRef } from "react";
 
@@ -20,6 +27,7 @@ import { useEffect, useRef } from "react";
 /** Cap on device pixel ratio for every canvas here. */
 const MAX_DPR = 1.5;
 
+// Vertex shader toàn màn hình: nhận toạ độ uv và vị trí đỉnh chuẩn hoá từ Triangle, truyền toạ độ uv sang fragment shader.
 const VERT = /* glsl */ `
   attribute vec2 uv;
   attribute vec2 position;
@@ -57,22 +65,35 @@ const SNOISE = /* glsl */ `
   }
 `;
 
+// Kiểu dữ liệu danh sách uniforms truyền vào OGL shader, chứa tên biến và giá trị tương ứng.
 type Uniforms = Record<string, { value: unknown }>;
 
 /**
  * Shared plumbing: create a renderer on a full-bleed triangle, keep it sized to
  * the parent, drive `uTime`, and tear the WebGL context down on unmount.
  */
+/**
+ * Làm gì: Hook dùng chung khởi tạo WebGL renderer (OGL) trên một Triangle phủ toàn màn hình, điều khiển vòng lặp uTime, tự co giãn theo container và giải phóng GPU context khi unmount.
+ * Được gọi ở: Nội bộ src/client/components/gl.tsx (các component Aurora, Silk, Threads, DotGrid, HallFlow).
+ * @param fragment Chuỗi mã nguồn GLSL fragment shader để vẽ hiệu ứng.
+ * @param makeUniforms Hàm khởi tạo các giá trị uniforms tùy biến cho shader.
+ * @param deps Mảng dependencies kích hoạt khởi tạo lại shader khi props thay đổi.
+ * @returns Ref trỏ tới phần tử HTMLDivElement chứa canvas WebGL.
+ */
 function useShader(fragment: string, makeUniforms: () => Uniforms, deps: unknown[]) {
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    // Bước 1: Kiểm tra container DOM (host); nếu chưa sẵn sàng thì dừng lại.
     const host = ref.current;
     if (!host) return;
 
+    // Bước 2: Tạo thẻ canvas và khởi tạo WebGL context (ưu tiên WebGL2, fallback WebGL1).
     const canvas = document.createElement("canvas");
     const context = canvas.getContext("webgl2") ?? canvas.getContext("webgl");
+    // Nếu thiết bị không hỗ trợ WebGL hoặc đã cạn context, giữ nguyên fallback tĩnh mà không gây crash ứng dụng.
     if (!context) return; // Keep the media fallback when GPU rendering is unavailable.
+    // Cấu hình Renderer: bật alpha để hòa trộn nền, tắt antialias để tiết kiệm GPU, giới hạn DPR tối đa 1.5 để tránh giật lag trên màn hình Retina.
     const renderer = new Renderer({
       canvas,
       alpha: true,
@@ -80,6 +101,7 @@ function useShader(fragment: string, makeUniforms: () => Uniforms, deps: unknown
       antialias: false,
       dpr: Math.min(window.devicePixelRatio || 1, MAX_DPR),
     });
+    // Thiết lập canvas trong suốt để hòa trộn mượt mà với nền bên dưới và gắn vào DOM container.
     const gl = renderer.gl;
     gl.clearColor(0, 0, 0, 0);
     gl.canvas.style.width = "100%";
@@ -87,15 +109,18 @@ function useShader(fragment: string, makeUniforms: () => Uniforms, deps: unknown
     gl.canvas.style.display = "block";
     host.appendChild(gl.canvas);
 
+    // Bước 3: Chuẩn bị uniforms: uTime đếm thời gian, uResolution lưu kích thước khung nhìn và các uniform riêng của shader.
     const uniforms: Uniforms = {
       uTime: { value: 0 },
       uResolution: { value: [1, 1] },
       ...makeUniforms(),
     };
 
+    // Bước 4: Biên dịch chương trình shader (Program) và dựng lưới Mesh từ một Triangle lớn phủ kín màn hình.
     const program = new Program(gl, { vertex: VERT, fragment, uniforms, transparent: true });
     const mesh = new Mesh(gl, { geometry: new Triangle(gl), program });
 
+    // Bước 5: Cấu hình hàm resize để cập nhật kích thước canvas và uniform uResolution khi container thay đổi.
     const resize = () => {
       const w = host.clientWidth || 1;
       const h = host.clientHeight || 1;
@@ -104,31 +129,39 @@ function useShader(fragment: string, makeUniforms: () => Uniforms, deps: unknown
       (uniforms.uResolution!.value as number[])[1] = h;
     };
     resize();
+    // Đăng ký ResizeObserver để tự động kích hoạt hàm resize mỗi khi phần tử host đổi kích thước.
     const ro = new ResizeObserver(resize);
     ro.observe(host);
 
+    // Bước 6: Khởi chạy vòng lặp render với requestAnimationFrame; tính delta time (dt) để thời gian trôi mượt mà.
     let raf = 0;
     let last = performance.now();
     // Clock advances by elapsed time rather than absolute `t`, so pausing for a
     // hidden tab resumes where it stopped instead of jumping.
     let clock = 0;
+    // Hàm render loop chạy theo từng frame; dừng cập nhật khi tab bị ẩn để tiết kiệm pin và GPU.
     const loop = (now: number) => {
       raf = requestAnimationFrame(loop);
+      // Giới hạn dt tối đa 50ms để ngăn hiệu ứng giật vọt khi người dùng quay lại tab sau khi bị nghẽn luồng JavaScript.
       const dt = Math.min(now - last, 50) / 1000;
       last = now;
+      // Tạm dừng vẽ khi tab bị ẩn để tiết kiệm pin và tài nguyên GPU cho thiết bị.
       if (document.hidden) return;
       clock += dt;
       uniforms.uTime!.value = clock;
       renderer.render({ scene: mesh });
     };
+    // Kích hoạt frame đầu tiên của render loop.
     raf = requestAnimationFrame(loop);
 
+    // Bước 7: Dọn dẹp tài nguyên khi unmount: hủy animation frame, ngắt ResizeObserver, xóa canvas và thu hồi WebGL context.
     return () => {
       cancelAnimationFrame(raf);
       ro.disconnect();
       gl.canvas.remove();
       // Free the context immediately; browsers cap the number of live ones and
       // navigating around the app can otherwise strand several.
+      // Kích hoạt WEBGL_lose_context để buộc GPU giải phóng bộ nhớ ngay, tránh vượt quá giới hạn số context WebGL tối đa của trình duyệt.
       gl.getExtension("WEBGL_lose_context")?.loseContext();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -137,6 +170,7 @@ function useShader(fragment: string, makeUniforms: () => Uniforms, deps: unknown
   return ref;
 }
 
+// Lớp CSS tiện ích Tailwind phủ kín toàn bộ diện tích khung chứa cha cho các canvas shader.
 const shell = "absolute inset-0 size-full";
 
 /* ── Aurora ──────────────────────────────────────────────────────── */
@@ -183,6 +217,15 @@ const AURORA_FRAG = /* glsl */ `
 `;
 
 /** Hanging curtain of light along the top edge of its container. */
+/**
+ * Làm gì: Component hiệu ứng rèm cực quang (Aurora) lượn sóng dọc theo mép trên của khung chứa, sử dụng OGL shader với 3 dải màu tùy chỉnh.
+ * Được gọi ở: Component GLBackground trong src/client/components/fx.tsx (khi variant === "aurora"); dùng ở phần Hero của Landing Page (src/client/components/landing/hero.tsx).
+ * @param colors Mảng 3 mã màu hex định hình các dải màu của cực quang (mặc định: xanh lá và vàng cát của Arena3).
+ * @param amplitude Biên độ uốn lượn của dải rèm sáng (mặc định: 1).
+ * @param speed Tốc độ trôi dạt của các luồng sáng (mặc định: 1).
+ * @param opacity Độ mờ đục tổng thể của hiệu ứng (0 đến 1, mặc định: 0.7).
+ * @returns Phần tử JSX div chứa canvas hiển thị hiệu ứng rèm cực quang WebGL.
+ */
 export function Aurora({
   colors = ["#3f7d20", "#8bc34a", "#b5e04a"],
   amplitude = 1,
@@ -194,7 +237,9 @@ export function Aurora({
   speed?: number;
   opacity?: number;
 }) {
+  // Bước 1: Nối danh sách mã màu thành chuỗi key để theo dõi sự thay đổi màu sắc trong dependencies của React hook.
   const key = colors.join(",");
+  // Bước 2: Nạp shader AURORA_FRAG qua hook useShader với các uniforms: biên độ, tốc độ, độ mờ và 3 dải màu hòa trộn.
   const ref = useShader(
     AURORA_FRAG,
     () => ({
@@ -207,6 +252,7 @@ export function Aurora({
     }),
     [key, amplitude, speed, opacity],
   );
+  // Bước 3: Trả về thẻ div định vị tuyệt đối phủ kín toàn bộ khung chứa cha để gắn canvas WebGL.
   return <div ref={ref} className={shell} />;
 }
 
@@ -245,6 +291,15 @@ const SILK_FRAG = /* glsl */ `
 `;
 
 /** Slow folded-cloth sheen. Calmer than Aurora; good behind long-form panels. */
+/**
+ * Làm gì: Component hiệu ứng ánh sáng nếp vải lụa mềm mại (Silk sheen) chuyển động chậm, mang lại phông nền tĩnh lặng và sang trọng.
+ * Được gọi ở: Component GLBackground trong src/client/components/fx.tsx (khi variant === "silk"); dùng làm nền sau các panel dài cần độ tập trung.
+ * @param color Mã màu chủ đạo của mặt vải lụa (mặc định: xanh lục đậm #3f7d20).
+ * @param speed Tốc độ gợn sóng nếp vải (mặc định: 1).
+ * @param scale Tỉ lệ co giãn nếp gấp vải lụa (mặc định: 1.4).
+ * @param opacity Độ mờ đục của lớp vải lụa (0 đến 1, mặc định: 0.32).
+ * @returns Phần tử JSX div chứa canvas WebGL hiển thị hiệu ứng nền vải lụa.
+ */
 export function Silk({
   color = "#3f7d20",
   speed = 1,
@@ -256,6 +311,7 @@ export function Silk({
   scale?: number;
   opacity?: number;
 }) {
+  // Bước 1: Khởi tạo shader SILK_FRAG qua hook useShader với các uniforms: tốc độ, tỉ lệ nếp vải, độ mờ và màu sắc OGL.
   const ref = useShader(
     SILK_FRAG,
     () => ({
@@ -266,6 +322,7 @@ export function Silk({
     }),
     [color, speed, scale, opacity],
   );
+  // Bước 2: Trả về thẻ div container phủ kín diện tích khung chứa cha để hiển thị canvas WebGL.
   return <div ref={ref} className={shell} />;
 }
 
@@ -318,6 +375,15 @@ const THREADS_FRAG = /* glsl */ `
 `;
 
 /** Field of thin travelling filaments. Reads as motion without asking for attention. */
+/**
+ * Làm gì: Component hiệu ứng các sợi tơ phát sáng thanh mảnh chuyển động ngang (Threads), tạo cảm giác động tinh tế mà không chiếm dụng sự chú ý.
+ * Được gọi ở: Component GLBackground trong src/client/components/fx.tsx (khi variant === "threads"); sử dụng tại màn hình đăng nhập /login và đăng ký /register.
+ * @param color Màu sắc của các sợi tơ (mặc định: trắng #ffffff).
+ * @param amplitude Biên độ dao động hình sin của các sợi tơ (mặc định: 1).
+ * @param speed Tốc độ lướt ngang của các luồng sợi (mặc định: 1).
+ * @param opacity Độ mờ đục của toàn bộ trường sợi tơ (0 đến 1, mặc định: 0.5).
+ * @returns Phần tử JSX div chứa canvas WebGL hiển thị hiệu ứng các sợi tơ chuyển động.
+ */
 export function Threads({
   color = "#ffffff",
   amplitude = 1,
@@ -329,6 +395,7 @@ export function Threads({
   speed?: number;
   opacity?: number;
 }) {
+  // Bước 1: Khởi tạo shader THREADS_FRAG qua hook useShader với các uniforms điều khiển biên độ, tốc độ, độ mờ và màu sợi tơ.
   const ref = useShader(
     THREADS_FRAG,
     () => ({
@@ -339,6 +406,7 @@ export function Threads({
     }),
     [color, amplitude, speed, opacity],
   );
+  // Bước 2: Trả về phần tử div phủ kín khung chứa cha đóng vai trò làm vật chủ gắn canvas WebGL.
   return <div ref={ref} className={shell} />;
 }
 
@@ -493,11 +561,19 @@ const COURT_FRAG = /* glsl */ `
 /** What the page feeds the court. Mutate it; the shader reads it every frame, nothing re-renders. */
 export type CourtDrive = { tilt: number; glow: number };
 
+/**
+ * Làm gì: Render sân cầu lông 3D phối cảnh (perspective) trên nền WebGL qua shader COURT_FRAG; phản hồi vệt sáng theo con trỏ chuột và cập nhật động góc nghiêng camera khi cuộn cùng độ sáng vạch sân theo số giờ trống.
+ * Được gọi ở: src/client/components/fx.tsx (dynamic import trong GLBackground khi variant = "court"); hiển thị trực tiếp tại hero banner trang chủ (src/client/components/landing/hero.tsx).
+ * @param drive Ref chứa trạng thái điều khiển động không gây re-render: tilt (góc nghiêng phối cảnh khi cuộn trang) và glow (độ phát sáng vạch sân tương ứng với số giờ sân còn trống trong ngày).
+ * @returns JSX.Element chứa WebGL canvas render hiệu ứng sân cầu lông toàn màn hình.
+ */
 export function Court({ drive }: { drive?: { current: CourtDrive } }) {
   // Pointer target and its eased value, as mutable state the uniform getters read per frame.
+  // Bước 1: Khởi tạo các ref lưu tọa độ chuột mục tiêu (x, y) và tọa độ đã làm mượt (ex, ey) để shader đọc trực tiếp mỗi frame mà không kích hoạt re-render React.
   const pointer = useRef({ x: 0.5, y: 0.5, ex: 0.5, ey: 0.5 });
   const mouse = useRef<[number, number]>([0.5, 0.5]);
 
+  // Bước 2: Lắng nghe sự kiện di chuyển chuột (pointermove) trên window để chuẩn hóa tọa độ về dải [0, 1] theo chuẩn WebGL (trục Y hướng lên trên).
   useEffect(() => {
     const onMove = (e: PointerEvent) => {
       pointer.current.x = e.clientX / window.innerWidth;
@@ -507,6 +583,7 @@ export function Court({ drive }: { drive?: { current: CourtDrive } }) {
     return () => window.removeEventListener("pointermove", onMove);
   }, []);
 
+  // Bước 3: Khởi tạo chương trình shader WebGL thông qua useShader, truyền getter để OGL tự động kéo dữ liệu uniform mỗi frame (lerp vị trí chuột, tilt, glow).
   const ref = useShader(
     COURT_FRAG,
     () => ({
@@ -514,6 +591,7 @@ export function Court({ drive }: { drive?: { current: CourtDrive } }) {
         // ogl reads `.value` once per frame, which makes this the easing step for the pointer.
         get value() {
           const s = pointer.current;
+          // Áp dụng công thức làm mượt (lerp với hệ số 0.08) giúp quầng sáng di chuyển uyển chuyển theo chuột thay vì nhảy tức thì.
           s.ex += (s.x - s.ex) * 0.08;
           s.ey += (s.y - s.ey) * 0.08;
           mouse.current[0] = s.ex;
@@ -557,22 +635,30 @@ const FLOW_FRAG = /* glsl */ `
  * (`[data-media]`), so the plain footage stays underneath as the fallback for touch screens,
  * reduced motion, no WebGL, or a video from another origin that cannot be read into a texture.
  */
+/**
+ * Làm gì: Vẽ lại video nền hero qua OGL Flowmap tạo hiệu ứng dòng khí (wake) gợn sóng và khúc xạ ánh sáng theo đường di chuột như quả cầu bay qua không khí.
+ * Được gọi ở: src/client/components/fx.tsx (dynamic import trong GLBackground khi variant = "flow"); sử dụng trong khối hero banner tại src/client/components/landing/hero.tsx.
+ * @returns JSX.Element chứa canvas WebGL phủ lên trên thẻ video nền.
+ */
 export function HallFlow() {
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    // Bước 1: Tìm phần tử video nền trong khối cha gần nhất ([data-media]); kiểm tra thiết bị có chuột (pointer: fine) và trình duyệt hỗ trợ WebGL.
     const host = ref.current;
     const video = host?.closest("[data-media]")?.querySelector("video");
     if (!host || !video || !window.matchMedia("(pointer: fine)").matches) return;
     const probe = document.createElement("canvas");
     if (!(probe.getContext("webgl2") ?? probe.getContext("webgl"))) return;
 
+    // Bước 2: Khởi tạo WebGL Renderer (giới hạn DPR qua MAX_DPR) và gán canvas trong suốt vào DOM với transition mờ dần (fade-in 0.6s).
     const renderer = new Renderer({ alpha: true, antialias: false, dpr: Math.min(window.devicePixelRatio || 1, MAX_DPR) });
     const gl = renderer.gl;
     gl.clearColor(0, 0, 0, 0);
     Object.assign(gl.canvas.style, { width: "100%", height: "100%", display: "block", opacity: "0", transition: "opacity .6s" });
     host.appendChild(gl.canvas);
 
+    // Bước 3: Tạo Flowmap tính toán trường vận tốc chuột, Texture nhận luồng video làm nguồn ảnh, và Program áp dụng shader FLOW_FRAG.
     const flowmap = new Flowmap(gl, { falloff: 0.3, dissipation: 0.965 });
     const texture = new Texture(gl, { generateMipmaps: false });
     const cover = [1, 1];
@@ -583,6 +669,7 @@ export function HallFlow() {
     });
     const mesh = new Mesh(gl, { geometry: new Triangle(gl), program });
 
+    // Bước 4: Thiết lập hàm resize mô phỏng quy tắc CSS object-cover, cắt bớt phần thừa video theo tỉ lệ khung hình (uCover).
     const resize = () => {
       const w = host.clientWidth || 1;
       const h = host.clientHeight || 1;
@@ -602,6 +689,7 @@ export function HallFlow() {
     const last = { x: 0, y: 0, t: 0 };
     const vel = new Vec2();
     let moved = false;
+    // Bước 5: Lắng nghe sự kiện di chuyển chuột để tính toán vận tốc tức thời (vel = dx / dt) và vị trí chuột cung cấp cho flowmap.
     const onMove = (e: PointerEvent) => {
       const r = host.getBoundingClientRect();
       const x = e.clientX - r.left;
@@ -618,15 +706,18 @@ export function HallFlow() {
 
     let raf = 0;
     let shown = false;
+    // Bước 6: Vòng lặp animation frame cập nhật texture từ khung hình video hiện tại, làm mượt vận tốc chuột và render cảnh WebGL.
     const loop = () => {
       raf = requestAnimationFrame(loop);
       if (document.hidden || video.readyState < 2) return;
       if (!moved) { flowmap.mouse.set(-1, -1); vel.set(0, 0); }
       moved = false;
+      // Nội suy vận tốc: tăng tốc nhanh (0.5) khi rê chuột, giảm dần chậm rãi (0.1) khi dừng chuột để giữ quán tính luồng khí.
       flowmap.velocity.lerp(vel, vel.len() ? 0.5 : 0.1);
       flowmap.update();
       texture.image = video;
       texture.needsUpdate = true;
+      // Bọc render trong try-catch: nếu video bị dính lỗi CORS (tainted canvas) thì dừng loop và gỡ bỏ canvas để người dùng xem video gốc an toàn.
       try {
         renderer.render({ scene: mesh });
       } catch {
@@ -639,6 +730,7 @@ export function HallFlow() {
     };
     raf = requestAnimationFrame(loop);
 
+    // Bước 7: Dọn dẹp tài nguyên khi unmount: hủy requestAnimationFrame, ngắt ResizeObserver, gỡ bỏ event listeners và giải phóng WebGL context.
     return () => {
       cancelAnimationFrame(raf);
       ro.disconnect();
@@ -661,6 +753,16 @@ export function HallFlow() {
  * signed-in app, and unlike a shader it costs nothing when the pointer is still
  * — the loop parks itself once the ripple has settled.
  */
+/**
+ * Làm gì: Render mạng lưới các điểm chấm (dot grid) bằng Canvas 2D; các chấm sáng lên và phóng to khi con trỏ chuột lướt qua, tự động dừng animation loop khi chuột đứng yên để tiết kiệm CPU/GPU.
+ * Được gọi ở: src/client/components/fx.tsx (dynamic import trong GLBackground khi variant = "dotgrid"); sử dụng tại src/client/components/landing/steps.tsx (khối các bước hướng dẫn).
+ * @param color Màu sắc của các chấm dạng mã hex/CSS (mặc định "#3f7d20").
+ * @param gap Khoảng cách giữa tâm các chấm liền kề tính bằng pixel (mặc định 26px).
+ * @param dot Bán kính cơ bản của chấm ở trạng thái nghỉ tính bằng pixel (mặc định 1.8px).
+ * @param radius Bán kính vùng tác động lan tỏa xung quanh con trỏ chuột (mặc định 150px).
+ * @param opacity Độ mờ cơ bản của toàn bộ lưới điểm (mặc định 0.5).
+ * @returns JSX.Element chứa thẻ canvas 2D phủ toàn bộ khung nền của khối chứa.
+ */
 export function DotGrid({
   color = "#3f7d20",
   gap = 26,
@@ -681,6 +783,7 @@ export function DotGrid({
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
+    // Bước 1: Kiểm tra phần tử host, canvas và context 2D; thoát sớm nếu chưa mount đầy đủ trên DOM.
     const host = hostRef.current;
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext("2d");
@@ -694,6 +797,7 @@ export function DotGrid({
     let raf = 0;
     let idle = true;
 
+    // Bước 2: Thiết lập hàm resize đồng bộ kích thước canvas theo độ phân giải màn hình (dpr tối đa 2x) và vẽ lại lưới điểm.
     const resize = () => {
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
       w = host.clientWidth;
@@ -706,6 +810,7 @@ export function DotGrid({
       draw();
     };
 
+    // Bước 3: Hàm vẽ lưới điểm (draw): duyệt qua các hàng và cột, tính khoảng cách tới con trỏ chuột và áp dụng hiệu ứng phóng to/sáng dần theo hàm bình phương falloff.
     const draw = () => {
       ctx.clearRect(0, 0, w, h);
       const cols = Math.ceil(w / gap) + 1;
@@ -718,6 +823,7 @@ export function DotGrid({
           const near = d < radius ? 1 - d / radius : 0;
           // Ease the falloff so the lit area has a soft shoulder rather than a
           // visible circular boundary.
+          // Làm suy giảm mềm (f = near^2) tạo quầng sáng mượt mà, tránh tạo viền tròn sắc nhọn gắt mắt.
           const f = near * near;
           ctx.globalAlpha = opacity * (0.28 + 0.72 * f);
           ctx.fillStyle = color;
@@ -729,6 +835,7 @@ export function DotGrid({
       ctx.globalAlpha = 1;
     };
 
+    // Bước 4: Vòng lặp animation frame (loop): nội suy tọa độ chuột mục tiêu (lerp 0.16); tự động dừng loop khi khoảng cách sai lệch < 0.4px để tiết kiệm tài nguyên.
     const loop = () => {
       const dx = pointer.x - eased.x;
       const dy = pointer.y - eased.y;
@@ -743,11 +850,13 @@ export function DotGrid({
       raf = requestAnimationFrame(loop);
     };
 
+    // Bước 5: Hàm đánh thức (kick): kích hoạt lại animation loop khi con trỏ chuột bắt đầu di chuyển.
     const kick = () => {
       idle = false;
       if (!raf) raf = requestAnimationFrame(loop);
     };
 
+    // Bước 6: Đăng ký các sự kiện chuột (pointermove, pointerleave) trên window; chỉ xử lý chuột vật lý (pointerType === "mouse") để tối ưu cho thiết bị cảm ứng.
     const onMove = (e: PointerEvent) => {
       if (e.pointerType !== "mouse") return;
       const r = host.getBoundingClientRect();
@@ -762,12 +871,14 @@ export function DotGrid({
       kick();
     };
 
+    // Bước 7: Khởi chạy lần vẽ đầu tiên, theo dõi thay đổi kích thước bằng ResizeObserver và lắng nghe sự kiện chuột.
     resize();
     const ro = new ResizeObserver(resize);
     ro.observe(host);
     window.addEventListener("pointermove", onMove, { passive: true });
     window.addEventListener("pointerleave", onLeave);
 
+    // Bước 8: Dọn dẹp tài nguyên khi unmount hoặc khi props thay đổi: hủy animation frame, ngắt ResizeObserver và gỡ bỏ event listeners.
     return () => {
       if (raf) cancelAnimationFrame(raf);
       ro.disconnect();

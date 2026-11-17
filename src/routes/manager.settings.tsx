@@ -1,3 +1,6 @@
+// Tuyến đường (route) quản lý cài đặt hệ thống trung tâm thể thao (/manager/settings).
+// Cho phép Manager xem và cập nhật cấu hình vận hành (giờ mở/đóng cửa, quy định đặt sân, phí hội viên, tích điểm),
+// bật/tắt các cờ tính năng thử nghiệm (feature flags F4-F6) và quản lý thực đơn ăn uống của trung tâm.
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { SectionTitle } from "@/client/components/section";
 import { useState } from "react";
@@ -12,16 +15,23 @@ import { ApiClientError, apiPatch } from "@/client/arena3/client";
 import { t, tk, tServer } from "@/client/lib/i18n";
 import { useRead } from "@/client/lib/use-read";
 
+/**
+ * Làm gì: Định nghĩa route `/manager/settings` cho TanStack Router, liên kết URL với component Page quản lý cài đặt.
+ * Được gọi ở: TanStack Router (URL: `/manager/settings`).
+ * @returns Route object cấu hình cho trang cài đặt trung tâm của Manager.
+ */
 export const Route = createFileRoute("/manager/settings")({
   component: Page,
 });
 
+// Metadata định nghĩa nhãn và mô tả giải thích cho 3 cờ tính năng: F4 (điểm danh & giáo án), F5 (gợi ý bài tập), F6 (trợ lý hội viên AI).
 const FLAG_META: { key: string; label: string; hint: string }[] = [
   { key: "F4", label: tk("Register & session plans"), hint: tk("Coaches take attendance and hand out drills.") },
   { key: "F5", label: tk("Plan suggestions"), hint: tk("Drill templates per sport. A coach still has to approve.") },
   { key: "F6", label: tk("Member assistant"), hint: tk("Gemini Q&A, grounded in the timetable, plans and coaches.") },
 ];
 
+// Danh sách các trường cấu hình thuộc bảng center_settings được phép chỉnh sửa và gửi lên API PATCH /settings.
 const SETTINGS_FORM_KEYS = [
   "legal_name",
   "address",
@@ -46,7 +56,13 @@ const SETTINGS_FORM_KEYS = [
 ];
 
 
+/**
+ * Làm gì: Component hiển thị toàn bộ trang cài đặt trung tâm, cho phép Manager xem chỉ số vận hành, bật tắt tính năng và cập nhật thông tin trung tâm.
+ * Được gọi ở: TanStack Router tại route `/manager/settings` (truy cập qua menu điều hướng của Manager).
+ * @returns Phần tử JSX biểu diễn giao diện trang cài đặt trung tâm cho Manager.
+ */
 function Page() {
+  // Bước 1: Khởi tạo truy vấn dữ liệu cài đặt (/settings), cờ tính năng (/flags) và các state quản lý chỉnh sửa, lỗi kiểm tra dữ liệu.
   const read = useRead<Record<string, unknown>>("/settings");
   const flagsRead = useRead<{ flags: Record<string, boolean> }>("/flags");
   // What the manager has typed or switched replaces what the server sent, from the first change on.
@@ -56,6 +72,7 @@ function Page() {
   const flags = switched ?? flagsRead.data?.flags ?? {};
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
+  // Bước 2: Kiểm tra trạng thái tải dữ liệu; hiển thị màn hình báo lỗi hoặc khung chờ (Skeleton) nếu chưa nhận được dữ liệu từ server.
   // A form that cannot be filled from the server is not shown at all: a blank one would look like
   // the centre has no details, and saving it would send those blanks back.
   if (read.error) {
@@ -75,9 +92,11 @@ function Page() {
   /** One input of the Centre details form; the server's message for it shows underneath. */
   function f(key: string, label: string, type: "text" | "number" | "time" | "money" = "text") {
     const raw = s![key];
+    // Cắt chuỗi thời gian lấy 5 ký tự đầu (HH:MM) để hiển thị đúng định dạng trên thẻ input type="time".
     const value = type === "time" ? String(raw ?? "").slice(0, 5) : String(raw ?? "");
     const change = (next: string) => {
       setS({ ...s!, [key]: next });
+      // Xóa lỗi validation của trường tương ứng ngay khi người dùng thay đổi dữ liệu.
       if (fieldErrors[key]) setFieldErrors(({ [key]: _gone, ...rest }) => rest);
     };
     return (
@@ -96,6 +115,7 @@ function Page() {
       </Field>
     );
   }
+  // Bước 3: Render giao diện trung tâm gồm: banner thông tin, chỉ số hoạt động, cờ tính năng, quản lý sân, biểu mẫu chi tiết và cài đặt thực đơn.
   return (
     <Shell role="manager">
       <PageHero

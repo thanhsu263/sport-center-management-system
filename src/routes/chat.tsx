@@ -1,3 +1,8 @@
+/**
+ * Quản lý giao diện và định tuyến trang chat hai chiều thời gian thực (/chat) trong hệ thống Arena 3.
+ * Cho phép các vai trò (member, coach, receptionist, manager) trao đổi tin nhắn trực tiếp với nhau.
+ * Kết hợp WebRTC P2P DataChannel (độ trễ thấp) với SSE và REST API để đồng bộ và lưu trữ tin nhắn bền vững.
+ */
 import { createFileRoute, useNavigate, useSearch } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import { AlertCircle, ArrowLeft, PenSquare, Check, CheckCheck, Clock, MessageSquare, RefreshCw, Send } from "lucide-react";
@@ -14,7 +19,13 @@ import { P2PRoom } from "@/client/lib/multiplayer/p2p";
 import { cn } from "@/client/lib/cn";
 import { scrollBehavior } from "@/client/lib/calm";
 
+/**
+ * Làm gì: Khởi tạo cấu hình định tuyến cho route /chat bằng TanStack Router, xác thực search param conv và bảo vệ quyền truy cập bằng Guard.
+ * Được gọi ở: URL /chat hoặc /chat?conv=<id> (TanStack Router tự động đăng ký và nạp route).
+ * @returns Cấu hình route cho đường dẫn /chat.
+ */
 export const Route = createFileRoute("/chat")({
+  // Xác thực và chuẩn hóa query param conv trên URL (ID cuộc hội thoại), trả về undefined nếu không phải chuỗi
   validateSearch: (search: Record<string, unknown>): { conv?: string } => ({
     conv: typeof search.conv === "string" ? search.conv : undefined,
   }),
@@ -25,6 +36,7 @@ export const Route = createFileRoute("/chat")({
   ),
 });
 
+// Cấu trúc dữ liệu chi tiết một cuộc hội thoại (thông tin người chat cùng, tin nhắn gần nhất, số lượng tin chưa đọc) trả về từ API /conversations.
 export interface ConversationItem {
   id: string;
   peer_id: string;
@@ -48,6 +60,7 @@ export interface ConversationItem {
   unread_count: number;
 }
 
+// Cấu trúc dữ liệu một tin nhắn trong cuộc hội thoại, kèm trạng thái gửi (sending, sent, failed, read) phục vụ Optimistic UI.
 export interface MessageItem {
   id: string;
   conversation_id: string;
@@ -58,11 +71,18 @@ export interface MessageItem {
   status?: "sending" | "sent" | "failed" | "read";
 }
 
+/**
+ * Làm gì: Định dạng chuỗi thời gian ISO thành định dạng hiển thị giờ/ngày thân thiện với người dùng (chỉ hiện giờ nếu trong ngày, hiện ngày tháng nếu trước đó).
+ * Được gọi ở: `src/routes/chat.tsx` tại danh sách cuộc hội thoại (dòng 433) và bong bóng tin nhắn chat (dòng 564).
+ * @param iso Chuỗi thời gian chuẩn ISO 8601 của tin nhắn.
+ * @returns Chuỗi thời gian đã định dạng theo ngôn ngữ hiện tại, hoặc chuỗi rỗng nếu thời gian không hợp lệ.
+ */
 function formatChatTime(iso: string) {
   try {
     const d = new Date(iso);
     const now = new Date();
     const isToday = d.toDateString() === now.toDateString();
+    // Nếu tin nhắn gửi trong ngày hôm nay thì chỉ hiển thị giờ:phút, ngược lại hiển thị thêm ngày tháng
     if (isToday) {
       return d.toLocaleTimeString(locale(), { hour: "2-digit", minute: "2-digit" });
     }
@@ -72,18 +92,26 @@ function formatChatTime(iso: string) {
   }
 }
 
+/**
+ * Làm gì: Component chính hiển thị trang chat, quản lý danh sách cuộc hội thoại, kết nối WebRTC P2P, tải lịch sử tin nhắn và gửi/nhận tin nhắn thời gian thực.
+ * Được gọi ở: `src/routes/chat.tsx` trong component của Route (dòng 23).
+ * @returns JSX phần tử giao diện trang tin nhắn gồm danh sách cuộc hội thoại bên trái và khung chat bên phải.
+ */
 function ChatPage() {
+  // Bước 1: Lấy thông tin người dùng hiện tại từ session, hook điều hướng và search param conv trên URL
   const user = useSessionUser();
   const navigate = useNavigate();
   const search = useSearch({ from: "/chat" });
   const activeConvId = search.conv;
 
+  // Bước 2: Tải danh sách cuộc hội thoại từ API /conversations
   const { data: convsData, error: convsErr, reload: reloadConvs } = useRead<{ conversations: ConversationItem[] }>("/conversations");
   // There is no "chat" topic: `filterAllowedTopics` only ever allowed
   // "chat:<id>", so subscribing to the bare name was dropped on the server and
   // this list has always been kept current by `notifications` alone.
   useLive("notifications", reloadConvs);
 
+  // Bước 3: Khởi tạo các state và ref quản lý cuộc hội thoại đang mở, danh sách tin nhắn, trạng thái WebRTC P2P và ô nhập liệu
   const [activeConv, setActiveConv] = useState<ConversationItem | null>(null);
   const [messages, setMessages] = useState<MessageItem[]>([]);
   const [hasMore, setHasMore] = useState(false);
@@ -101,6 +129,7 @@ function ChatPage() {
 
   // Sync active conversation object
   useEffect(() => {
+    // Bước 4: Tự động đồng bộ đối tượng activeConv khi danh sách hội thoại tải xong hoặc activeConvId trên URL thay đổi
     const list = convsData?.conversations ?? (convsData as any)?.items;
     if (!list) return;
     if (activeConvId) {
@@ -112,12 +141,21 @@ function ChatPage() {
   }, [convsData, activeConvId]);
 
   // Load messages when activeConvId changes
+  /**
+   * Làm gì: Tải lịch sử tin nhắn của cuộc hội thoại từ API /conversations/:id/messages, hỗ trợ phân trang ngược khi cuộn lên xem tin cũ.
+   * Được gọi ở: `src/routes/chat.tsx` trong useEffect khi đổi hội thoại (dòng 164), trong useLive khi có tin mới (dòng 235), hoặc nút tải thêm tin cũ (dòng 529).
+   * @param convId Mã ID của cuộc hội thoại cần lấy tin nhắn.
+   * @param before Mốc thời gian/ID tin nhắn cũ nhất hiện tại để phân trang tải tin nhắn trước đó (tùy chọn).
+   * @returns Promise<void>
+   */
   const loadMessages = useCallback(async (convId: string, before?: string) => {
     try {
+      // Bước 1: Bật cờ loadingHistory nếu đang tải tin cũ, chuẩn bị URL truy vấn có hoặc không có query before
       if (before) setLoadingHistory(true);
       const url = before
         ? `/conversations/${convId}/messages?before=${encodeURIComponent(before)}`
         : `/conversations/${convId}/messages`;
+      // Bước 2: Gọi API lấy dữ liệu tin nhắn và cập nhật danh sách; nếu tải tin cũ thì lọc trùng ID rồi ghép lên trước
       const res = await apiGet<{ items: MessageItem[]; has_more: boolean }>(url);
       if (before) {
         setMessages((prev) => {
@@ -130,6 +168,7 @@ function ChatPage() {
       }
       setHasMore(res.has_more);
     } catch (e: any) {
+      // Bước 3: Bắt lỗi nếu gọi API thất bại và hiển thị thông báo lỗi bằng toast
       toast.error(e instanceof Error ? tServer(e.message) : t("Failed to load messages"));
     } finally {
       setLoadingHistory(false);
@@ -137,8 +176,15 @@ function ChatPage() {
   }, []);
 
   // Mark conversation as read
+  /**
+   * Làm gì: Gửi yêu cầu lên server qua API POST /conversations/:id/read để đánh dấu tất cả tin nhắn trong hội thoại là đã đọc, đồng thời tải lại danh sách hội thoại.
+   * Được gọi ở: `src/routes/chat.tsx` khi mở cuộc hội thoại (dòng 165), khi nhận tin nhắn P2P mới (dòng 206) hoặc khi nhận sự kiện SSE (dòng 236).
+   * @param convId Mã ID của cuộc hội thoại cần đánh dấu đã đọc.
+   * @returns Promise<void>
+   */
   const markRead = useCallback(async (convId: string) => {
     try {
+      // Gửi request đánh dấu đã đọc lên server; bỏ qua lỗi nền nếu có vì đây là thao tác phụ
       await apiPost(`/conversations/${convId}/read`, {});
       reloadConvs();
     } catch {
@@ -148,6 +194,7 @@ function ChatPage() {
 
   // Setup P2P connection when active conversation changes
   useEffect(() => {
+    // Bước 1: Dọn dẹp phòng P2P và reset trạng thái nếu không có hội thoại nào được chọn hoặc người dùng chưa đăng nhập
     if (!activeConvId || !user) {
       if (p2pRef.current) {
         p2pRef.current.close();
@@ -158,6 +205,7 @@ function ChatPage() {
       return;
     }
 
+    // Bước 2: Khi chuyển sang cuộc hội thoại mới, xóa danh sách tin cũ trên giao diện và tải dữ liệu mới từ server
     if (prevConvIdRef.current !== activeConvId) {
       prevConvIdRef.current = activeConvId;
       setMessages([]);
@@ -166,6 +214,7 @@ function ChatPage() {
     }
 
     // Initialize WebRTC P2PRoom
+    // Bước 3: Khởi tạo kết nối WebRTC P2PRoom với signaling server để nhắn tin trực tiếp ngang hàng giữa 2 người dùng
     const room = new P2PRoom({
       room: activeConvId,
       selfId: user.id,
@@ -187,6 +236,7 @@ function ChatPage() {
         if (!data || typeof data !== "object") return;
         const msg = data as Record<string, unknown>;
 
+        // Xử lý khi nhận tin nhắn trực tiếp qua DataChannel: thêm vào danh sách, gửi phản hồi đã đọc (chat_read) và gọi API markRead
         if (msg.type === "chat_msg" && typeof msg.id === "string" && typeof msg.body === "string") {
           const newMsg: MessageItem = {
             id: msg.id,
@@ -204,12 +254,14 @@ function ChatPage() {
           // Send P2P read receipt and mark read on server
           room.send({ type: "chat_read", conversation_id: activeConvId, message_id: newMsg.id });
           void markRead(activeConvId);
+        // Cập nhật trạng thái đối phương đang gõ phím; tự động hủy trạng thái sau 3000ms nếu không có tín hiệu mới
         } else if (msg.type === "chat_typing") {
           setPeerTyping(Boolean(msg.typing));
           if (msg.typing) {
             if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
             typingTimerRef.current = setTimeout(() => setPeerTyping(false), 3000);
           }
+        // Cập nhật trạng thái tin nhắn của mình sang "read" khi nhận tín hiệu đối phương đã đọc qua P2P
         } else if (msg.type === "chat_read") {
           setMessages((prev) =>
             prev.map((m) => (m.sender_id === user.id && !m.read_at ? { ...m, read_at: new Date().toISOString(), status: "read" } : m)),
@@ -218,6 +270,7 @@ function ChatPage() {
       },
     });
 
+    // Bước 4: Tham gia phòng WebRTC và thiết lập hàm dọn dẹp (cleanup) khi unmount hoặc đổi cuộc hội thoại
     void room.join();
     p2pRef.current = room;
 
@@ -231,6 +284,7 @@ function ChatPage() {
 
   // Realtime updates via SSE topic for this conversation
   useLive(activeConvId ? `chat:${activeConvId}` : null, () => {
+    // Khi nhận sự kiện qua kênh SSE (fallback khi P2P chưa kết nối): tải lại tin nhắn và đánh dấu đã đọc
     if (activeConvId) {
       void loadMessages(activeConvId);
       void markRead(activeConvId);
@@ -251,6 +305,12 @@ function ChatPage() {
   }, [messages, peerTyping]);
 
   // Handle typing notification
+  /**
+   * Làm gì: Cập nhật nội dung văn bản trong ô nhập tin nhắn và phát sự kiện typing qua kết nối P2P tới đối phương.
+   * Được gọi ở: `src/routes/chat.tsx` trong sự kiện onChange của thẻ Input nhập tin nhắn (dòng 616).
+   * @param val Giá trị chuỗi mới đang được người dùng nhập vào.
+   * @returns void
+   */
   const handleInputChange = (val: string) => {
     setInputText(val);
     if (p2pRef.current && isP2PDirect) {
@@ -259,11 +319,19 @@ function ChatPage() {
   };
 
   // Send a message
+  /**
+   * Làm gì: Xử lý gửi tin nhắn mới: thêm ngay vào UI (Optimistic UI), phát tin nhắn qua WebRTC P2P nếu có kết nối trực tiếp và đồng thời lưu vào server qua API POST.
+   * Được gọi ở: `src/routes/chat.tsx` trong sự kiện onSubmit của form chat (dòng 612) và phím Enter trong handleKeyDown (dòng 326).
+   * @param e Sự kiện gửi form (FormEvent), tùy chọn.
+   * @returns Promise<void>
+   */
   const handleSend = async (e?: FormEvent) => {
     e?.preventDefault();
+    // Kiểm tra nội dung tin nhắn hợp lệ, đảm bảo đã chọn cuộc hội thoại và người dùng đã đăng nhập
     const text = inputText.trim();
     if (!text || !activeConvId || !user) return;
 
+    // Tạo ID duy nhất (UUID v4) ở client để phục vụ Optimistic UI và đồng bộ trạng thái tin nhắn giữa P2P và server
     const clientMsgId = crypto.randomUUID();
     const optimisticMsg: MessageItem = {
       id: clientMsgId,
@@ -297,6 +365,7 @@ function ChatPage() {
     }
 
     // 3. Simultaneously POST to API to persist
+    // Gọi API lưu tin nhắn; nếu thành công cập nhật trạng thái "sent", nếu lỗi chuyển sang "failed" và thông báo toast
     try {
       await apiPost(`/conversations/${activeConvId}/messages`, { id: clientMsgId, body: text });
       setMessages((prev) => prev.map((m) => (m.id === clientMsgId ? { ...m, status: "sent" } : m)));
@@ -308,8 +377,15 @@ function ChatPage() {
   };
 
   // Retry sending failed message
+  /**
+   * Làm gì: Thử gửi lại tin nhắn bị lỗi (status "failed") bằng cách cập nhật lại trạng thái thành "sending" và gọi lại API lưu tin nhắn.
+   * Được gọi ở: `src/routes/chat.tsx` trong sự kiện onClick của nút thử lại bên cạnh tin nhắn lỗi (dòng 574).
+   * @param msg Đối tượng tin nhắn cần gửi lại.
+   * @returns Promise<void>
+   */
   const handleRetry = async (msg: MessageItem) => {
     if (!activeConvId) return;
+    // Chuyển trạng thái tin nhắn thành "sending" trước khi gọi lại API gửi tin
     setMessages((prev) => prev.map((m) => (m.id === msg.id ? { ...m, status: "sending" } : m)));
     try {
       await apiPost(`/conversations/${activeConvId}/messages`, { id: msg.id, body: msg.body });
@@ -320,18 +396,28 @@ function ChatPage() {
     }
   };
 
+  /**
+   * Làm gì: Bắt sự kiện phím trong ô nhập tin nhắn, cho phép nhấn Enter (không giữ Shift) để gửi tin nhắn nhanh.
+   * Được gọi ở: `src/routes/chat.tsx` trong sự kiện onKeyDown của thẻ Input nhập tin nhắn (dòng 617).
+   * @param e Sự kiện bàn phím từ ô input (KeyboardEvent).
+   * @returns void
+   */
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    // Ngăn hành vi xuống dòng mặc định và kích hoạt hàm gửi tin nhắn
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       void handleSend();
     }
   };
 
+  // Bước 5: Chuẩn bị danh sách cuộc hội thoại từ dữ liệu API, hỗ trợ cấu trúc dữ liệu phẳng hoặc phân trang (items), mặc định là mảng rỗng nếu chưa có dữ liệu
   const conversations: ConversationItem[] = convsData?.conversations ?? (convsData as any)?.items ?? [];
+  // Bước 6: Lọc danh sách hội thoại theo từ khóa tìm kiếm (searchQuery) dựa trên tên người chat cùng (peer_name), không phân biệt hoa thường
   const filteredConvs = conversations.filter((c) =>
     searchQuery ? c.peer_name.toLowerCase().includes(searchQuery.toLowerCase()) : true,
   );
 
+  // Bước 7: Render giao diện trang tin nhắn với bố cục hai cột: danh sách hội thoại bên trái và khung chat trực tiếp bên phải (hỗ trợ WebRTC P2P và Server Relay)
   return (
     <Shell role={user?.role ?? "member"} title={t("Messages")} subtitle={t("Real-time two-way messaging")}>
       <div className="overflow-hidden rounded-[var(--radius-lg)] border border-line bg-surface shadow-[var(--shadow-soft)]">

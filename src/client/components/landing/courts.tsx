@@ -1,3 +1,8 @@
+/**
+ * File: src/client/components/landing/courts.tsx
+ * Vai trò: Phân đoạn (section) giới thiệu danh mục các môn thể thao, danh sách sân và bảng giá theo giờ trên landing page.
+ * Vị trí trong app: Được nhúng vào trang chủ (src/routes/index.tsx), hiển thị số lượng sân hoạt động, mức giá giờ thường / cao điểm và số giờ còn trống trong ngày của từng bộ môn.
+ */
 import { useRef } from "react";
 import { Cover, MediaCaption } from "@/client/components/media";
 import { Button, Card } from "@/client/components/ui";
@@ -15,6 +20,16 @@ import { moneyCount, rise } from "./tweens";
  * and how many hours are still free on the day being shown. The prices count up from nothing as
  * the cards arrive, which is the one figure people compare across the sports.
  */
+/**
+ * Làm gì: Hiển thị phân đoạn các môn thể thao gồm ảnh minh họa, số lượng sân, bảng giá giờ thấp điểm / cao điểm và số giờ còn trống trong ngày.
+ * Được gọi ở: src/routes/index.tsx (trong component Home, route "/").
+ * @param weekday Danh sách bảng giá ngày thường (CatalogPrice[]) để tra cứu giá giờ thấp điểm và cao điểm theo môn.
+ * @param freeBySport Hàm tính số giờ còn trống trong ngày của môn thể thao theo mã môn (sport code).
+ * @param day Chuỗi nhãn hiển thị ngày đang xem lịch (ví dụ: "Today", "Mon 17 Nov").
+ * @param onShowTimes Callback điều hướng hoặc cuộn xuống xem khung giờ trống chi tiết khi bấm nút "See free times".
+ * @param courts Danh sách toàn bộ sân (CatalogCourt[]) để đếm tổng số sân đang hoạt động và tạo dải mã sân.
+ * @returns Thẻ JSX section id="courts" chứa lưới thẻ thông tin và bảng giá từng môn thể thao.
+ */
 export function CourtsScene({
   weekday,
   freeBySport,
@@ -28,12 +43,16 @@ export function CourtsScene({
   onShowTimes: (sport: string) => void;
   courts?: CatalogCourt[];
 }) {
+  // Bước 1: Khởi tạo ref tham chiếu phần tử DOM gốc và lấy danh mục môn thể thao đang kích hoạt từ SportsContext.
   const root = useRef<HTMLElement>(null);
   const { sports: liveSports } = useSports();
+  // Bước 2: Thiết lập hiệu ứng chuyển động GSAP ScrollTrigger khi phân đoạn xuất hiện trong khung nhìn.
   useScene(root, ({ motion }) => {
+    // Kích hoạt hiệu ứng xuất hiện trượt từ dưới lên (rise) cho các phần tử [data-rise]; tự động bỏ qua nếu người dùng bật chế độ giảm chuyển động (reduced-motion).
     if (motion && root.current) rise(root.current);
   });
 
+  // Bước 3: Ánh xạ danh mục môn thể thao sang cấu trúc hiển thị gồm mã định danh, màu sắc chủ đạo, slot ảnh media và ghi chú tiện ích.
   const sports = liveSports.map((s) => ({
     id: s.code,
     colorKey: s.color_key,
@@ -41,6 +60,7 @@ export function CourtsScene({
     note: t("Indoor hall with air conditioning and court lighting."),
   }));
 
+  // Bước 4: Render giao diện phân đoạn #courts gồm tiêu đề và lưới 3 cột chứa thẻ thông tin từng môn thể thao.
   return (
     <section ref={root} id="courts" className="mx-auto max-w-6xl scroll-mt-20 px-4 py-20">
       <p data-rise className="kicker text-2xs text-muted">
@@ -55,14 +75,17 @@ export function CourtsScene({
 
       <div className="mt-8 grid gap-4 md:grid-cols-3">
         {sports.map((s) => {
+          // Bước 5: Tra cứu bảng giá ngày thường (lọc riêng giờ thấp điểm và cao điểm), số giờ còn trống và danh sách sân hoạt động của từng môn.
           const off = weekday.find((p) => p.sport === s.id && !p.is_peak);
           const peak = weekday.find((p) => p.sport === s.id && p.is_peak);
           const openNow = freeBySport(s.id);
+          // Chỉ lấy các sân thuộc môn thể thao này đang sẵn sàng phục vụ, loại bỏ các sân có trạng thái "retired" (ngừng kinh doanh).
           const sportCourts = courts
             ? courts.filter((c) => c.sport === s.id && c.status !== "retired")
             : [];
           const count = sportCourts.length;
           const sortedCodes = sportCourts.map((c) => c.court_code).sort();
+          // Định dạng dải mã sân: nếu có từ 3 sân trở lên sẽ rút gọn thành dạng "đầu…cuối" (ví dụ CRT-01…CRT-04), nếu ít hơn thì liệt kê ngăn cách bằng dấu phẩy.
           const codes = sortedCodes.length > 2
             ? `${sortedCodes[0]}…${sortedCodes[sortedCodes.length - 1]}`
             : sortedCodes.join(", ");

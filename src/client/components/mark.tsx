@@ -1,5 +1,20 @@
+/**
+ * File: src/client/components/mark.tsx
+ * Vai trò: Cung cấp các biểu tượng đồ họa SVG nhận diện thương hiệu và hình nền trang trí sân đấu cho ứng dụng Arena3.
+ * Vị trí trong app: Chạy ở client, xuất các component ArenaMark (logo sân thể thao Arena3), AssistantMark (biểu tượng trợ lý AI) và CourtBackdrop (hình nền vector sân thi đấu), được sử dụng trên thanh điều hướng, chân trang, landing page và các trang xác thực (login, register, verify).
+ */
 import { cn } from "@/client/lib/cn";
 
+/**
+ * Làm gì: Hiển thị biểu tượng logo Arena3 (hình sân thể thao cách điệu với vạch lưới accent trong khung vuông bo góc).
+ * Được gọi ở:
+ * - src/client/components/shell.tsx: component AppShell (logo thương hiệu trên thanh điều hướng)
+ * - src/client/components/landing/header.tsx, closing.tsx: header và footer trang landing
+ * - src/routes/login.tsx, src/routes/register.tsx, src/routes/verify.$code.tsx: tiêu đề các trang xác thực
+ * - src/client/components/legal-page.tsx, src/client/components/media.tsx
+ * @param className Class CSS tùy biến kích thước và màu sắc (mặc định size-8).
+ * @returns Thẻ JSX <svg> chứa logo thương hiệu Arena3 với tỷ lệ viewBox 32x32.
+ */
 export function ArenaMark({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 32 32" className={cn("size-8", className)} aria-hidden>
@@ -24,6 +39,16 @@ export function ArenaMark({ className }: { className?: string }) {
  * prices, and the icon should say which centre. Drawn to lucide's geometry —
  * 24px box, 1.75 stroke, round joins — so it sits in a row of lucide icons
  * without looking pasted in.
+ */
+/**
+ * Làm gì: Hiển thị biểu tượng trợ lý AI của Arena3 (sân thể thao cách điệu mở góc kèm ngôi sao bốn cánh), thiết kế theo chuẩn kích thước và độ dày nét của Lucide icon.
+ * Được gọi ở:
+ * - src/client/components/shell.tsx: component AppHeader (nút mở nhanh trợ lý AI ở thanh điều hướng trên)
+ * - src/routes/app.assistant.tsx: tiêu đề trang trợ lý ảo
+ * - src/routes/app.index.tsx: component MemberDashboard (thẻ Ask AI trong lưới thao tác nhanh Quick actions)
+ * @param className Class CSS tùy biến kích thước và màu sắc (mặc định size-6).
+ * @param strokeWidth Độ dày nét vẽ SVG (mặc định 1.75 để hài hòa với hệ thống Lucide icons).
+ * @returns Thẻ JSX <svg> biểu tượng trợ lý AI kích thước viewBox 24x24.
  */
 export function AssistantMark({
   className,
@@ -50,6 +75,12 @@ export function AssistantMark({
   );
 }
 
+/**
+ * Làm gì: Hiển thị hình nền vector mô phỏng sơ đồ sân thi đấu (vạch biên, vạch trung tâm, ô giao cầu và dải lưới) làm họa tiết trang trí nền.
+ * Được gọi ở: Các thành phần giao diện cần hình nền sân thể thao (card thông tin sân đấu, hero banner hoặc widget đặt sân).
+ * @param className Class CSS tùy biến màu sắc và độ mờ bổ sung (mặc định mang class text-accent).
+ * @returns Thẻ JSX <svg> sơ đồ sân thi đấu với tỷ lệ khung hình viewBox 200x280.
+ */
 export function CourtBackdrop({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 200 280" className={cn("text-accent", className)} aria-hidden>

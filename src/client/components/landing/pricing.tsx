@@ -1,3 +1,9 @@
+/**
+ * File: src/client/components/landing/pricing.tsx
+ * Vai trò: Phân đoạn bảng giá (PricingScene) trên Landing Page của trung tâm thể thao.
+ * Vị trí trong app: Hiển thị tại trang chủ (src/routes/index.tsx trong component Home, route "/"),
+ * trực quan hóa khung giờ mở cửa, giờ thấp điểm (off-peak) và giờ cao điểm (peak) qua thanh tiến trình động (GSAP) cùng bảng giá chi tiết theo từng môn.
+ */
 import { useRef } from "react";
 import { Cover, HeroVideo } from "@/client/components/media";
 import { SpotlightCard } from "@/client/components/fx";
@@ -17,30 +23,53 @@ import { useVenue } from "./util";
  * sheet: the off-peak stretch fills first, then the peak stretch in the accent colour, and a
  * light runs along it once. "Off-peak until 17:00" becomes something you can see at a glance.
  */
+/**
+ * Làm gì: Hiển thị phân đoạn bảng giá trên trang chủ, gồm thanh biểu diễn trực quan các khung giờ trong ngày (giờ thường vs giờ cao điểm) và bảng so sánh giá thuê sân theo từng bộ môn.
+ * Được gọi ở: src/routes/index.tsx (trong component Home, route "/").
+ * Các props quan trọng:
+ * - weekday: Danh sách bảng giá ngày trong tuần (CatalogPrice[]) của các môn thể thao để trích xuất quy tắc giờ cao điểm và giá theo từng môn.
+ * @returns Thẻ JSX section chứa thanh timeline hoạt họa và bảng giá chi tiết kèm video minh họa.
+ */
 export function PricingScene({ weekday }: { weekday: CatalogPrice[] }) {
+  // Bước 1: Khởi tạo ref DOM gốc, lấy danh mục môn thể thao và thông tin giờ mở/đóng cửa trung tâm từ VenueContext.
   const root = useRef<HTMLElement>(null);
   const { sports } = useSports();
   const { open: OPEN_HOUR, close: CLOSE_HOUR } = useVenue();
+  // Tìm quy tắc giờ cao điểm (is_peak) trong bảng giá ngày thường; nếu không có thì mặc định từ 17:00 đến khi đóng cửa.
   const peakRule = weekday.find((p) => p.is_peak);
   const peakFrom = peakRule ? Number(peakRule.start_local.slice(0, 2)) : 17;
   const peakTo = peakRule ? Number(peakRule.end_local.slice(0, 2)) : CLOSE_HOUR;
+  // Tính tổng số giờ hoạt động trong ngày, làm cơ sở quy đổi mốc giờ sang tỷ lệ phần trăm (0% - 100%) trên thanh timeline.
   const span = CLOSE_HOUR - OPEN_HOUR;
+  /**
+   * Làm gì: Quy đổi một mốc giờ cụ thể thành tỷ lệ phần trăm khoảng cách (0% - 100%) trên thanh timeline hoạt động trong ngày.
+   * Được gọi ở: Thuộc tính style (left, width) của các phân đoạn thanh giờ (dòng 64, 69) và nhãn mốc giờ (dòng 83).
+   * @param h Mốc giờ cần quy đổi (từ OPEN_HOUR đến CLOSE_HOUR).
+   * @returns Tỷ lệ phần trăm từ 0 đến 100.
+   */
   const pct = (h: number) => ((h - OPEN_HOUR) / span) * 100;
 
+  // Bước 2: Thiết lập hiệu ứng chuyển động GSAP ScrollTrigger cho phân đoạn bảng giá khi cuộn vào khung nhìn.
   useScene(root, ({ motion }) => {
     const el = root.current;
+    // Bỏ qua toàn bộ hoạt ảnh nếu phần tử chưa gắn vào DOM hoặc người dùng bật chế độ giảm chuyển động (prefers-reduced-motion).
     if (!motion || !el) return;
+    // Kích hoạt hiệu ứng trượt từ dưới lên (rise) cho khối tiêu đề và các hàng của bảng giá (stagger để hiện lần lượt từng hàng).
     rise(el, "[data-rise]");
     rise(el, "[data-row]", { y: 14, stagger: 0.07 });
+    // Khởi tạo timeline GSAP cho thanh giờ: kích hoạt khi phần tử [data-day] cuộn tới 85% chiều cao khung nhìn viewport và chỉ chạy 1 lần.
     const q = gsap.utils.selector(el);
     const tl = gsap.timeline({ scrollTrigger: { trigger: q("[data-day]")[0], start: "top 85%", once: true } });
+    // Hoạt họa thanh timeline: dải giờ thấp điểm lấp đầy trước, dải giờ cao điểm nối tiếp, sau đó các vạch mốc giờ và nhãn trồi lên.
     tl.fromTo(q("[data-seg-off]"), { scaleX: 0 }, { scaleX: 1, duration: 0.9, ease: "arena" })
       .fromTo(q("[data-seg-peak]"), { scaleX: 0 }, { scaleX: 1, duration: 0.7, ease: "arena" }, "-=0.15")
       .fromTo(q("[data-tick]"), { autoAlpha: 0, y: 6 }, { autoAlpha: 1, y: 0, duration: 0.4, stagger: 0.05 }, "-=0.5")
+      // Hiệu ứng vệt sáng ([data-sweep]) quét dọc qua thanh thời gian một lần tạo điểm nhấn thị giác rồi mờ dần.
       .fromTo(q("[data-sweep]"), { xPercent: -100, autoAlpha: 1 }, { xPercent: 260, duration: 1.3, ease: "power2.inOut" }, "-=0.2")
       .to(q("[data-sweep]"), { autoAlpha: 0, duration: 0.2 });
   });
 
+  // Bước 3: Render giao diện phân đoạn gồm 2 cột: cột trái là thanh timeline và bảng giá, cột phải là video/ảnh sân.
   return (
     <section ref={root} className="mx-auto max-w-6xl px-4 pb-20">
       <div className="grid gap-8 md:grid-cols-[1.1fr_0.9fr]">
@@ -105,6 +134,7 @@ export function PricingScene({ weekday }: { weekday: CatalogPrice[] }) {
                 </thead>
                 <tbody>
                   {sports.map((s) => {
+                    // Bước 4: Duyệt qua từng môn thể thao đang mở để tra cứu giá thuê sân giờ thấp điểm (!is_peak) và giờ cao điểm (is_peak).
                     const sport = s.code;
                     const off = weekday.find((p) => p.sport === sport && !p.is_peak);
                     const peak = weekday.find((p) => p.sport === sport && p.is_peak);
