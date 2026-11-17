@@ -99,6 +99,7 @@ type Completion = {
   sessions: number;
   attended: number;
   remaining: number;
+  class_over: boolean;
   code: string | null;
   issued_at: string | null;
 };
@@ -107,6 +108,7 @@ type Completion = {
 const COMPLETION_SQL = `
   select e.id as enrollment_id, cl.id as class_id, cl.sport::text as sport, cl.level, u.full_name as coach_name,
          cl.start_on::text, cl.end_on::text,
+         cl.end_on < (now() at time zone 'Asia/Ho_Chi_Minh')::date as class_over,
          (select count(*)::int from sessions s
            where s.class_id = cl.id and s.status <> 'cancelled' and s.end_at <= now()) as sessions,
          (select count(*)::int from sessions s
@@ -122,8 +124,8 @@ const COMPLETION_SQL = `
     left join class_certificates cc on cc.enrollment_id = e.id
    where e.user_id = $1 and e.status = 'confirmed' and cl.status <> 'cancelled'`;
 
-function earned(c: Pick<Completion, "sessions" | "attended" | "remaining">) {
-  return c.remaining === 0 && c.sessions > 0 && c.attended / c.sessions >= COMPLETION_SHARE;
+function earned(c: Pick<Completion, "sessions" | "attended" | "remaining" | "class_over">) {
+  return c.class_over && c.remaining === 0 && c.sessions > 0 && c.attended / c.sessions >= COMPLETION_SHARE;
 }
 
 /** The member's classes with how far each is from a certificate, and the certificates earned. */
@@ -155,7 +157,7 @@ export async function meCertificateIssue(sql: Sql, enrollmentId: string, user: P
   if (row.code) return { status: 200, body: { code: row.code } };
   if (!earned(row)) {
     throw err.conflictState(
-      row.remaining > 0
+      !row.class_over || row.remaining > 0
         ? "The class is not over yet."
         : `Attend at least ${Math.round(COMPLETION_SHARE * 100)}% of the sessions to earn this certificate.`,
     );
