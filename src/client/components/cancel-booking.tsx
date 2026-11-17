@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { money } from "@/client/components/shell";
-import { Badge, Button, Check, LoadError, Modal, Skeleton } from "@/client/components/ui";
+import { Badge, Button, Check, Input, LoadError, Modal, Skeleton } from "@/client/components/ui";
 import { apiGet, apiPost } from "@/client/arena3/client";
 import type { CancelQuoteResponse as Quote } from "@/shared/arena3/contracts";
 import { cn } from "@/client/lib/cn";
@@ -11,10 +11,8 @@ import { readError, type ReadError } from "@/client/lib/use-read";
 /**
  * Cancel a court booking, with the price of doing it said out loud first.
  *
- * The refund depends on how close the start is (the centre's own tiers), so the
- * quote is read from the server before the button is pressed — the member never
- * finds the fee out afterwards. Staff get a "waive the fee" tick for the cases
- * that are not the customer's doing (centre closed, flood, accident).
+ * Members receive no refund. Staff can mark a centre cancellation with a reason;
+ * the quoted refund is then owed in cash at the front desk.
  */
 export function CancelBookingDialog({
   bookingId,
@@ -32,6 +30,7 @@ export function CancelBookingDialog({
   // A quote is only good for the booking and the tick it was asked for; it stays on screen while the next one is on its way.
   const [asked, setAsked] = useState<{ booking: string; waive: boolean; quote: Quote } | null>(null);
   const [failure, setFailure] = useState<ReadError | null>(null);
+  const [reason, setReason] = useState("");
   const [waive, setWaive] = useState(false);
   const [round, setRound] = useState(0);
   const [busy, setBusy] = useState(false);
@@ -42,6 +41,7 @@ export function CancelBookingDialog({
     setAsked(null);
     setFailure(null);
     setWaive(false);
+    setReason("");
   }, [open]);
 
   // Re-quotes when staff tick the waiver, so the figures on screen are the ones that will apply.
@@ -72,7 +72,7 @@ export function CancelBookingDialog({
     if (!bookingId) return;
     setBusy(true);
     try {
-      await apiPost(`/bookings/${bookingId}/cancel`, staff ? { waive } : {});
+      await apiPost(`/bookings/${bookingId}/cancel`, staff ? { waive, reason } : {});
       toast.success(t("Booking cancelled"));
       onDone();
       onClose();
@@ -94,7 +94,7 @@ export function CancelBookingDialog({
           <Button variant="outline" onClick={onClose} disabled={busy}>
             {t("Keep it")}
           </Button>
-          <Button onClick={() => void go()} disabled={busy || !fresh}>
+          <Button onClick={() => void go()} disabled={busy || !fresh || (staff && waive && !reason.trim())}>
             {busy ? t("Cancelling…") : t("Yes, cancel")}
           </Button>
         </>
@@ -121,6 +121,7 @@ export function CancelBookingDialog({
                   <span>{t("Refund")}</span>
                   <span className="font-display text-xl tabular-nums">{money(quote.refund_vnd)}</span>
                 </div>
+                <p>{t("Collect your refund in cash at the front desk.")}</p>
                 {quote.waived ? <Badge tone="accent" className="mt-2">{t("Fee waived")}</Badge> : null}
               </div>
             ) : (
@@ -129,6 +130,7 @@ export function CancelBookingDialog({
               </p>
             )}
           </div>
+          {staff && waive ? <Input aria-label={t("Reason")} placeholder={t("Reason")} value={reason} onChange={(e) => setReason(e.target.value)} /> : null}
           {staff ? (
             <Check
               checked={waive}
