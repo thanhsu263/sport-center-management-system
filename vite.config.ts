@@ -1,3 +1,9 @@
+/**
+ * Tệp cấu hình Vite cho ứng dụng full-stack TanStack Start và React.
+ * Thiết lập máy chủ phát triển (dev server) và xem trước (preview server), đồng thời tích hợp các plugin
+ * quan trọng: khởi tạo cơ sở dữ liệu PGLite, xử lý popup đăng nhập OAuth, nạp biến môi trường client,
+ * cấu hình PWA, Tailwind CSS và Nitro để đóng gói triển khai lên Vercel.
+ */
 import { readdirSync } from "node:fs";
 import { join } from "node:path";
 import type { Plugin } from "vite";
@@ -13,8 +19,15 @@ import { appEnvPlugin } from "./scripts/app-env-plugin.mjs";
 import { isMigrationFile } from "./scripts/migration-plan.mjs";
 
 /** The files `src/server/data/db.ts` globs — same directory, same non-recursive scope. */
+/**
+ * Làm gì: Quét thư mục migrations/ ở thư mục gốc dự án để kiểm tra xem có tệp migration nào (.sql) cần áp dụng hay không.
+ * Được gọi ở: vite.config.ts (trong hook configureServer của pgliteBootstrapPlugin).
+ * @param root Đường dẫn tuyệt đối đến thư mục gốc của dự án (server.config.root).
+ * @returns true nếu tìm thấy ít nhất một tệp migration .sql hợp lệ, ngược lại false.
+ */
 function hasGlobbedMigrations(root: string): boolean {
   try {
+    // Đọc danh sách file trong migrations/ và kiểm tra tồn tại file .sql; nếu thư mục không tồn tại thì catch trả về false.
     return readdirSync(join(root, "migrations")).some(isMigrationFile);
   } catch {
     return false;
@@ -30,20 +43,30 @@ function hasGlobbedMigrations(root: string): boolean {
  * migrations — no schema to apply — skips it entirely rather than paying for a
  * PGLite instance it never queries.
  */
+/**
+ * Làm gì: Tạo plugin Vite cho môi trường dev để khởi tạo cơ sở dữ liệu PGLite trước khi server nhận request đầu tiên.
+ * Được gọi ở: vite.config.ts (mảng plugins trong cấu hình defineConfig).
+ * @returns Plugin của Vite chứa hook configureServer để chạy migration cho PGLite.
+ * @throws Error nếu quá trình bootstrap cơ sở dữ liệu PGLite thất bại.
+ */
 function pgliteBootstrapPlugin(): Plugin {
   return {
     name: "app-builder:pglite-bootstrap",
     apply: "serve",
     async configureServer(server) {
+      // Bước 1: Kiểm tra xem có file migration nào không; nếu không có thì bỏ qua để tránh khởi tạo PGLite khi không dùng DB.
       if (!hasGlobbedMigrations(server.config.root)) return;
       try {
+        // Bước 2: Tải động module /src/server/data/db.ts qua cơ chế SSR của Vite.
         const mod = (await server.ssrLoadModule("/src/server/data/db.ts")) as {
           ensureDbReady?: () => Promise<void>;
         };
+        // Bước 3: Gọi ensureDbReady để áp dụng các file migration vào PGLite trước khi server phục vụ traffic.
         if (typeof mod.ensureDbReady === "function") {
           await mod.ensureDbReady();
         }
       } catch (err) {
+        // Bắn lỗi ra console và ném ngoại lệ để dừng tiến trình khởi động dev server nếu bootstrap DB thất bại.
         console.error("[app-builder] DB bootstrap failed:", err);
         throw err;
       }
@@ -61,6 +84,11 @@ function pgliteBootstrapPlugin(): Plugin {
  * and returns the 302 / completion HTML. Deployed apps do not use the popup
  * (full-page OAuth redirect), so `apply: "serve"` is enough.
  */
+/**
+ * Làm gì: Tạo plugin Vite cho môi trường dev để đăng ký middleware xử lý trực tiếp route /auth/popup cho OAuth popup.
+ * Được gọi ở: vite.config.ts (mảng plugins trong cấu hình defineConfig).
+ * @returns Plugin của Vite chứa middleware chặn và xử lý request /auth/popup.
+ */
 function authPopupPlugin(): Plugin {
   return {
     name: "app-builder:auth-popup",
@@ -71,12 +99,14 @@ function authPopupPlugin(): Plugin {
       // `src/routes/auth/popup.tsx` React page must never win this path.
       server.middlewares.use(async (req, res, next) => {
         try {
+          // Bước 1: Trích xuất pathname; nếu không phải route /auth/popup thì chuyển tiếp sang middleware kế tiếp qua next().
           const rawUrl = req.url ?? "";
           const pathOnly = rawUrl.split("?", 1)[0] ?? "";
           if (pathOnly !== "/auth/popup") {
             next();
             return;
           }
+          // Bước 2: Chỉ chấp nhận method GET cho luồng popup; các method khác trả về mã 405 Method Not Allowed.
           if ((req.method ?? "GET").toUpperCase() !== "GET") {
             res.statusCode = 405;
             res.setHeader("content-type", "text/plain; charset=utf-8");
@@ -84,6 +114,7 @@ function authPopupPlugin(): Plugin {
             return;
           }
 
+          // Bước 3: Xác định host và protocol (ưu tiên proxy headers) để khớp với origin công khai của live-preview.
           const host = String(
             req.headers["x-forwarded-host"] ?? req.headers.host ?? "localhost:8080",
           );
@@ -91,6 +122,7 @@ function authPopupPlugin(): Plugin {
             req.headers["x-forwarded-proto"] ??
               ((req.socket as { encrypted?: boolean } | undefined)?.encrypted ? "https" : "http"),
           );
+          // Chuyển đổi toàn bộ headers từ Node.js request sang Web Standard Headers object.
           const requestHeaders = new Headers();
           for (const [key, value] of Object.entries(req.headers)) {
             if (value === undefined) continue;
@@ -104,16 +136,19 @@ function authPopupPlugin(): Plugin {
           // baseURL / redirect_uri match the popup origin.
           if (!requestHeaders.has("host")) requestHeaders.set("host", host);
 
+          // Bước 4: Khởi tạo Web Standard Request object với URL tuyệt đối và headers đầy đủ để truyền vào auth handler.
           const request = new Request(`${proto}://${host}${rawUrl}`, {
             method: "GET",
             headers: requestHeaders,
           });
 
+          // Bước 5: Nạp động module /src/server/auth/popup.server.ts bằng Vite SSR và gọi hàm handleAuthPopupRequest.
           const mod = (await server.ssrLoadModule("/src/server/auth/popup.server.ts")) as {
             handleAuthPopupRequest: (req: Request) => Promise<Response>;
           };
           const response = await mod.handleAuthPopupRequest(request);
 
+          // Bước 6: Sao chép HTTP status và các headers sang response của Node.js, bảo toàn nhiều header Set-Cookie (state OAuth và session).
           res.statusCode = response.status;
           // Preserve multiple Set-Cookie headers (OAuth state + session).
           const setCookies =
@@ -127,10 +162,12 @@ function authPopupPlugin(): Plugin {
           for (const cookie of setCookies) {
             res.appendHeader("set-cookie", cookie);
           }
+          // Bước 7: Chuyển dữ liệu phản hồi sang Buffer nhị phân và hoàn tất gửi response về client.
           const body = Buffer.from(await response.arrayBuffer());
           res.end(body);
         } catch (err) {
           console.error("[app-builder] /auth/popup handler failed:", err);
+          // Xử lý khi có lỗi phát sinh: trả về mã lỗi 500 nếu headers chưa được gửi đi.
           if (!res.headersSent) {
             res.statusCode = 500;
             res.setHeader("content-type", "text/plain; charset=utf-8");
@@ -145,6 +182,12 @@ function authPopupPlugin(): Plugin {
 // `0.0.0.0:8080` is the live-preview contract — don't change host/port.
 // The dev server starts once `src/router.tsx` and `src/routes/` exist — see
 // AGENTS.md § "First scaffold".
+/**
+ * Làm gì: Cấu hình và xuất cấu hình Vite cho ứng dụng (cấu hình dev server, preview server, alias và danh sách plugin).
+ * Được gọi ở: Vite runner khi thực thi các lệnh npm run dev, npm run build hoặc npm run preview.
+ * @param env Đối tượng môi trường của Vite chứa command ("build" | "serve") và cờ isPreview.
+ * @returns Đối tượng cấu hình Vite (UserConfig) cho toàn bộ dự án.
+ */
 export default defineConfig(({ command, isPreview }) => ({
   server: {
     host: "0.0.0.0",
