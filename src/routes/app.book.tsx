@@ -647,7 +647,11 @@ function Page() {
         bookingId={cancelId}
         open={cancelId != null}
         onClose={() => setCancelId(null)}
-        onDone={load}
+        onDone={() => {
+          // Cancelling the hour still on hold ends the hold, so its countdown goes with it.
+          if (hold && hold.booking.id === cancelId) setHold(null);
+          load();
+        }}
       />
     </Shell>
   );

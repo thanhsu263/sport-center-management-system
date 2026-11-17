@@ -1,3 +1,4 @@
+import { reconcileLoyaltyRefund } from "../../services/loyalty";
 import type { Sql } from "@/server/data/db";
 import { err, isConflictSlot } from "../errors";
 import { assertNoClassClash, assertUnderClassLimit, audit, enqueue, isUuid, getSettings, nextCode, num, readJson, str, type ClassPattern, classPatternsClash } from "../helpers";
@@ -56,12 +57,21 @@ export async function classesList(sql: Sql, request: Request, user: PublicUser |
             cl.start_on::text, cl.end_on::text, cl.status, cl.court_id, c.court_code,
             cl.coach_id, u.full_name as coach_name, made.at as created_at, cl.price_vnd, cl.min_enrolled,
             cl.description, cl.syllabus, cl.who_for, cl.bring,
+            seats.confirmed_count,
+            (cl.status = 'open' and cl.min_enrolled is not null
+              and seats.confirmed_count < cl.min_enrolled
+              and exists (select 1 from sessions s where s.class_id = cl.id
+                           and s.status <> 'cancelled' and s.start_at <= now())) as running_below_minimum,
             case when me.id is null then null else jsonb_build_object(
               'id', me.id, 'status', me.status, 'hold_until', me.hold_until,
               'price_vnd', me.price_vnd, 'transfer_requested_at', me.transfer_requested_at) end as my_enrollment
        from classes cl
        join courts c on c.id = cl.court_id
        join users u on u.id = cl.coach_id
+       cross join lateral (
+         select count(*)::int as confirmed_count from enrollments e
+          where e.class_id = cl.id and e.status = 'confirmed'
+       ) seats
        left join lateral (
          select e.id, e.status, e.hold_until, e.price_vnd, e.transfer_requested_at
            from enrollments e
@@ -124,6 +134,10 @@ export async function classesCreate(sql: Sql, request: Request, user: PublicUser
   if (start_on > end_on) {
     throw err.field("end_on", "End date must be on or after start date.");
   }
+  // A timetable that begins before today would publish sessions that already happened.
+  if (start_on < ictDateString()) {
+    throw err.field("start_on", "A class cannot start or end in the past. Pick today or a later first day.");
+  }
 
   const rruleParts = Object.fromEntries(
     rrule.split(";").map((p) => {
@@ -131,6 +145,9 @@ export async function classesCreate(sql: Sql, request: Request, user: PublicUser
       return [k ?? "", v ?? ""];
     }),
   );
+  if (rruleParts.BYDAY !== undefined && !rruleParts.BYDAY.trim()) {
+    throw err.field("rrule", "Pick at least one day of the week.");
+  }
   if (rruleParts.BYHOUR !== undefined) {
     const byHour = Number(rruleParts.BYHOUR);
     if (!Number.isInteger(byHour) || byHour < 0 || byHour > 23) {
@@ -974,6 +991,15 @@ export async function sessionCancel(sql: Sql, sessionId: string, request: Reques
   const b = await readJson(request);
   const reason = reasonOf(b);
   if (!reason) throw err.field("reason", "Give a reason for cancelling this session.");
+  // Match whole-class cancellation's class -> session lock order, and serialize refunds
+  // for different sessions of the same class before reading the remaining paid balance.
+  const cl = await one<{ rrule: string; duration_min: number; start_on: string; end_on: string }>(
+    sql,
+    `select cl.rrule, cl.duration_min, cl.start_on::text, cl.end_on::text
+       from classes cl join sessions s on s.class_id = cl.id where s.id = $1 for update of cl`,
+    [sessionId],
+  );
+  if (!cl) throw err.notFound("No such session.");
   const s = await lockSession(sql, sessionId);
   if (s.status !== "scheduled") throw err.conflictState("Only a scheduled session can be cancelled.");
   if (new Date(s.end_at).getTime() <= Date.now()) throw err.conflictState("That session has already finished.");
@@ -981,17 +1007,53 @@ export async function sessionCancel(sql: Sql, sessionId: string, request: Reques
   await sql.query(`select occupancy_release_session($1::uuid, 'cancelled'::session_status)`, [sessionId]);
   await sql.query(`update sessions set change_reason = $2 where id = $1`, [sessionId, reason]);
 
-  const members = await confirmedMembers(sql, s.class_id);
-  const refunded = 0;
+  const plannedSessions = Math.max(1, expandWeekly(
+    cl.rrule, cl.duration_min, ictDateTime(cl.start_on, "00:00"), ictDateTime(addDays(cl.end_on, 1), "00:00"),
+  ).length);
+  const seats = await sql.query<{ id: string; user_id: string; price_vnd: number | null; extension_vnd: number }>(
+    `select id, user_id, price_vnd, extension_vnd from enrollments
+      where class_id = $1 and status = 'confirmed' order by user_id, id for update`, [s.class_id],
+  );
+  let refunded = 0;
+  let refundedVnd = 0;
+  const refundByUser = new Map<string, number>();
+  for (const seat of seats) {
+    await sql.query(`select id from users where id = $1 for update`, [seat.user_id]);
+    const balance = (await sql.query<{ paid_vnd: number; returned_vnd: number }>(
+      `select coalesce(sum(amount_vnd) filter (where status = 'posted' and amount_vnd > 0), 0)::int as paid_vnd,
+              coalesce(sum(-amount_vnd) filter (where status in ('posted','refund_pending') and amount_vnd < 0), 0)::int as returned_vnd
+         from payments where ref_type = 'enrollment' and ref_id = $1`, [seat.id],
+    ))[0];
+    // The seat's price includes membership extension days; cancelling a session only returns tuition.
+    const tuition = Math.min(balance.paid_vnd, Math.max(0, (seat.price_vnd ?? 0) - seat.extension_vnd));
+    const refund = Math.min(Math.floor(tuition / plannedSessions), Math.max(0, balance.paid_vnd - balance.returned_vnd));
+    if (refund <= 0) continue;
+    const code = await nextCode(sql, "PAY");
+    await sql.query(
+      `insert into payments (code, user_id, method, amount_vnd, vat_rate, status, ref_type, ref_id, created_by)
+       values ($1,$2,'cash',$3,0,'refund_pending','enrollment',$4,null)`,
+      [code, seat.user_id, -refund, seat.id],
+    );
+    await reconcileLoyaltyRefund(sql, seat.user_id);
+    refundByUser.set(seat.user_id, (refundByUser.get(seat.user_id) ?? 0) + refund);
+    refunded += 1;
+    refundedVnd += refund;
+  }
+  const members = seats.map((seat) => seat.user_id);
   await notifyClass(
     sql,
     s.class_id,
-    [...members, s.coach_id, ...(s.assistant_id ? [s.assistant_id] : [])],
-    { kind: "session_cancelled", session_id: sessionId, start: s.start_at, reason },
+    [...members, s.coach_id, ...(s.assistant_id ? [s.assistant_id] : [])].filter((id) => !refundByUser.has(id)),
+    { kind: "session_cancelled", session_id: sessionId, start: s.start_at, reason, refund_vnd: 0 },
     `session_cancel|${sessionId}`,
   );
+  for (const [uid, refund_vnd] of refundByUser) {
+    await notifyClass(sql, s.class_id, [uid],
+      { kind: "session_cancelled", session_id: sessionId, start: s.start_at, reason, refund_vnd },
+      `session_cancel|${sessionId}`);
+  }
   await audit(sql, user.id, "cancel_session", "session", sessionId, { status: "scheduled", start_at: s.start_at }, { status: "cancelled", reason });
-  return { status: 200, body: { ok: true, notified: members.length, refunded } };
+  return { status: 200, body: { ok: true, notified: members.length, refunded, refunded_vnd: refundedVnd } };
 }
 
 /** Move one session to another time (FR-CLS-05, BR-26, BR-27). Same court, same coach. */
@@ -1312,12 +1374,14 @@ async function cancelClass(
     const extension = await rollbackExtension(sql, seat.id, settings.member_day_rate_vnd);
     const refund = Math.min(tuition + extension.refund_vnd, Math.max(0, seat.paid_vnd - seat.returned_vnd));
     if (refund <= 0) continue;
+    await sql.query(`select id from users where id = $1 for update`, [seat.user_id]);
     const code = await nextCode(sql, "PAY");
     await sql.query(
       `insert into payments (code, user_id, method, amount_vnd, vat_rate, status, ref_type, ref_id, created_by)
        values ($1,$2,'cash',$3,0,'refund_pending','enrollment',$4,null)`,
       [code, seat.user_id, -refund, seat.id],
     );
+    await reconcileLoyaltyRefund(sql, seat.user_id);
     refundByUser.set(seat.user_id, (refundByUser.get(seat.user_id) ?? 0) + refund);
     refunded += 1;
     refundedVnd += refund;
