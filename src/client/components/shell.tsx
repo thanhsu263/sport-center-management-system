@@ -1,3 +1,9 @@
+/**
+ * Layout khung giao diện chính (Shell) của ứng dụng Arena 3.
+ * File này quản lý điều hướng theo vai trò (member, receptionist, coach, manager),
+ * thanh tiêu đề (header), thanh bên (sidebar trên desktop), thanh dock và menu sheet (trên mobile),
+ * chuông thông báo (NotificationBell), tin nhắn (ChatBell), và các kiểm tra phiên làm việc/quyền hạn (Guard).
+ */
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { AssistantWidget } from "@/client/components/assistant-widget";
 import {
@@ -69,14 +75,21 @@ import { useTheme } from "@/client/lib/theme";
 import { useDialog } from "./ui";
 import { NotificationList, type Notification } from "./notifications";
 
+/**
+ * Làm gì: Hook theo dõi và lấy thông tin phiên đăng nhập của người dùng hiện tại, tự động cập nhật state khi thông tin người dùng trong storage thay đổi mà không cần tải lại trang.
+ * Được gọi ở: src/client/components/shell.tsx (Shell, Guard), src/routes/account.tsx, src/routes/chat.tsx, src/routes/alerts.tsx, src/routes/app.assistant.tsx, src/routes/app.pass.tsx.
+ * @returns Thông tin phiên đăng nhập của người dùng (SessionUser) hoặc null nếu chưa đăng nhập.
+ */
 export function useSessionUser(): SessionUser | null {
   const [u, setU] = useState<SessionUser | null>(null);
   useEffect(() => {
+    // Bước 1: Đọc thông tin user ban đầu từ storage và đăng ký lắng nghe cập nhật khi profile thay đổi
     setU(getStoredUser());
     // A profile edit rewrites the cached copy; follow it so the header shows the new name without
     // reloading the page (a reload also threw away the "Saved" the person had just been shown).
     return onStoredUserChange(() => setU(getStoredUser()));
   }, []);
+  // Bước 2: Trả về thông tin user trong state
   return u;
 }
 
@@ -176,6 +189,8 @@ const PAGE_INFO: Record<NavRole, Record<string, PageInfo>> = {
     "/desk/series": { label: tk("Fixed bookings"), icon: Repeat, group: G_OPS },
     "/manager/courts": { label: tk("Courts"), icon: LandPlot, group: G_OPS },
     "/manager/sports": { label: tk("Sports"), icon: Trophy, group: G_OPS },
+    // The manager adds gear lines here, e.g. for a sport that has just been created.
+    "/desk/gear": { label: tk("Gear"), icon: Dumbbell, group: G_OPS },
     "/desk/maintenance": { label: tk("Maintenance"), icon: Wrench, group: G_OPS },
     "/chat": { label: tk("Messages"), icon: MessageSquare, group: G_OPS },
     "/manager/staff": { label: tk("Staff"), icon: UserCog, group: G_SYSTEM },
@@ -194,7 +209,9 @@ export function pageInfo(role: NavRole, to: string): PageInfo | undefined {
 /** The role's tabs as the manager arranged them. A link the centre added opens in a new tab. */
 function navItems(role: NavRole, entries: NavEntry[]): NavItem[] {
   return entries.flatMap((e): NavItem[] => {
+    // Bước 1: Nếu là liên kết ngoài (link do trung tâm cấu hình), mở trong tab mới với icon ExternalLink
     if (isLinkTab(e.to)) return [{ to: e.to, label: e.label ?? e.to, icon: ExternalLink, group: G_LINKS, dock: e.dock, external: true }];
+    // Bước 2: Tra cứu cấu hình trang theo vai trò từ PAGE_INFO; nếu không có thì bỏ qua
     const info = PAGE_INFO[role][e.to];
     return info ? [{ ...info, to: e.to, dock: e.dock }] : [];
   });
@@ -212,14 +229,26 @@ function NavLink({
   return <Link to={item.to} {...rest} />;
 }
 
+/**
+ * Làm gì: Xác định xem một mục điều hướng (tab) có đang được kích hoạt (active) hay không dựa trên URL hiện tại và danh sách tab của vai trò.
+ * Được gọi ở: Nội bộ src/client/components/shell.tsx (các component MoreSheet, thanh điều hướng sidebar và dock dưới màn hình điện thoại).
+ * @param pathname Đường dẫn URL hiện tại của trang (ví dụ: '/app/book', '/coach/attendance').
+ * @param to Đường dẫn của mục điều hướng cần kiểm tra.
+ * @param items Danh sách các mục điều hướng đang hiển thị để so khớp độ dài đường dẫn.
+ * @returns true nếu mục điều hướng khớp với trang hiện tại, ngược lại false.
+ */
 function navActive(pathname: string, to: string, items: { to: string }[]) {
+  // Bước 1: Chuẩn hóa danh sách items thành mảng an toàn để tránh lỗi runtime nếu truyền vào không phải mảng
   const list = Array.isArray(items) ? items : [];
   // A student's profile is reached from the register, so that is the tab it belongs to.
   if (pathname.startsWith("/coach/student/")) pathname = "/coach/attendance";
   // These have their own header buttons, not tabs; "/app" must not claim them as Schedule.
   if (/^\/(app\/(assistant|notifications)|alerts|chat)(\/|$)/.test(pathname) && to === "/app") return false;
+  // Bước 2: Tìm tất cả các tab khớp chính xác hoặc là tiền tố của URL hiện tại
   const matches = list.filter((it) => pathname === it.to || pathname.startsWith(`${it.to}/`));
+  // Bước 3: Sắp xếp giảm dần theo độ dài chuỗi để chọn tab khớp tiền tố dài nhất (tránh tab cha nhận nhầm khi đang ở route con)
   const best = [...matches].sort((a, b) => b.to.length - a.to.length)[0];
+  // Bước 4: So sánh xem tab tốt nhất tìm được có đúng là tab đang xét hay không
   return best?.to === to;
 }
 
@@ -232,17 +261,20 @@ export { initials } from "@/client/lib/initials";
  * change, which is cheap and keeps it honest after a notification is opened.
  */
 function NotificationBell({ active, to }: { active: boolean; to: string }) {
+  // Bước 1: Khởi tạo state cho số lượng thông báo chưa đọc, danh sách thông báo và điều khiển popup dropdown
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const [unread, setUnread] = useState(0);
   const [items, setItems] = useState<Notification[] | null>(null);
   const [onlyNew, setOnlyNew] = useState(false);
   const { open, setOpen, ref, button, panelId, onBlur } = useDropdown();
 
+  // Bước 2: Tải số lượng thông báo chưa đọc từ server (chạy ngầm background để không chặn UI, limit=1 tối ưu băng thông)
   const fetchUnread = () => {
     void apiGet<{ unread: number }>("/me/notifications?limit=1", { background: true })
       .then((r) => setUnread(r.unread))
       .catch(() => {});
   };
+  // Bước 3: Tải danh sách 10 thông báo mới nhất khi mở dropdown và cập nhật lại số lượng chưa đọc
   const fetchList = () => {
     void apiGet<{ items: Notification[]; unread: number }>("/me/notifications?limit=10", { background: true })
       .then((r) => {
@@ -252,14 +284,17 @@ function NotificationBell({ active, to }: { active: boolean; to: string }) {
       .catch(() => setItems((cur) => cur ?? []));
   };
 
+  // Bước 4: Mỗi khi chuyển trang, tự động đóng dropdown và làm mới số lượng thông báo chưa đọc
   useEffect(() => {
     fetchUnread();
     setOpen(false);
   }, [pathname]);
+  // Bước 5: Khi người dùng bấm mở chuông thông báo (open = true), tiến hành tải danh sách thông báo
   useEffect(() => {
     if (open) fetchList();
   }, [open]);
 
+  // Bước 6: Lắng nghe sự kiện SSE realtime qua kênh 'notifications'; làm mới cả danh sách nếu đang mở hoặc chỉ cập nhật số đếm nếu đang đóng
   useLive("notifications", () => (open ? fetchList() : fetchUnread()));
 
   return (
@@ -381,10 +416,17 @@ function NotificationBell({ active, to }: { active: boolean; to: string }) {
   );
 }
 
+/**
+ * Làm gì: Hiển thị nút biểu tượng tin nhắn (MessageSquare) trên header kèm badge số lượng tin nhắn chưa đọc, dẫn đến trang /chat.
+ * Được gọi ở: src/client/components/shell.tsx (trong component Shell khi cờ tính năng f6 được kích hoạt).
+ * @param active Trạng thái kích hoạt (true khi route hiện tại bắt đầu bằng /chat).
+ * @returns Nút Link tới /chat kèm badge hiển thị số tin nhắn chưa đọc.
+ */
 function ChatBell({ active }: { active: boolean }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const [unread, setUnread] = useState(0);
 
+  // Bước 1: Gọi API /conversations ở chế độ ngầm (background) để tính tổng số tin nhắn chưa đọc từ các cuộc hội thoại.
   const fetchUnread = () => {
     void apiGet<{ conversations: Array<{ unread_count: number }> }>("/conversations", { background: true })
       .then((r) => {
@@ -394,6 +436,7 @@ function ChatBell({ active }: { active: boolean }) {
       .catch(() => {});
   };
 
+  // Bước 2: Tự động tải lại số lượng tin nhắn chưa đọc mỗi khi người dùng chuyển trang (pathname thay đổi).
   useEffect(() => {
     fetchUnread();
   }, [pathname]);
@@ -402,6 +445,7 @@ function ChatBell({ active }: { active: boolean }) {
   // count rides on `notifications`, which is what has been carrying it anyway.
   useLive("notifications", fetchUnread);
 
+  // Bước 3: Render nút Link điều hướng đến /chat, hiển thị badge màu đỏ nếu có tin nhắn chưa đọc (tối đa hiển thị "9+").
   return (
     <Link
       to="/chat"
@@ -428,13 +472,20 @@ function ChatBell({ active }: { active: boolean }) {
  * not provide. So it is a plain list of links: Tab walks through it, Escape closes it and hands
  * focus back to the button, and tabbing out of it closes it instead of leaving it hanging open.
  */
+/**
+ * Làm gì: Quản lý trạng thái đóng/mở dropdown (disclosure widget), tự động đóng khi click ra ngoài (click away), nhấn phím Escape hoặc di chuyển focus ra ngoài (blur).
+ * Được gọi ở: src/client/components/shell.tsx (trong NotificationBell và AccountMenu).
+ * @returns Đối tượng chứa trạng thái open, hàm setOpen, ref của container và button, panelId cho ARIA accessibility, và handler onBlur.
+ */
 function useDropdown() {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const button = useRef<HTMLButtonElement>(null);
   const panelId = useId();
+  // Bước 1: Đăng ký lắng nghe sự kiện mousedown (đóng khi click ra ngoài) và keydown (đóng khi nhấn phím Escape) khi dropdown đang mở.
   useEffect(() => {
     if (!open) return;
+    // Xử lý đóng dropdown khi người dùng click chuột ra ngoài vùng menu.
     const away = (e: MouseEvent) => {
       const el = e.target as Element;
       // A notification opened from the bell shows in a dialog; clicking in it, or on the dimmed page
@@ -442,6 +493,7 @@ function useDropdown() {
       if (el.closest?.("[role=dialog],[role=presentation]")) return;
       if (!ref.current?.contains(el)) setOpen(false);
     };
+    // Đóng dropdown và trả lại tiêu điểm (focus) cho nút kích hoạt khi người dùng nhấn phím Escape.
     const esc = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
       // Escape belongs to the dialog while one is up; the panel it was opened from stays.
@@ -465,10 +517,21 @@ function useDropdown() {
     if (!open || !(next instanceof Element) || e.currentTarget.contains(next)) return;
     if (!next.closest("[role=dialog]")) setOpen(false);
   };
+  // Bước 2: Trả về trạng thái mở/đóng, các ref phần tử DOM và hàm xử lý onBlur để gắn vào nút bấm và panel dropdown.
   return { open, setOpen, ref, button, panelId, onBlur };
 }
 
 /** Avatar button that opens the account menu. */
+/**
+ * Làm gì: Hiển thị avatar người dùng và menu dropdown tài khoản (Cài đặt tài khoản, Đăng xuất). Hỗ trợ hiển thị dạng bung lên ở chân Sidebar hoặc bung xuống ở header.
+ * Được gọi ở: src/client/components/shell.tsx (trong Sidebar dòng 720 và component Shell dòng 842).
+ * @param user Thông tin người dùng hiện tại (họ tên, avatar) hoặc null nếu chưa đăng nhập.
+ * @param role Vai trò của người dùng trong hệ thống để hiển thị nhãn chức danh.
+ * @param showName Cờ cho phép hiển thị tên và vai trò cạnh avatar trên màn hình lớn.
+ * @param onLogout Callback xử lý đăng xuất khi người dùng chọn Đăng xuất.
+ * @param up Tùy chọn mở menu hướng lên trên khi đặt ở chân thanh Sidebar.
+ * @returns Component dropdown quản lý tài khoản người dùng.
+ */
 function AccountMenu({
   user,
   role,
@@ -483,8 +546,10 @@ function AccountMenu({
   /** In the sidebar foot: the menu opens upward and the name shows only when the rail is wide. */
   up?: boolean;
 }) {
+  // Bước 1: Khởi tạo hook quản lý trạng thái đóng/mở và xử lý tương tác focus/blur cho menu tài khoản.
   const { open, setOpen, ref, button, panelId, onBlur } = useDropdown();
 
+  // Bước 2: Render nút bấm avatar kèm animation bung menu chứa liên kết Cài đặt tài khoản (/account) và nút Đăng xuất.
   return (
     <div ref={ref} onBlur={onBlur} className="relative">
       <button
@@ -557,17 +622,36 @@ function AccountMenu({
 }
 
 /** Items split into their groups, in the order each group first appears in the role's list. */
+/**
+ * Làm gì: Gom nhóm các mục điều hướng (NavItem) theo thuộc tính group, giữ nguyên thứ tự xuất hiện đầu tiên của từng nhóm.
+ * Được gọi ở: src/client/components/shell.tsx (trong MoreSheet dòng 602, Sidebar dòng 683, Shell dòng 763).
+ * @param items Danh sách các mục điều hướng cần phân nhóm.
+ * @returns Mảng NavGroup[] chứa tên nhóm và danh sách các NavItem thuộc từng nhóm.
+ */
 function grouped(items: NavItem[]): NavGroup[] {
+  // Bước 1: Khởi tạo mảng chứa kết quả các nhóm điều hướng.
   const out: NavGroup[] = [];
+  // Bước 2: Duyệt từng mục điều hướng; nếu nhóm đã tồn tại thì push vào nhóm đó, nếu chưa thì tạo nhóm mới.
   for (const it of items) {
     const bucket = out.find((g) => g.group === it.group);
     if (bucket) bucket.items.push(it);
     else out.push({ group: it.group, items: [it] });
   }
+  // Bước 3: Trả về danh sách các nhóm đã được phân loại hoàn chỉnh.
   return out;
 }
 
 /** Phone: a slide-up sheet with the tabs that do not fit in the bottom bar. */
+/**
+ * Làm gì: Hiển thị bottom sheet trượt từ cạnh dưới màn hình trên thiết bị di động (< lg) chứa các mục điều hướng phụ không vừa thanh bottom bar.
+ * Được gọi ở: src/client/components/shell.tsx trong component Shell (dòng 929).
+ * @param items Danh sách các mục điều hướng phụ cần hiển thị trong sheet.
+ * @param pathname Đường dẫn URL hiện tại để đánh dấu tab đang được chọn (active).
+ * @param all Toàn bộ danh sách mục điều hướng để hàm navActive tính toán độ ưu tiên route.
+ * @param open Trạng thái mở hoặc đóng của bottom sheet.
+ * @param onClose Callback đóng bottom sheet khi người dùng chọn tab hoặc bấm ra ngoài.
+ * @returns Giao diện modal sheet trên mobile hoặc null nếu đang đóng.
+ */
 function MoreSheet({
   items,
   pathname,
@@ -581,10 +665,13 @@ function MoreSheet({
   open: boolean;
   onClose: () => void;
 }) {
+  // Bước 1: Khởi tạo ref tới phần tử panel của bottom sheet và kích hoạt hook quản lý focus trap / phím Escape.
   const panel = useRef<HTMLDivElement>(null);
   // Focus moves into the sheet, Tab stays in it, Escape closes it, focus returns to "More".
   useDialog(open, panel, onClose);
+  // Bước 2: Nếu sheet không mở thì không render gì ra DOM để tối ưu hiệu năng.
   if (!open) return null;
+  // Bước 3: Render lớp phủ nền (backdrop) và panel trượt từ dưới lên, chia các mục điều hướng theo nhóm dạng lưới 3 cột.
   return (
     <div className="fixed inset-0 z-40 lg:hidden">
       <div role="presentation" aria-hidden="true" className="absolute inset-0 bg-fg/40 backdrop-blur-[2px]" onClick={onClose} />
@@ -630,10 +717,19 @@ function MoreSheet({
 }
 
 /** Light/dark switch. `wide` shows the label beside the icon (sidebar expanded, phone sheet). */
+/**
+ * Làm gì: Nút chuyển đổi giao diện sáng/tối (light/dark mode) của ứng dụng thông qua hook useTheme.
+ * Được gọi ở: src/client/components/shell.tsx trong Sidebar (dòng 718).
+ * @param className Các class CSS tùy biến giao diện cho nút chuyển đổi theme.
+ * @param showLabel Cờ xác định việc luôn hiển thị chữ mô tả chế độ (Dark mode / Light mode) bên cạnh icon.
+ * @returns Nút button bấm chuyển đổi qua lại giữa theme sáng và tối.
+ */
 function ThemeToggle({ className, showLabel }: { className?: string; showLabel?: boolean }) {
+  // Bước 1: Lấy theme hiện tại và hàm cập nhật theme từ hook useTheme.
   const [theme, set] = useTheme();
   const light = theme === "light";
   const label = light ? t("Dark mode") : t("Light mode");
+  // Bước 2: Render nút bấm chuyển đổi giữa dark mode và light mode, hiển thị icon Sun hoặc Moon tương ứng.
   return (
     <button
       type="button"
@@ -656,6 +752,17 @@ function ThemeToggle({ className, showLabel }: { className?: string; showLabel?:
  * page (the page does not move) and shows each name. Language, light/dark and the account live
  * at its foot, so the top bar keeps only what is new: messages and notifications.
  */
+/**
+ * Làm gì: Thanh menu điều hướng dọc bên trái cố định cho màn hình máy tính (>= lg). Tự động mở rộng từ w-16 lên w-60 khi hover hoặc focus để hiển thị đầy đủ tên các mục điều hướng.
+ * Được gọi ở: src/client/components/shell.tsx trong component Shell (dòng 799).
+ * @param items Danh sách các mục điều hướng chính theo vai trò của người dùng.
+ * @param pathname Đường dẫn URL hiện tại để đánh dấu mục menu đang kích hoạt (active).
+ * @param extra Các mục điều hướng phụ được bổ sung trên màn hình máy tính.
+ * @param user Thông tin người dùng hiện tại để hiển thị ở chân thanh điều hướng.
+ * @param role Vai trò người dùng để hiển thị nhãn chức danh tương ứng.
+ * @param onLogout Callback thực hiện đăng xuất khi người dùng chọn Sign out trong menu tài khoản.
+ * @returns Thanh điều hướng aside cố định bên trái màn hình desktop.
+ */
 function Sidebar({
   items,
   pathname,
@@ -671,7 +778,9 @@ function Sidebar({
   role: SessionUser["role"];
   onLogout: () => void;
 }) {
+  // Bước 1: Gộp danh sách các mục điều hướng chính và phụ để hiển thị đầy đủ trên thanh điều hướng desktop.
   const all = [...items, ...extra];
+  // Bước 2: Render thanh aside dạng rail cố định bên trái, tự bung rộng khi hover/focus-within và gom nhóm các mục điều hướng qua hàm grouped.
   return (
     <aside
       aria-label={t("Main menu")}
@@ -722,8 +831,23 @@ function Sidebar({
   );
 }
 
+/**
+ * Làm gì: Xuất lại hàm roleLabel từ shared/arena3/labels để chuyển đổi mã vai trò người dùng (manager, receptionist, coach, member) sang tên hiển thị đa ngôn ngữ.
+ * Được gọi ở: src/client/components/new-chat.tsx, src/routes/chat.tsx.
+ * @param s Mã vai trò người dùng.
+ * @returns Tên vai trò hiển thị tương ứng theo ngôn ngữ hiện tại.
+ */
 export { roleLabel };
 
+/**
+ * Làm gì: Component khung giao diện (layout shell) chính cho người dùng đã đăng nhập; quản lý bố cục trang gồm Sidebar (desktop), Header (logo, chuông thông báo, đổi ngôn ngữ, menu tài khoản), thanh Dock/Sheet (mobile) và widget trợ lý ảo.
+ * Được gọi ở: Các trang sau đăng nhập như src/routes/app.*.tsx, src/routes/desk.*.tsx, src/routes/coach.*.tsx, src/routes/manager.*.tsx, src/routes/account.tsx, src/routes/alerts.tsx, src/routes/chat.tsx.
+ * @param children Nội dung chính của trang được bọc bên trong khung layout.
+ * @param title Tiêu đề trang hiển thị ở đầu nội dung và đồng bộ vào tiêu đề tab trình duyệt.
+ * @param subtitle Phụ đề mô tả ngắn cho trang, hiển thị dưới tiêu đề chính.
+ * @param role Vai trò của người dùng hiện tại (member, receptionist, coach, manager) để cấu hình danh mục menu phù hợp.
+ * @returns Giao diện khung layout hoàn chỉnh của trang kèm các thanh điều hướng.
+ */
 export function Shell({
   children,
   title,
@@ -735,6 +859,7 @@ export function Shell({
   subtitle?: string;
   role: SessionUser["role"];
 }) {
+  // Bước 1: Khởi tạo các hook điều hướng, lấy URL hiện tại, dữ liệu phiên làm việc và cờ tính năng F6 (chat/AI).
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const user = useSessionUser();
@@ -745,6 +870,7 @@ export function Shell({
   // worse than a button that briefly 403s.
   const { ui } = useCentre();
   useSports(); // loads the sport catalog so sportLabel() shows DB names everywhere
+  // Bước 2: Lấy danh sách menu điều hướng từ cấu hình trung tâm (ui.nav), lọc bỏ mục chat và trợ lý nếu cờ F6 chưa bật.
   const navRole = role in ui.nav ? (role as NavRole) : null;
   const items = (navRole ? navItems(navRole, ui.nav[navRole]) : []).filter(
     (it) => f6 || (it.to !== "/chat" && it.to !== "/app/assistant"),
@@ -753,6 +879,7 @@ export function Shell({
   // A single tab is not a choice — it just repeats the page heading back at
   // you, which is why the coach screen read "Teaching / Teaching". Roles with
   // one destination get a plain wordmark and no nav at all.
+  // Bước 3: Phân loại mục điều hướng cho thanh dock cố định dưới đáy mobile (dockItems) và menu mở rộng (sheetItems).
   const showNav = items.length > 1;
   const dockItems = items.filter((it) => it.dock !== false);
   const sheetItems = items.filter((it) => it.dock === false);
@@ -768,6 +895,7 @@ export function Shell({
   useEffect(() => setSheet(false), [pathname]);
 
   // The browser tab and history say which screen this is, not just "Lê Long Sport" on every one.
+  // Bước 4: Khớp đường dẫn hiện tại với danh sách menu để lấy tên trang và cập nhật tiêu đề tab trình duyệt (document.title).
   const navLabel = [...items]
     .filter((it) => pathname === it.to || pathname.startsWith(`${it.to}/`))
     .sort((a, b) => b.to.length - a.to.length)
@@ -777,18 +905,27 @@ export function Shell({
     document.title = pageName ? `${pageName} · Lê Long Sport` : "Lê Long Sport";
   }, [pageName]);
 
+  /**
+   * Làm gì: Xử lý đăng xuất tài khoản; xóa phiên ở client ngay lập tức để giao diện không bị giật và tránh gọi API với token cũ, đồng thời gửi request hủy phiên lên server và chuyển hướng về trang chủ.
+   * Được gọi ở: Shell (truyền vào onLogout của Sidebar và AccountMenu).
+   * @returns Promise<void> hoàn tất sau khi hoàn thành yêu cầu đăng xuất.
+   */
   async function logout() {
     // Drop the local session immediately, before awaiting the server call.
     // `api()` reads the token synchronously, so the logout request still carries
     // it — but any fetch a page fires while that request is in flight would
     // otherwise go out with a token the server has already deleted and pop an
     // alarming "That session is not valid." toast on a *successful* sign-out.
+    // Bước 1: Gửi request đăng xuất lên server dưới nền; bắt lỗi để đảm bảo client vẫn đăng xuất thành công dù mạng chập chờn.
     const done = apiPost("/auth/logout").catch(() => undefined);
+    // Bước 2: Xóa ngay phiên đăng nhập ở local storage và chuyển hướng người dùng về trang chủ "/".
     clearSession();
     navigate({ to: "/" });
+    // Bước 3: Chờ server hoàn tất xử lý hủy phiên đăng nhập.
     await done;
   }
 
+  // Bước 5: Render layout hoàn chỉnh gồm Sidebar (desktop), Header, vùng nội dung Main, widget trợ lý và thanh Dock (mobile).
   return (
     // `isolate` gives the page its own stacking context, so a background field at `-z-[1]` (the
     // desk's dot grid) paints above the body's own background instead of disappearing behind it.
@@ -931,6 +1068,13 @@ export function Shell({
   );
 }
 
+/**
+ * Làm gì: Component bảo vệ phân quyền (route guard); chặn truy cập trái phép, điều hướng người dùng chưa đăng nhập về /login (kèm lưu URL để quay lại sau khi đăng nhập), chuyển người dùng sai vai trò về trang chủ tương ứng, và hiển thị màn hình chờ khi đang kiểm tra phiên.
+ * Được gọi ở: Các route yêu cầu quyền đăng nhập như src/routes/app.tsx, src/routes/coach.tsx, src/routes/desk.tsx, src/routes/manager.tsx, src/routes/account.tsx, src/routes/alerts.tsx, src/routes/chat.tsx.
+ * @param roles Danh sách các vai trò được phép truy cập nội dung bên trong Guard.
+ * @param children Các component hoặc giao diện con được hiển thị khi người dùng hợp lệ.
+ * @returns Màn hình loading khi đang xác thực hoặc nội dung children khi người dùng có quyền hợp lệ.
+ */
 export function Guard({
   roles,
   children,
@@ -938,6 +1082,7 @@ export function Guard({
   roles: SessionUser["role"][];
   children: ReactNode;
 }) {
+  // Bước 1: Khởi tạo hook điều hướng và state quản lý trạng thái tải phiên (ready) cùng thông tin người dùng (user).
   const navigate = useNavigate();
   const [ready, setReady] = useState(false);
   const [user, setUser] = useState<SessionUser | null>(null);
@@ -949,6 +1094,7 @@ export function Guard({
   const roleKey = roles.join(",");
 
   useEffect(() => {
+    // Bước 2: Đọc token và dữ liệu phiên làm việc từ local storage để kiểm tra trạng thái đăng nhập.
     const allowed = roleKey.split(",") as SessionUser["role"][];
     const u = getStoredUser();
     const tok = getToken();
@@ -962,10 +1108,12 @@ export function Guard({
       navigate({ to: "/login" });
       return;
     }
+    // Bước 3: So sánh vai trò của người dùng với danh sách vai trò được cấp phép (allowed). Nếu không khớp, chuyển hướng về trang chủ của vai trò đó.
     if (!allowed.includes(u.role)) {
       navigate({ to: homeFor(u.role) });
       return;
     }
+    // Bước 4: Lưu thông tin người dùng hợp lệ vào state, đánh dấu sẵn sàng hiển thị và gọi ngầm /me để xác thực phiên với server.
     setUser(u);
     setReady(true);
     // Checks in the background that the session is still good. A 401 is handled inside the client
@@ -975,6 +1123,7 @@ export function Guard({
     void apiGet("/me", { background: true }).catch(() => {});
   }, [navigate, roleKey]);
 
+  // Bước 5: Khi phiên đăng nhập đang được kiểm tra, hiển thị màn hình chờ toàn trang với logo ArenaMark chuyển động.
   if (!ready || !user) {
     return (
       // Visible in the server render (no initial opacity: 0), so the first frame is the brand
@@ -993,6 +1142,7 @@ export function Guard({
       </div>
     );
   }
+  // Bước 6: Người dùng đã xác thực hợp lệ và đúng vai trò, render toàn bộ nội dung con (children).
   return <>{children}</>;
 }
 
@@ -1001,6 +1151,12 @@ export function money(n: number) {
   return new Intl.NumberFormat(locale()).format(n) + "đ";
 }
 
+/**
+ * Làm gì: Định dạng chuỗi mốc thời gian ISO sang dạng ngày giờ thân thiện theo ngôn ngữ giao diện và múi giờ Việt Nam (Asia/Ho_Chi_Minh, chuẩn 24 giờ).
+ * Được gọi ở: src/client/components/class-detail.tsx, src/client/components/my-attendance.tsx, src/client/components/notifications.tsx, src/routes/app.classes.tsx.
+ * @param iso Chuỗi mốc thời gian định dạng chuẩn ISO (ví dụ: "2026-11-16T19:00:00Z").
+ * @returns Chuỗi ngày giờ đã bản địa hóa (ví dụ: "19:00, 16 thg 11" theo vi-VN hoặc "19:00, Nov 16" theo en-US).
+ */
 export function when(iso: string) {
   return new Date(iso).toLocaleString(locale(), {
     timeZone: "Asia/Ho_Chi_Minh",
@@ -1012,6 +1168,12 @@ export function when(iso: string) {
   });
 }
 
+/**
+ * Làm gì: Định dạng chuỗi mốc thời gian ISO chỉ lấy giờ và phút (HH:mm) theo múi giờ Việt Nam (Asia/Ho_Chi_Minh, chuẩn 24 giờ).
+ * Được gọi ở: src/client/components/class-detail.tsx, src/client/components/coach-training.tsx, src/routes/app.index.tsx, src/routes/app.train.tsx.
+ * @param iso Chuỗi mốc thời gian định dạng chuẩn ISO.
+ * @returns Chuỗi giờ phút 2 chữ số dạng "HH:mm" (ví dụ: "08:30", "19:00").
+ */
 export function hhmm(iso: string) {
   return new Date(iso).toLocaleTimeString(locale(), {
     timeZone: "Asia/Ho_Chi_Minh",

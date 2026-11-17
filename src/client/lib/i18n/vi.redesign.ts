@@ -581,6 +581,7 @@ export const redesign: Record<string, string> = {
   "Your upcoming classes": "Lớp học sắp tới của bạn",
   "Manage classes": "Quản lý lớp học",
   "Capacity must be a whole number from 1 to {max}.": "Sức chứa phải là số nguyên từ 1 đến {max}.",
+  "A class cannot start or end in the past. Pick today or a later first day.": "Không được tạo lớp bắt đầu hoặc kết thúc trong quá khứ. Hãy chọn ngày đầu tiên từ hôm nay trở đi.",
   "Photo description (English)": "Mô tả ảnh (tiếng Anh)",
   "Photo description (Vietnamese)": "Mô tả ảnh (tiếng Việt)",
   "Starts at": "Bắt đầu lúc",

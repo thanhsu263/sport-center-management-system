@@ -373,7 +373,7 @@ export const member: Record<string, string> = {
   "Below minimum · {n} more needed": "Dưới mức tối thiểu · cần thêm {n}",
   "Minimum to run: {n}": "Tối thiểu để mở lớp: {n}",
   "Add to Google Calendar": "Thêm vào Google Calendar",
-  "{n} more needed for this class to run": "Cần thêm {n} người để lớp được mở",
+  "{n} more to reach the class minimum": "Còn {n} người nữa là đủ số tối thiểu của lớp",
   "Edit capacity and minimum": "Sửa sĩ số và mức tối thiểu",
   "valid until {date}": "hiệu lực đến {date}",
   "Certification added": "Đã thêm chứng chỉ",
