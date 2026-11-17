@@ -1,3 +1,11 @@
+/**
+ * Tệp này cấu hình hiệu ứng cuộn mượt (momentum scrolling) cho Landing Page bằng GSAP ScrollSmoother.
+ * Vai trò trong ứng dụng:
+ * - Bọc toàn bộ các phần của Landing Page (src/routes/index.tsx) trong cấu trúc #smooth-wrapper và #smooth-content.
+ * - Cung cấp hook useLandingScroll và hàm scrollToId để hỗ trợ cuộn mượt đến các section nội bộ (#schedule, #courts...).
+ * - Xử lý bù trừ chiều cao cho fixed header (HEADER_OFFSET = 72px) để không bị che khuất nội dung khi nhảy anchor.
+ * - Tự động đồng bộ lại ScrollTrigger qua ResizeObserver khi kích thước nội dung thay đổi, đồng thời hỗ trợ chế độ giảm chuyển động (calm mode).
+ */
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useRef, type ReactNode } from "react";
 import { ScrollSmoother } from "gsap/ScrollSmoother";
 import { ScrollTrigger, motionOff, registerGsap } from "@/client/lib/gsap";
@@ -7,6 +15,11 @@ registerGsap(ScrollTrigger, ScrollSmoother);
 
 /** Room the fixed header takes at the top, so an anchor lands below it rather than under it. */
 const HEADER_OFFSET = 72;
+/**
+ * Làm gì: Hook isomorphic layout effect, tự động chọn useEffect khi chạy SSR trên server và useLayoutEffect khi chạy trên browser nhằm tránh cảnh báo hydration của React.
+ * Được gọi ở: src/client/components/landing/smoother.tsx (component SmootherBoot).
+ * @returns Hook layout effect phù hợp với môi trường hiện tại (useEffect hoặc useLayoutEffect).
+ */
 const useIso = typeof window === "undefined" ? useEffect : useLayoutEffect;
 
 type Scroller = { scrollToId: (id: string) => void };
@@ -35,8 +48,10 @@ export function LandingSmoother({ header, children }: { header: ReactNode; child
   const smoother = useRef<ScrollSmoother | null>(null);
 
   const scrollToId = useCallback((id: string) => {
+    // Bước 1: Tìm phần tử mục tiêu theo id trong DOM, nếu không tìm thấy thì dừng
     const el = document.getElementById(id);
     if (!el) return;
+    // Bước 2: Cuộn đến phần tử mục tiêu, dùng ScrollSmoother (trừ hao HEADER_OFFSET 72px) hoặc fallback về scrollIntoView native
     if (smoother.current) smoother.current.scrollTo(el, true, `top ${HEADER_OFFSET}px`);
     else el.scrollIntoView({ behavior: motionOff(calmRef.current) ? "auto" : "smooth", block: "start" });
   }, []);
@@ -44,6 +59,7 @@ export function LandingSmoother({ header, children }: { header: ReactNode; child
   // In-page links (#schedule, #courts…) anywhere on the page, the header included.
   useEffect(() => {
     const onClick = (e: MouseEvent) => {
+      // Chỉ xử lý click chuột trái thông thường, bỏ qua nếu bấm kèm phím bổ trợ (Ctrl/Cmd/Shift/Alt) để người dùng mở tab mới
       if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
       const a = (e.target as Element | null)?.closest?.('a[href^="#"]');
       const id = a?.getAttribute("href")?.slice(1);
@@ -57,6 +73,7 @@ export function LandingSmoother({ header, children }: { header: ReactNode; child
     return () => document.removeEventListener("click", onClick);
   }, [scrollToId]);
 
+  // Bọc header cố định bên ngoài và nội dung bên trong smooth-wrapper/smooth-content để GSAP áp dụng transform cuộn mượt
   return (
     <Ctx.Provider value={{ scrollToId }}>
       {header}
@@ -72,13 +89,22 @@ export function LandingSmoother({ header, children }: { header: ReactNode; child
   );
 }
 
+/**
+ * Làm gì: Khởi tạo instance ScrollSmoother của GSAP, thiết lập các bộ lắng nghe sự kiện cuộn/focus bàn phím và làm mới ScrollTrigger khi DOM thay đổi kích thước.
+ * Được gọi ở: src/client/components/landing/smoother.tsx (component LandingSmoother, làm phần tử con đầu tiên trong #smooth-content).
+ * @param calm Cờ bật chế độ giảm chuyển động (calm mode), nếu true thì bỏ qua không tạo ScrollSmoother.
+ * @param smoother Ref chứa instance ScrollSmoother để chia sẻ ngược lại cho component cha LandingSmoother.
+ * @returns Thẻ span ẩn đóng vai trò probe để xác định phần tử #smooth-content và thẻ cha wrapper trong DOM.
+ */
 function SmootherBoot({ calm, smoother }: { calm: boolean; smoother: { current: ScrollSmoother | null } }) {
   const probe = useRef<HTMLSpanElement>(null);
 
   useIso(() => {
+    // Bước 1: Xác định phần tử content và wrapper từ probe; dừng lại nếu thiếu DOM hoặc người dùng bật calm mode
     const content = probe.current?.closest<HTMLElement>("#smooth-content");
     const wrapper = content?.parentElement;
     if (!content || !wrapper || motionOff(calm)) return;
+    // Bước 2: Tạo ScrollSmoother với thời gian quán tính 1.1s và lưu instance vào ref để LandingSmoother dùng
     const s = ScrollSmoother.create({
       wrapper,
       content,
@@ -91,6 +117,7 @@ function SmootherBoot({ calm, smoother }: { calm: boolean; smoother: { current: 
     // The wrapper clips, but the browser can still scroll it: to bring a focused element into
     // view (Tab through the page) or for a hash. The smoother would then add its own offset on
     // top and the page would sit twice as far down. Hand any such scroll to the smoother instead.
+    // Bước 3: Đón chặn sự kiện cuộn tự nhiên trên wrapper để chuyển giao toàn bộ quãng cuộn cho ScrollSmoother
     const onWrapperScroll = () => {
       const y = wrapper.scrollTop;
       if (!y) return;
@@ -100,6 +127,7 @@ function SmootherBoot({ calm, smoother }: { calm: boolean; smoother: { current: 
     wrapper.addEventListener("scroll", onWrapperScroll);
     // Keyboard focus that lands outside the view (Tab, Shift+Tab, a skip link) is brought into it;
     // the browser cannot do that on its own through a transformed, clipped content box.
+    // Bước 4: Tự động cuộn đến phần tử khi người dùng dùng bàn phím chuyển focus (phím Tab) vào ngoài tầm nhìn
     const onFocus = (e: FocusEvent) => {
       const el = e.target as HTMLElement | null;
       if (!el || !content.contains(el)) return;
@@ -109,10 +137,12 @@ function SmootherBoot({ calm, smoother }: { calm: boolean; smoother: { current: 
     };
     content.addEventListener("focusin", onFocus);
     // Arriving on a URL with an in-page hash (/#schedule, /#courts) should land on that section, not on the hero.
+    // Bước 5: Nếu URL có sẵn hash (#courts, #schedule...), cuộn đến section tương ứng sau khi layout sẵn sàng
     const id = location.hash.slice(1);
     if (id && document.getElementById(id)) {
       requestAnimationFrame(() => s.scrollTo(`#${id}`, false, `top ${HEADER_OFFSET}px`));
     }
+    // Bước 6: Hủy các event listener, gọi s.kill() và giải phóng ref smoother khi component unmount
     return () => {
       wrapper.removeEventListener("scroll", onWrapperScroll);
       content.removeEventListener("focusin", onFocus);
@@ -128,10 +158,13 @@ function SmootherBoot({ calm, smoother }: { calm: boolean; smoother: { current: 
     if (!content || typeof ResizeObserver === "undefined") return;
     let t = 0;
     let last = content.offsetHeight;
+    // Khởi tạo ResizeObserver theo dõi thay đổi chiều cao của content để làm mới các mốc ScrollTrigger
     const ro = new ResizeObserver(() => {
+      // Bỏ qua biến động dưới 2px (subpixel rounding) để tránh vòng lặp kích hoạt refresh liên tục
       if (Math.abs(content.offsetHeight - last) < 2) return;
       last = content.offsetHeight;
       window.clearTimeout(t);
+      // Chờ 160ms (debounce) sau khi chiều cao ổn định mới gọi ScrollTrigger.refresh() nhằm tránh giật khung hình
       t = window.setTimeout(() => ScrollTrigger.refresh(), 160);
     });
     ro.observe(content);

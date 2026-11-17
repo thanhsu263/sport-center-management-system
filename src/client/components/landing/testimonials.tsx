@@ -1,3 +1,8 @@
+/**
+ * File: src/client/components/landing/testimonials.tsx
+ * Vai trò: Hiển thị khối cảm nhận của hội viên (Testimonials) dạng bộ thẻ xếp chồng 3D (card deck) trên Landing Page.
+ * Vị trí trong app: Được render tại trang chủ Landing Page (src/routes/index.tsx), sử dụng GSAP để tạo hiệu ứng chuyển động lật thẻ mượt mà khi người dùng tương tác.
+ */
 import { useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, Quote } from "lucide-react";
 import { Card } from "@/client/components/ui";
@@ -32,14 +37,20 @@ const TESTIMONIALS = [
   },
 ];
 
+// Khoảng cách dịch chuyển (offset tính bằng px) giữa các thẻ trong bộ thẻ (deck), tạo hiệu ứng xếp lớp 3D
 const OFFSET = 24;
 /** Where a card sits `d` places behind the front one. */
 const at = (d: number, n: number) => ({
   x: d * OFFSET,
+  // Nhấc nhẹ thẻ phía sau lên trên 55% khoảng cách offset để lộ phần viền đỉnh thẻ
   y: d * -OFFSET * 0.55,
+  // Thu nhỏ dần 5.5% mỗi tầng thẻ phía sau để tạo chiều sâu không gian (perspective)
   scale: 1 - d * 0.055,
+  // Xoay nhẹ 1.6 độ mỗi tầng để các thẻ xếp hơi lệch tự nhiên như bộ bài thật
   rotation: d * 1.6,
+  // Chỉ hiển thị tối đa 3 thẻ đầu tiên (d <= 2); các thẻ sâu hơn ẩn hẳn (autoAlpha = 0) để tối ưu hiệu năng render
   autoAlpha: d > 2 ? 0 : 1,
+  // Thẻ trước cùng (d = 0) có zIndex cao nhất (= n), thẻ càng xa phía sau zIndex càng nhỏ
   zIndex: n - d,
 });
 
@@ -52,32 +63,45 @@ const at = (d: number, n: number) => ({
  * same transform. The cards behind are `aria-hidden`; the controls are what keyboard and
  * screen-reader users drive.
  */
+/**
+ * Làm gì: Hiển thị khối cảm nhận của hội viên (Testimonials) dạng bộ thẻ xếp chồng 3D với hiệu ứng GSAP khi lật xem từng đánh giá.
+ * Được gọi ở: src/routes/index.tsx (component Testimonials tại trang chủ Landing Page).
+ * @returns Khối section JSX gồm tiêu đề giới thiệu, khung thẻ bài xếp chồng và bộ điều khiển chuyển thẻ (Prev/Next, dots chỉ số).
+ */
 export function Testimonials() {
+  // Bước 1: Khởi tạo các ref tham chiếu DOM, state chỉ số thẻ hiện tại (i) và trạng thái giảm chuyển động (calm)
   const root = useRef<HTMLElement>(null);
   const deck = useRef<HTMLDivElement>(null);
   const [i, setI] = useState(0);
   const calm = useCalm();
   const n = TESTIMONIALS.length;
+  // Hàm chuyển thẻ lùi/tiến theo vòng tròn (modulo n), cộng thêm n để đảm bảo chỉ số không bao giờ âm khi d = -1
   const step = (d: number) => setI((prev) => (prev + d + n) % n);
 
+  // Bước 2: Kích hoạt hiệu ứng xuất hiện cuộn trang (rise) cho tiêu đề và nội dung khi cuộn vào tầm nhìn
   useScene(root, ({ motion }) => {
     if (motion && root.current) rise(root.current, "[data-rise]");
   });
 
+  // Bước 3: Đồng bộ chuyển động của các thẻ bài qua GSAP mỗi khi chỉ số thẻ (i) hoặc chế độ giảm chuyển động thay đổi
   useGSAP(
     () => {
       const cards = gsap.utils.toArray<HTMLElement>("[data-quote]", deck.current);
+      // Kiểm tra chế độ giảm chuyển động; nếu người dùng bật calm hoặc prefers-reduced-motion thì thời gian tween = 0 (chuyển tức thì)
       const still = motionOff(calm);
       cards.forEach((card, k) => {
+        // Tính toán vị trí tương đối của thẻ k so với thẻ hiện tại i theo vòng tròn n thẻ
         const { zIndex, ...pose } = at((k - i + n) % n, n);
         // The new front card comes up on top at once; everything else glides to its place.
         gsap.set(card, { zIndex });
+        // Animate các thuộc tính vị trí trong 0.65s với gia tốc 'arena'; overwrite: true giúp hủy tween cũ nếu người dùng bấm chuyển thẻ liên tục
         gsap.to(card, { ...pose, duration: still ? 0 : 0.65, ease: "arena", overwrite: true });
       });
     },
     { dependencies: [i, calm], scope: deck },
   );
 
+  // Bước 4: Render cấu trúc giao diện gồm tiêu đề, khung thẻ bài xếp chồng và các nút điều khiển
   return (
     <section ref={root} aria-label={t("What members say")} className="mx-auto max-w-6xl px-4 pb-24">
       <p data-rise className="kicker text-2xs text-muted">

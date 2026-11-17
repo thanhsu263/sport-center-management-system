@@ -1,3 +1,9 @@
+/**
+ * File: src/client/components/arena-icons.tsx
+ * Vai trò: Cung cấp các biểu tượng SVG chuyên biệt và hiệu ứng vi mô (micro-animations) cho hệ thống Arena 3.
+ * Vị trí trong app: Bổ sung các icon thể thao mà thư viện Lucide còn thiếu (bóng rổ, bóng chuyền, cầu lông, còi, thẻ quét QR...)
+ * cùng hệ lưới 24x24 px nét vẽ 1.75 strokeWidth, được sử dụng trên bảng điều khiển HLV, danh sách lớp học, thẻ hội viên và các nút thao tác.
+ */
 import type { ReactNode } from "react";
 import { cn } from "@/client/lib/cn";
 
@@ -16,6 +22,10 @@ export type ArenaIconName =
   | "volleyball"
   | "whistle";
 
+/**
+ * Làm gì: Bảng tra cứu (lookup table) lưu trữ các phần tử hình vẽ SVG (path, circle, rect, ellipse) cho từng icon trong ArenaIconName trên lưới 24x24 px.
+ * Được gọi ở: Nội bộ file src/client/components/arena-icons.tsx (trong component ArenaIcon để kết xuất hình ảnh icon).
+ */
 const PATHS: Record<ArenaIconName, ReactNode> = {
   basketball: (
     <>
@@ -136,8 +146,19 @@ const PATHS: Record<ArenaIconName, ReactNode> = {
   ),
 };
 
+// Tập hợp các hiệu ứng chuyển động vi mô (CSS animations) hỗ trợ cho icon, định nghĩa trong src/styles.css qua tiền tố .ai-*
 export type IconMotion = "bounce" | "wiggle" | "swing" | "float" | "pop";
 
+/**
+ * Làm gì: Hiển thị icon SVG thể thao tùy chỉnh trên hệ lưới chuẩn 24x24 px kèm hiệu ứng chuyển động vi mô tùy chọn.
+ * Được gọi ở:
+ * - src/client/components/arena-icons.tsx: component SportIcon
+ * - src/routes/coach.index.tsx: component CoachDashboard (icon whistle với hiệu ứng wiggle ở tiêu đề Next session)
+ * @param name Tên biểu tượng cần hiển thị trong danh sách ArenaIconName.
+ * @param className Class CSS tùy biến bổ sung kích thước, màu sắc hoặc vị trí (mặc định size-5 shrink-0).
+ * @param motion Tên hiệu ứng chuyển động vi mô (bounce, wiggle, swing, float, pop) được gắn qua class ai-[motion].
+ * @returns Thẻ JSX <svg> chứa các đường vẽ của icon tương ứng với name.
+ */
 export function ArenaIcon({
   name,
   className,
@@ -164,6 +185,16 @@ export function ArenaIcon({
   );
 }
 
+/**
+ * Làm gì: Hiển thị icon đại diện cho môn thể thao dựa trên chuỗi định danh (sport code), tự động quy đổi về icon ArenaIcon phù hợp.
+ * Được gọi ở:
+ * - src/routes/coach.classes.tsx: component CoachClasses (hiển thị icon môn thể thao trên huy hiệu lớp học)
+ * - src/routes/coach.index.tsx: component CoachDashboard (hiển thị icon môn thể thao trong danh sách lịch dạy)
+ * @param sport Chuỗi mã môn thể thao (ví dụ 'basketball', 'volleyball', 'badminton').
+ * @param className Class CSS tùy biến bổ sung cho thẻ SVG.
+ * @param motion Hiệu ứng chuyển động vi mô truyền tiếp vào ArenaIcon (nếu có).
+ * @returns Component ArenaIcon ứng với tên môn thể thao đã được phân loại.
+ */
 export function SportIcon({
   sport,
   className,
@@ -173,6 +204,7 @@ export function SportIcon({
   className?: string;
   motion?: IconMotion;
 }) {
+  // Quy đổi mã môn về icon tương ứng; các môn dùng vợt/cầu lông hoặc mã chưa đăng ký sẽ mặc định dùng shuttlecock (quả cầu lông)
   const name: ArenaIconName =
     sport === "basketball" ? "basketball" : sport === "volleyball" ? "volleyball" : "shuttlecock";
   return <ArenaIcon name={name} className={className} motion={motion} />;

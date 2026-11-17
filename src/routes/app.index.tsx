@@ -1,3 +1,8 @@
+/**
+ * File này định nghĩa route và giao diện trang chủ bảng điều khiển cho hội viên (/app/).
+ * Đóng vai trò là màn hình chính sau khi hội viên đăng nhập, tổng hợp lịch tập trong ngày (đặt sân, lớp học),
+ * trạng thái gói tập, suất giữ chỗ danh sách chờ (waitlist), điểm thưởng và danh sách thông báo.
+ */
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { SectionTitle } from "@/client/components/section";
 import { ArrowRight, QrCode, Star, Ticket, Wallet } from "lucide-react";
@@ -21,6 +26,11 @@ import { useLimits } from "@/client/lib/use-centre";
 import { DEFAULT_VENUE, hoursOf, venueFrom, type Venue, type VenueRaw } from "@/client/lib/venue";
 import { AddToCalendar } from "@/client/components/class-extras";
 
+/**
+ * Làm gì: Định nghĩa route cho trang chủ hội viên (/app/). Khởi tạo tuyến đường và chỉ định component Page chịu trách nhiệm hiển thị.
+ * Được gọi ở: URL `/app` hoặc `/app/` (TanStack Router tự động nhận diện từ cấu trúc thư mục)
+ * @returns Tuyến đường (route) hoàn chỉnh cho trang chủ hội viên
+ */
 export const Route = createFileRoute("/app/")({
   component: Page,
 });
@@ -75,9 +85,21 @@ type Event = {
   status: string;
 };
 
+/**
+ * Làm gì: Chuyển đổi mã hạng hội viên (gold, silver, bronze) thành tên hiển thị đã được bản địa hóa (i18n).
+ * Được gọi ở: src/routes/app.index.tsx (trong component PointsTile ở dòng 495, 498)
+ * @param k Mã hạng hội viên dạng chuỗi ("gold", "silver" hoặc "bronze")
+ * @returns Tên hạng hội viên tương ứng theo ngôn ngữ hiển thị hiện tại (Vàng, Bạc, Đồng)
+ */
 const tierName = (k: string) => (k === "gold" ? t("Gold") : k === "silver" ? t("Silver") : t("Bronze"));
 
+/**
+ * Làm gì: Component trang chủ dành cho hội viên. Tải dữ liệu cá nhân, tổng hợp lịch tập trong ngày, hiển thị thẻ sự kiện nổi bật, cảnh báo gói tập, điểm thưởng và thông báo.
+ * Được gọi ở: Route `/app/` (src/routes/app.index.tsx, thuộc TanStack Router)
+ * @returns Giao diện bảng điều khiển hội viên bọc trong Shell component
+ */
 function Page() {
+  // Bước 1: Khởi tạo state và tải thông tin hội viên cùng lịch trình hôm nay từ API /me.
   const { data, error, reload } = useRead<Me>("/me");
   // The server's copy, with notifications marked read here as the member opens them.
   const [me, setMe] = useState<Me | null>(null);
@@ -88,6 +110,7 @@ function Page() {
   // Whether the centre takes payment online at all, and its hours for the free-court strip.
   const [onlineOn, setOnlineOn] = useState(false);
   const [venue, setVenue] = useState<Venue>(DEFAULT_VENUE);
+  // Lấy cờ tính năng hệ thống (cho phép thanh toán online hay không) và thông tin cụm sân (venue) từ API /flags.
   useEffect(() => {
     void apiGet<{ capabilities?: { online_payment?: boolean }; venue?: VenueRaw }>("/flags")
       .then((r) => {
@@ -98,13 +121,17 @@ function Page() {
   }, []);
   const now = useNowMinute();
   const u = getStoredUser();
+  // Bước 2: Phân loại các gói tập của hội viên: đang kích hoạt (active), tạm đóng băng (frozen), hoặc sắp hết hạn.
   const live = me?.subscriptions.filter((s) => s.status === "active") ?? [];
   const frozen = me?.subscriptions.filter((s) => s.status === "frozen") ?? [];
   const expiring = live.filter((s) => {
     const d = daysUntil(s.end_on);
+    // Gói tập còn từ 0 đến 7 ngày được coi là sắp hết hạn, cần cảnh báo sớm để hội viên kịp gia hạn giữ chỗ lớp học.
     return Number.isFinite(d) && d >= 0 && d <= 7;
   });
+  // Lấy từ cuối cùng trong họ tên (tên gọi) để hiển thị lời chào cá nhân hóa.
   const greet = u?.full_name.split(" ").slice(-1)[0] ?? "";
+  // Bước 3: Hợp nhất lịch học lớp (classes) và lịch đặt sân (bookings) hôm nay thành danh sách events, sắp xếp theo giờ bắt đầu.
   const events: Event[] = [
     ...(me?.today.classes ?? []).map((c) => ({
       id: `c-${c.id}`,
@@ -128,10 +155,18 @@ function Page() {
     })),
   ].sort((a, b) => a.start.localeCompare(b.start));
   // The one lime card is whatever the member walks onto court for next; the rest of today sits under it.
+  // Bước 4: Xác định sự kiện kế tiếp chưa kết thúc so với giờ hiện tại (now) để đưa lên thẻ nổi bật, phần còn lại gom vào danh sách later.
   const nextIdx = now ? events.findIndex((ev) => new Date(ev.end).getTime() > now) : events.length ? 0 : -1;
   const next = nextIdx >= 0 ? events[nextIdx] : undefined;
   const later = events.filter((_, i) => i !== nextIdx);
 
+  /**
+   * Làm gì: Render các nút thao tác cho sự kiện (thanh toán online nếu đặt sân đang giữ chỗ hold, hoặc nút hủy đặt sân).
+   * Được gọi ở: Hàm Page trong file này (dòng 258 cho thẻ sự kiện tiếp theo và dòng 317 cho danh sách sự kiện sau)
+   * @param ev Đối tượng sự kiện cần hiển thị hành động (Event)
+   * @param onLime Cờ xác định nút có nằm trên nền màu xanh lime (accent) hay không để đổi kiểu viền và màu chữ phù hợp
+   * @returns JSX chứa các nút thao tác hoặc null nếu không có hành động hợp lệ
+   */
   const actions = (ev: Event, onLime = false) => (
     <>
       {/*
@@ -156,6 +191,7 @@ function Page() {
     </>
   );
 
+  // Bước 5: Render toàn bộ giao diện dashboard hội viên trong khung Shell (role="member").
   return (
     <Shell role="member">
       <div className="mb-6 flex items-end justify-between gap-3">
@@ -391,9 +427,18 @@ function Page() {
 }
 
 /** Until the client clock arrives (`now` is 0) the kicker stays neutral, so hydration matches. */
+/**
+ * Làm gì: Xác định lời chào (Good morning / Good afternoon / Good evening) theo giờ thực tế tại Việt Nam, hoặc giữ trung lập khi SSR để tránh lỗi hydration mismatch.
+ * Được gọi ở: src/routes/app.index.tsx (trong component Page, hiển thị tại tiêu đề chào mừng hội viên).
+ * @param now Timestamp thời gian hiện tại từ useNowMinute (mili-giây), bằng 0 khi SSR hoặc trước khi component mount.
+ * @returns Chuỗi khóa bản dịch i18n của lời chào tương ứng ("Good morning", "Good afternoon", "Good evening" hoặc "Member").
+ */
 function greetingFor(now: number) {
+  // Trả về từ trung lập khi SSR hoặc chưa có giờ client để đồng nhất HTML giữa server và client, tránh lỗi hydration
   if (!now) return tk("Member");
+  // Lấy giờ hiện tại (0-23) theo múi giờ Việt Nam (Asia/Ho_Chi_Minh) bất kể múi giờ thiết bị người dùng
   const h = Number(new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Ho_Chi_Minh", hour: "numeric" }).format(now));
+  // Phân chia buổi trong ngày: trước 12h là sáng, 12h-18h là chiều, sau 18h là tối
   return h < 12 ? tk("Good morning") : h < 18 ? tk("Good afternoon") : tk("Good evening");
 }
 
@@ -401,18 +446,34 @@ function greetingFor(now: number) {
  * Seconds left on a deadline. It ticks every second, or once a minute when the member asked for
  * less motion: the number still tells the truth, it just stops flickering.
  */
+/**
+ * Làm gì: Custom hook đếm ngược số giây còn lại đến mốc thời gian ISO (deadline), tự động giảm tần suất cập nhật khi bật prefers-reduced-motion.
+ * Được gọi ở: src/routes/app.index.tsx (trong component OfferCard để đếm ngược thời gian giữ suất waitlist).
+ * @param iso Chuỗi thời gian chuẩn ISO xác định thời điểm hết hạn (expires_at).
+ * @returns Số giây còn lại (number) tính đến deadline, hoặc null trước lần tick đầu tiên.
+ */
 function useSecondsLeft(iso: string) {
   const reduced = useReducedMotionAfterMount();
   const [left, setLeft] = useState<number | null>(null);
   useEffect(() => {
+    // Bước 1: Hàm tick tính số giây chênh lệch giữa deadline và hiện tại, chặn dưới ở mức 0 để tránh số âm
     const tick = () => setLeft(Math.max(0, Math.round((new Date(iso).getTime() - Date.now()) / 1000)));
     tick();
+    // Bước 2: Đặt chu kỳ đếm ngược: nếu người dùng bật giảm chuyển động thì nhảy mỗi 60 giây để tránh chớp số, ngược lại đếm từng giây
     const id = setInterval(tick, reduced ? 60_000 : 1000);
+    // Hủy timer khi component unmount hoặc deadline thay đổi để tránh rò rỉ bộ nhớ
     return () => clearInterval(id);
   }, [iso, reduced]);
   return left;
 }
 
+/**
+ * Làm gì: Hiển thị thẻ thông báo suất học vừa mở từ danh sách chờ (waitlist offer), kèm đồng hồ đếm ngược hạn chót và nút nhận chỗ.
+ * Được gọi ở: src/routes/app.index.tsx (trong component Page, hiển thị danh sách me?.offers).
+ * @param offer Thông tin suất chờ mở cho hội viên (id, expires_at, môn thể thao sport, trình độ level).
+ * @param onDone Callback gọi lại khi nhận suất thành công để tải lại dữ liệu trang chủ hội viên.
+ * @returns Thẻ giao diện nổi bật màu đất sét (clay) cảnh báo suất sắp hết hạn.
+ */
 function OfferCard({
   offer,
   onDone,
@@ -420,9 +481,11 @@ function OfferCard({
   offer: { id: string; expires_at: string; sport: string; level: string };
   onDone: () => void;
 }) {
+  // Bước 1: Tính số giây còn lại và định dạng phút:giây (mm:ss) cho đồng hồ đếm ngược
   const left = useSecondsLeft(offer.expires_at);
   const mm = left == null ? "--" : String(Math.floor(left / 60)).padStart(2, "0");
   const ss = left == null ? "--" : String(left % 60).padStart(2, "0");
+  // Bước 2: Render giao diện thẻ offer với đồng hồ đếm ngược và nút nhận chỗ (Claim seat)
   return (
     <div className="mb-4 flex flex-wrap items-center gap-4 rounded-[var(--radius-xl)] border border-clay/45 bg-clay/12 px-5 py-4">
       <div className="min-w-0 flex-1">
@@ -442,11 +505,15 @@ function OfferCard({
           size="sm"
           disabled={left === 0}
           onClick={async () => {
+            // Bước 3: Gửi request chấp nhận suất học từ danh sách chờ (/waitlist/:id/accept)
             try {
               const r = await apiPost<{ status?: string }>(`/waitlist/${offer.id}/accept`);
+              // Thông báo thành công: nếu đã xác nhận (confirmed) thì báo đã ghi danh, nếu là giữ chỗ (hold) thì nhắc thanh toán trước khi hết hạn
               toast.success(r?.status === "confirmed" ? t("You are enrolled") : t("Seat held. Pay before the timer runs out."));
+              // Gọi callback tải lại dữ liệu trang để cập nhật lịch học và loại bỏ offer đã nhận
               onDone();
             } catch (e) {
+              // Bắt lỗi khi suất offer đã hết hạn hoặc server từ chối yêu cầu
               toast.error(e instanceof Error ? tServer(e.message) : t("Offer expired"));
             }
           }}
@@ -459,13 +526,22 @@ function OfferCard({
 }
 
 /** The points balance as a ring toward the next tier: the ring is the distance left, not decoration. */
+/**
+ * Làm gì: Hiển thị thẻ điểm tích lũy của hội viên với vòng tròn tiến độ SVG động thể hiện khoảng cách lên hạng tiếp theo và số nhảy CountUp.
+ * Được gọi ở: src/routes/app.index.tsx (trong component Page, widget hiển thị bên cạnh thẻ Next up).
+ * @returns Thẻ liên kết dẫn tới trang quản lý điểm thưởng chi tiết (/app/points).
+ */
 function PointsTile() {
+  // Bước 1: Tải dữ liệu điểm tích lũy và hạng thành viên hiện tại từ API /me/points
   const { data } = useRead<Points>("/me/points?limit=1&offset=0");
   const reduced = useReducedMotionAfterMount();
+  // Bước 2: Tính tỷ lệ hoàn thành (%) tiến trình lên hạng mới; nếu đã ở hạng cao nhất thì đạt 100%
   const need = data?.next_tier?.need ?? 0;
   const pct = !data ? 0 : data.next_tier ? Math.min(100, (data.earned / Math.max(1, data.earned + need)) * 100) : 100;
+  // Bước 3: Tính chu vi vòng tròn (2 * PI * r) để xác định độ dài viền strokeDasharray và độ lệch strokeDashoffset
   const r = 42;
   const c = 2 * Math.PI * r;
+  // Bước 4: Render thẻ liên kết gồm vòng tròn SVG động, điểm số hiệu ứng CountUp và nhãn tiến độ
   return (
     <Link
       to="/app/points"
@@ -507,10 +583,21 @@ function PointsTile() {
 }
 
 /** The next free hours today, earliest first: each chip opens the booking grid on that sport. */
+/**
+ * Làm gì: Hiển thị danh sách các khung giờ còn sân trống sớm nhất trong ngày hôm nay, hỗ trợ bấm nhanh để mở màn hình đặt sân theo môn.
+ * Được gọi ở: src/routes/app.index.tsx (trong component Page, khối thông tin dưới widget điểm thưởng).
+ * @param venue Thông tin cơ sở thể thao (chứa khung giờ mở/đóng cửa để giới hạn phạm vi tính sân trống).
+ * @param now Timestamp hiện tại từ useNowMinute, dùng để bỏ qua các khung giờ đã trôi qua trong ngày.
+ * @returns Khối danh sách các chip khung giờ trống hôm nay có thể cuộn ngang.
+ */
 function FreeTodayTile({ venue, now }: { venue: Venue; now: number }) {
+  // Bước 1: Lấy số lượng khung giờ trống tối đa được hiển thị cho hội viên từ useLimits
   const { member_free_hours } = useLimits();
+  // Bước 2: Tải dữ liệu danh sách sân và các lượt chiếm chỗ hôm nay từ API /occupancy
   const { data } = useRead<{ courts: Court[]; slots: OccSlot[] }>(`/occupancy?date=${todayISO()}`);
+  // Bước 3: Tính toán danh sách các slot sân còn trống từ giờ hiện tại đến hết ngày hôm nay
   const free = data && now ? freeHours(data.courts, data.slots, todayISO(), now, true, hoursOf(venue)) : null;
+  // Bước 4: Render danh sách chip giờ trống (tối đa member_free_hours mục), chip sớm nhất được tô màu accent nổi bật
   return (
     <div className="rounded-[var(--radius-xl)] border border-line bg-surface p-5">
       <div className="flex items-baseline justify-between gap-2">
@@ -547,8 +634,16 @@ function FreeTodayTile({ venue, now }: { venue: Venue; now: number }) {
   );
 }
 
+/**
+ * Làm gì: Tính số ngày nguyên còn lại từ hôm nay đến mốc ngày ISO theo múi giờ Việt Nam (+07:00).
+ * Được gọi ở: src/routes/app.index.tsx (trong component Page để lọc và hiển thị số ngày còn lại của các gói tập sắp hết hạn).
+ * @param iso Chuỗi ngày tháng chuẩn ISO (YYYY-MM-DD hoặc ISO datetime).
+ * @returns Số ngày chênh lệch (số nguyên dương nếu ngày đích ở tương lai, số âm nếu đã qua).
+ */
 function daysUntil(iso: string) {
+  // Bước 1: Đưa cả hai mốc ngày về đầu ngày (00:00:00) theo múi giờ Việt Nam (+07:00) để tính toán chuẩn xác số ngày lịch
   const a = Date.parse(`${todayISO()}T00:00:00+07:00`);
   const b = Date.parse(`${iso.slice(0, 10)}T00:00:00+07:00`);
+  // Bước 2: Lấy hiệu số mili-giây chia cho 86.400.000 (24 * 60 * 60 * 1000) và làm tròn thành số ngày
   return Math.round((b - a) / 86400000);
 }

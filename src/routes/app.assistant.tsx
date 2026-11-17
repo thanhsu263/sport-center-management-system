@@ -1,3 +1,9 @@
+/**
+ * Tuyến đường (route) giao diện Trợ lý AI (/app/assistant) dành cho hội viên (member).
+ * Vai trò trong ứng dụng: Cho phép hội viên đặt câu hỏi giải đáp về lịch mở cửa, giá sân/lớp,
+ * huấn luyện viên, chính sách hủy sân hoặc gửi ticket hỗ trợ tới quầy lễ tân.
+ * Dữ liệu hội thoại được lưu trong localStorage và đồng bộ với widget trợ lý ở góc màn hình.
+ */
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Send } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -12,6 +18,11 @@ import { cn } from "@/client/lib/cn";
 import { scrollBehavior } from "@/client/lib/calm";
 import { t, tk } from "@/client/lib/i18n";
 
+/**
+ * Làm gì: Định nghĩa route cho trang Trợ lý AI (/app/assistant) trong TanStack Router, liên kết URL với component `Page`.
+ * Được gọi ở: TanStack Router tại URL `/app/assistant`.
+ * @returns Route object quản lý trang `/app/assistant`.
+ */
 export const Route = createFileRoute("/app/assistant")({ component: Page });
 
 type Msg = ChatMsg;
@@ -38,6 +49,7 @@ const CHIPS = [
   tk("How do I cancel a court?"),
 ];
 
+// Tin nhắn chào mừng mặc định hướng dẫn hội viên các chủ đề có thể tra cứu và cú pháp tạo ticket gửi lễ tân.
 const WELCOME: Msg = {
   role: "bot",
   text: tk(
@@ -45,6 +57,12 @@ const WELCOME: Msg = {
   ),
 };
 
+/**
+ * Làm gì: Chuyển đổi mã nguồn của câu trả lời từ bot thành nhãn hiển thị thân thiện trên giao diện.
+ * Được gọi ở: src/routes/app.assistant.tsx -> component `Page` (khi render tin nhắn của bot).
+ * @param s Nguồn gốc câu trả lời ("gemini", "xai", "rules" hoặc undefined).
+ * @returns Tên nhãn hiển thị ("Gemini", "Grok", bản dịch của "in-house") hoặc null nếu không có nguồn.
+ */
 function sourceLabel(s?: Msg["source"]) {
   if (s === "gemini") return "Gemini";
   if (s === "xai") return "Grok";
@@ -52,7 +70,13 @@ function sourceLabel(s?: Msg["source"]) {
   return null;
 }
 
+/**
+ * Làm gì: Component trang chính của Trợ lý AI (/app/assistant), quản lý hội thoại, gửi câu hỏi tới API server và hiển thị kết quả.
+ * Được gọi ở: Thuộc tính component của `Route` khi truy cập URL `/app/assistant`.
+ * @returns JSX Element giao diện trang Trợ lý AI bọc trong Shell role="member".
+ */
 function Page() {
+  // Bước 1: Khởi tạo các state lưu câu hỏi nhập dở (q), trạng thái chờ API (busy), lỗi gọi trợ lý (failure) và lấy lịch sử chat từ hook useChatLog.
   const [q, setQ] = useState("");
   // Shared with the corner widget and kept across reloads (localStorage, per member).
   const user = useSessionUser();
@@ -70,6 +94,7 @@ function Page() {
   // aligning a sentinel to `block: "end"` moved the whole window as well — the
   // page jumped on each send even though the panel it was scrolling inside was
   // already fully visible.
+  // Bước 2: Tự động cuộn khung chat xuống cuối mỗi khi có tin nhắn mới, đang chờ phản hồi hoặc phát sinh lỗi.
   useEffect(() => {
     const el = thread.current;
     if (!el) return;
@@ -78,9 +103,11 @@ function Page() {
 
   /** Asks the server about `message`, which is already the last line of `thread`. */
   async function ask(message: string, thread: Msg[]) {
+    // Bước 1: Khóa giao diện (busy) và xóa thông báo lỗi trước đó.
     setBusy(true);
     setFailure(null);
     try {
+      // Bước 2: Lọc các câu hỏi trước đó của hội viên để tạo mảng lịch sử (history) gửi kèm câu hỏi mới.
       // Only what the member typed. The server drops anything else anyway —
       // a browser must not get to write the assistant's side of the thread —
       // so sending the bot's turns would just be bytes it throws away.
@@ -88,26 +115,42 @@ function Page() {
         .filter((m) => m !== WELCOME && m.role === "me")
         .slice(0, -1)
         .map((m) => ({ role: m.role, text: m.text }));
+      // Bước 3: Gửi HTTP POST tới endpoint /assistant với nội dung câu hỏi và lịch sử ngữ cảnh.
       const r = await apiPost<{ reply: string; source?: Msg["source"] }>("/assistant", { message, history });
+      // Bước 4: Thêm phản hồi của bot vào lịch sử chat (lưu vào localStorage và cập nhật UI).
       append({ role: "bot", text: r.reply, source: r.source });
     } catch (e) {
+      // Bước 5: Bắt lỗi kết nối hoặc server từ chối, lưu lại câu hỏi và lý do để hội viên có thể bấm thử lại (Retry).
       setFailure({ message, reason: e instanceof Error ? e.message : t("The assistant is switched off") });
     } finally {
+      // Bước 6: Mở khóa giao diện (bỏ trạng thái busy) sau khi hoàn tất lượt gọi.
       setBusy(false);
     }
   }
 
+  /**
+   * Làm gì: Chuẩn hóa nội dung tin nhắn, đưa câu hỏi của hội viên vào khung chat và kích hoạt gửi yêu cầu tới trợ lý AI.
+   * Được gọi ở: src/routes/app.assistant.tsx -> component `Page` (sự kiện click chip câu hỏi gợi ý hoặc submit form chat).
+   * @param text Nội dung câu hỏi cụ thể từ chip gợi ý (nếu không truyền sẽ lấy từ state `q` trong ô nhập).
+   * @returns Không trả về giá trị (void).
+   */
   function send(text?: string) {
+    // Bước 1: Chuẩn hóa tin nhắn (cắt khoảng trắng đầu cuối và giới hạn tối đa MAX_CHARS ký tự).
     // Trimmed before the cap so trailing spaces cannot eat the last words.
     const message = (text ?? q).trim().slice(0, MAX_CHARS);
+    // Bỏ qua nếu tin nhắn quá ngắn (dưới 2 ký tự) hoặc hệ thống đang chờ phản hồi từ câu hỏi trước.
     if (message.length < 2 || busy) return;
+    // Bước 2: Xóa nội dung ô nhập liệu và tạo đối tượng tin nhắn mới của người dùng (role: "me").
     setQ("");
     const mine: Msg = { role: "me", text: message };
     const nextLog: Msg[] = [...log, mine];
+    // Bước 3: Thêm tin nhắn của hội viên vào log chat (localStorage) và cập nhật giao diện ngay lập tức.
     append(mine);
+    // Bước 4: Kích hoạt hàm ask() gửi tin nhắn và toàn bộ chuỗi hội thoại lên server.
     void ask(message, nextLog);
   }
 
+  // Bước 3: Render giao diện khung chat bọc trong Shell với hiệu ứng nền dotgrid, danh sách tin nhắn, gợi ý câu hỏi và form nhập liệu.
   return (
     <Shell
       role="member"
