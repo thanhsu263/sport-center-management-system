@@ -1,3 +1,7 @@
+/**
+ * File này cung cấp plugin Better Auth (gateIdentitySessions) để quản lý phiên đăng nhập tự động (zero-click auth).
+ * Khi người dùng mở app qua Grok Gate viewer, file này đọc header x-grok-identity, xác thực và phát hành session cookie tương thích với TanStack Start.
+ */
 import type { BetterAuthPlugin } from "better-auth";
 import { createAuthMiddleware, getSessionFromCtx } from "better-auth/api";
 import {
@@ -15,6 +19,10 @@ import {
 } from "./gate-identity.server.ts";
 import { GATE_SESSION_MARKER_COOKIE } from "../../shared/auth/gate-session-marker";
 
+/**
+ * Làm gì: Định danh provider OAuth nội bộ đại diện cho Grok Gate identity trong Better Auth.
+ * Được gọi ở: src/server/auth/server.ts (cấu hình trustedProviders) và gate-session.server.ts (liên kết account).
+ */
 export const GATE_PROVIDER_ID = "grok-gate";
 const GATE_ACCOUNT_ISSUER = "https://grok.com";
 const LOG = "[gate-identity]";
@@ -35,6 +43,7 @@ async function emitSessionCookie(
   sessionTokenName: string,
   sessionToken: string,
 ): Promise<string | null> {
+  // Bước 1: Chuẩn bị tùy chọn cookie và ký session token bằng secret của Better Auth.
   const attributes = ctx.context.authCookies.sessionToken.attributes;
   const maxAge = ctx.context.sessionConfig.expiresIn;
   const cookieOptions = {
@@ -55,6 +64,7 @@ async function emitSessionCookie(
     return null;
   }
 
+  // Bước 2: Bóc tách giá trị session token đã ký từ chuỗi header Set-Cookie trả về.
   const sessionValue = parseSetCookieHeader(signedCookie).get(
     sessionTokenName,
   )?.value;
@@ -65,6 +75,7 @@ async function emitSessionCookie(
     return null;
   }
 
+  // Bước 3: Đưa cookie vào store của TanStack Start để trình duyệt thực sự nhận được Set-Cookie.
   // Primary path: TanStack Start's response cookie store (reaches the browser).
   try {
     const { setCookie } = await import("@tanstack/react-start/server");
@@ -80,6 +91,7 @@ async function emitSessionCookie(
     console.error(`${LOG} TanStack setCookie failed`, err);
   }
 
+  // Bước 4: Lưu đồng thời vào responseHeaders của Better Auth để các after-hook có thể chuyển tiếp tiếp.
   // Also stash on Better Auth responseHeaders so after-hooks (tanstackStartCookies)
   // can forward it if they run.
   try {
@@ -93,6 +105,7 @@ async function emitSessionCookie(
     console.error(`${LOG} responseHeaders.append(set-cookie) failed`, err);
   }
 
+  // Trả về token đã ký để caller có thể inject ngay vào header của request hiện tại.
   return sessionValue;
 }
 
@@ -107,6 +120,7 @@ async function expireSessionDataCookie(
   ctx: Parameters<Parameters<typeof createAuthMiddleware>[0]>[0],
   cookie: { name: string; attributes: { path?: string; secure?: boolean } },
 ): Promise<void> {
+  // Bước 1: Xóa cookie session_data trên TanStack Start bằng cách đặt Max-Age=0.
   const path = cookie.attributes.path ?? "/";
   const secure = cookie.attributes.secure ?? true;
   try {
@@ -121,6 +135,7 @@ async function expireSessionDataCookie(
   } catch (err) {
     console.error(`${LOG} TanStack setCookie (expire session_data) failed`, err);
   }
+  // Bước 2: Ghi thêm Set-Cookie Max-Age=0 vào responseHeaders của Better Auth để xóa triệt để cả hai kênh.
   try {
     ctx.context.responseHeaders?.append(
       "set-cookie",
@@ -145,6 +160,7 @@ async function writeGateMarkerCookie(
   ctx: Parameters<Parameters<typeof createAuthMiddleware>[0]>[0],
   clear: boolean,
 ): Promise<void> {
+  // Bước 1: Xác định giá trị và thời hạn (maxAge) của marker cookie (xóa thì maxAge=0, ghi thì theo thời hạn session).
   const sessionMaxAge = ctx.context.sessionConfig.expiresIn;
   const maxAge = clear
     ? 0
@@ -152,6 +168,7 @@ async function writeGateMarkerCookie(
       ? sessionMaxAge
       : undefined;
   const value = clear ? "" : "1";
+  // Bước 2: Ghi marker qua TanStack Start; httpOnly=false để client (UserButton) có thể đọc và ẩn nút sign-out.
   try {
     const { setCookie } = await import("@tanstack/react-start/server");
     setCookie(GATE_SESSION_MARKER_COOKIE, value, {
@@ -164,6 +181,7 @@ async function writeGateMarkerCookie(
   } catch (err) {
     console.error(`${LOG} TanStack setCookie (gate marker) failed`, err);
   }
+  // Bước 3: Đồng bộ Set-Cookie marker vào responseHeaders của Better Auth.
   try {
     ctx.context.responseHeaders?.append(
       "set-cookie",
@@ -205,6 +223,11 @@ function removeRequestCookie(headers: Headers, name: string): void {
   }
 }
 
+/**
+ * Làm gì: Tạo plugin Better Auth chặn bắt route /get-session để tự động đăng nhập hoặc đồng bộ phiên từ Grok Gate identity.
+ * Được gọi ở: src/server/auth/server.ts (trong mảng plugins khi cấu hình betterAuth).
+ * @returns Đối tượng BetterAuthPlugin chứa before-hook cho endpoint /get-session.
+ */
 export function gateIdentitySessions() {
   return {
     id: "grok-gate-identity",
@@ -213,6 +236,7 @@ export function gateIdentitySessions() {
         {
           matcher: (ctx: { path?: string }) => ctx.path === "/get-session",
           handler: createAuthMiddleware(async (ctx) => {
+            // Bước 1: Kiểm tra cờ bật auth và lấy danh sách inbound headers từ request.
             if (!gateIdentityEnabled()) return;
             const inbound = ctx.request?.headers ?? ctx.headers;
             if (!inbound) {
@@ -221,11 +245,13 @@ export function gateIdentitySessions() {
             }
             // Bearer auth (live-preview popup) already carries a session — leave it alone.
             if (inbound.get("authorization")) return;
+            // Bước 2: Nếu thiếu header x-grok-identity, xóa marker cookie cũ nếu có rồi kết thúc xử lý.
             if (!inbound.get(GATE_IDENTITY_HEADER)) {
               await clearGateMarkerIfPresent(ctx, inbound);
               return;
             }
 
+            // Bước 3: Xác thực JWT token trong header x-grok-identity thông qua JWKS của Grok Gate.
             const identity = await gateIdentityFromHeaders(inbound);
             if (!identity) {
               console.error(
@@ -234,6 +260,7 @@ export function gateIdentitySessions() {
               return;
             }
 
+            // Bước 4: Kiểm tra session hiện tại trong cookie; giữ nguyên nếu đã khớp Gate identity, ngược lại xóa phiên cũ trong DB.
             const sessionCookieName = ctx.context.authCookies.sessionToken.name;
             const cookieHeader = inbound.get("cookie") ?? "";
             if (cookieHeader.includes(`${sessionCookieName}=`)) {
@@ -255,6 +282,7 @@ export function gateIdentitySessions() {
                   );
                   return;
                 }
+                // Nếu phiên đã gắn đúng với accountId (identity.sub) của Gate, đảm bảo có marker cookie rồi giữ nguyên phiên.
                 if (
                   sessionBoundToGateIdentity(
                     accounts,
@@ -265,6 +293,7 @@ export function gateIdentitySessions() {
                   await writeGateMarkerCookie(ctx, false);
                   return;
                 }
+                // Phiên hiện tại không thuộc Gate identity này (hoặc đổi user), xóa session cũ để cấp phiên mới.
                 await ctx.context.internalAdapter
                   .deleteSession(existing.session.token)
                   .catch((err) => {
@@ -277,6 +306,7 @@ export function gateIdentitySessions() {
               }
             }
 
+            // Bước 5: Gọi handleOAuthUserInfo để tạo mới hoặc cập nhật user và liên kết tài khoản grok-gate.
             try {
               const result = await handleOAuthUserInfo(ctx, {
                 userInfo: gateIdentityUserInfo(identity),
@@ -295,6 +325,7 @@ export function gateIdentitySessions() {
                 return;
               }
 
+              // Bước 6: Lưu session vào DB và phát hành session cookie đã ký cho trình duyệt.
               // Persist session rows + internal newSession state.
               await setSessionCookie(ctx, result.data);
 
@@ -314,11 +345,13 @@ export function gateIdentitySessions() {
                 return;
               }
 
+              // Bước 7: Ghi marker cookie và xóa cache session_data cũ để tránh phục vụ dữ liệu user trước.
               await writeGateMarkerCookie(ctx, false);
 
               const sessionDataCookie = ctx.context.authCookies.sessionData;
               await expireSessionDataCookie(ctx, sessionDataCookie);
 
+              // Bước 8: Bơm session cookie mới vào headers của request để /get-session trả về phiên mới ngay trong cùng lượt gọi.
               // Inject the cookie into this request so the rest of /get-session
               // resolves the newly created session in the same round-trip.
               const headers = new Headers(

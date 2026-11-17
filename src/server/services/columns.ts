@@ -1,3 +1,8 @@
+/**
+ * File: src/server/services/columns.ts
+ * Vai trò: Định nghĩa danh sách các cột cố định cho các bảng dữ liệu cốt lõi (court_bookings, payments, invoices) để thay thế hoàn toàn cú pháp "SELECT *".
+ * Vị trí trong app: Thuộc tầng server services, cung cấp các hằng số danh sách cột cho các handler API (bookings, desk) khi truy vấn database và hỗ trợ tx.test.ts kiểm tra tính toàn vẹn của schema.
+ */
 import type { Booking, Invoice, Payment } from "../../shared/arena3/contracts";
 
 /**
@@ -8,10 +13,22 @@ import type { Booking, Invoice, Payment } from "../../shared/arena3/contracts";
  * checks the same lists against the migrated tables, so a migration that adds
  * a column fails a test instead of quietly widening every response.
  */
+/**
+ * Làm gì: Chuyển đổi đối tượng Record định nghĩa các cột của kiểu T thành chuỗi tên cột phân tách bằng dấu phẩy để dùng trong câu lệnh SQL SELECT. Bắt buộc kiểm tra kiểu tĩnh (type-safe) tại thời điểm compile để danh sách cột luôn khớp chính xác với kiểu T.
+ * Được gọi ở: src/server/services/columns.ts (nội bộ file: khởi tạo BOOKING_COLS, PAYMENT_COLS, INVOICE_COLS).
+ * @param cols Đối tượng Record ánh xạ từng thuộc tính của kiểu T với giá trị boolean true.
+ * @returns Chuỗi tên các cột phân tách bởi dấu phẩy và khoảng trắng (ví dụ: "id, code, user_id, ...").
+ */
 function list<T>(cols: Record<keyof T, true>): string {
   return Object.keys(cols).join(", ");
 }
 
+/**
+ * Làm gì: Chuỗi danh sách toàn bộ các cột của bảng court_bookings phân tách bằng dấu phẩy. Dùng trong các câu lệnh SQL SELECT thay cho "SELECT *" để nạp toàn bộ một hàng đặt sân vào đúng kiểu TypeScript Booking.
+ * Được gọi ở:
+ * - src/server/controllers/handlers/bookings.ts: các hàm bookingsHold, settleHeldBooking, bookingsCancel, bookingsWalkIn, bookingsTransferConfirm, bookingsCheckIn
+ * - test runner (node --test): src/server/controllers/tx.test.ts (kiểm tra khớp schema bảng court_bookings)
+ */
 export const BOOKING_COLS = list<Booking>({
   id: true,
   code: true,
@@ -39,6 +56,13 @@ export const BOOKING_COLS = list<Booking>({
   cancel_fee_vnd: true,
 });
 
+/**
+ * Làm gì: Chuỗi danh sách toàn bộ các cột của bảng payments phân tách bằng dấu phẩy. Dùng trong các câu lệnh SQL SELECT hoặc RETURNING thay cho "SELECT *" để nạp hoặc trả về toàn bộ một hàng thanh toán vào đúng kiểu TypeScript Payment.
+ * Được gọi ở:
+ * - src/server/controllers/handlers/bookings.ts: các hàm settleHeldBooking, bookingsWalkIn, bookingsTransferConfirm
+ * - src/server/controllers/handlers/desk.ts: hàm deskPaymentsCreate
+ * - test runner (node --test): src/server/controllers/tx.test.ts (kiểm tra khớp schema bảng payments)
+ */
 export const PAYMENT_COLS = list<Payment>({
   id: true,
   code: true,
@@ -62,6 +86,12 @@ export const PAYMENT_COLS = list<Payment>({
   discount_vnd: true,
 });
 
+/**
+ * Làm gì: Chuỗi danh sách toàn bộ các cột của bảng invoices phân tách bằng dấu phẩy. Dùng trong các câu lệnh SQL SELECT thay cho "SELECT *" để nạp toàn bộ một hàng hóa đơn vào đúng kiểu TypeScript Invoice.
+ * Được gọi ở:
+ * - src/server/controllers/handlers/desk.ts: hàm deskPaymentsCreate
+ * - test runner (node --test): src/server/controllers/tx.test.ts (kiểm tra khớp schema bảng invoices)
+ */
 export const INVOICE_COLS = list<Invoice>({
   id: true,
   code: true,

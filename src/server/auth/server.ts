@@ -59,13 +59,26 @@ void ensureDbReady();
 const globalAuthRef = globalThis as typeof globalThis & {
   __grokAuthPreviewSecret__?: string;
 };
+/**
+ * Làm gì: Tạo hoặc lấy lại chuỗi secret ngẫu nhiên dùng để ký và xác thực session trong môi trường Sandbox Live Preview; lưu trên globalThis để không bị cấp mới khi Vite HMR tải lại module làm mất phiên đăng nhập.
+ * Được gọi ở: src/server/auth/server.ts (cấu hình thuộc tính secret của auth khi chạy trong môi trường preview).
+ * @returns Chuỗi bí mật ngẫu nhiên 64 ký tự hex (sinh từ 32 bytes ngẫu nhiên).
+ */
 function previewAuthSecret(): string {
+  // Khởi tạo secret ngẫu nhiên 32 bytes (dạng hex) trên globalThis nếu chưa có, giữ nguyên secret qua các lần HMR để không làm mất phiên đăng nhập.
   globalAuthRef.__grokAuthPreviewSecret__ ??= randomBytes(32).toString("hex");
   return globalAuthRef.__grokAuthPreviewSecret__;
 }
 
 /** Read an env var, treating empty/whitespace as unset. */
+/**
+ * Làm gì: Đọc biến môi trường từ process.env, tự động cắt khoảng trắng thừa và chuyển chuỗi rỗng thành undefined để các giá trị fallback hoạt động chính xác.
+ * Được gọi ở: src/server/auth/server.ts (đọc các biến môi trường cấu hình auth: VITE_AUTH_ENABLED, GROK_AUTH_*, BETTER_AUTH_URL, DATABASE_URL, BETTER_AUTH_SECRET).
+ * @param key Tên biến môi trường cần đọc từ process.env.
+ * @returns Chuỗi giá trị biến môi trường đã cắt khoảng trắng, hoặc undefined nếu biến không tồn tại hoặc chỉ chứa khoảng trắng.
+ */
 const env = (key: string): string | undefined => {
+  // Đọc biến từ process.env và cắt khoảng trắng; trả về undefined nếu không có hoặc chuỗi rỗng để fallback hoạt động đúng.
   const value = process.env[key]?.trim();
   return value ? value : undefined;
 };
@@ -82,6 +95,10 @@ const grokClientId = env("GROK_AUTH_CLIENT_ID") ?? PREVIEW_CLIENT_ID;
 const grokClientSecret = env("GROK_AUTH_CLIENT_SECRET") ?? PREVIEW_CLIENT_SECRET;
 
 /** True when federated sign-in is active (real auth is enforced). */
+/**
+ * Làm gì: Cờ boolean xác định hệ thống xác thực liên kết (federated sign-in) đã sẵn sàng hay chưa; chỉ bật khi auth không bị tắt qua VITE_AUTH_ENABLED và có đủ client ID cùng client secret của Grok broker.
+ * Được gọi ở: src/server/auth/server.ts (cấu hình grokOAuthPlugin), src/server/auth/verify.server.ts (hàm getSessionUser, requireUserId và kiểm tra fail-closed).
+ */
 export const authConfigured =
   !authDisabled && Boolean(grokClientId && grokClientSecret);
 
@@ -146,6 +163,10 @@ const database = databaseUrl
   : { dialect: pgliteDialect(() => getPglite()), type: "postgres" as const };
 
 /** Session token cookie name — also read by the live-preview popup completion page. */
+/**
+ * Làm gì: Tên cookie lưu trữ session token của người dùng, sử dụng tiền tố an toàn __Host- để chống tấn công cookie tossing giữa các subdomain và bắt buộc dùng cờ Secure với Path=/.
+ * Được gọi ở: src/server/auth/server.ts (cấu hình cookie session_token của betterAuth, hàm readSessionToken), src/server/auth/popup.server.ts (hàm handleAuthPopupRequest).
+ */
 export const SESSION_TOKEN_COOKIE = "__Host-grok-auth.session_token";
 
 // Built separately so the `betterAuth({...})` call stays easy to edit without
@@ -172,6 +193,10 @@ const grokOAuthPlugin = authConfigured
     })
   : null;
 
+/**
+ * Làm gì: Khởi tạo và cung cấp instance Better Auth chạy ở server, quản lý toàn bộ vòng đời xác thực gồm đăng nhập liên kết qua Grok broker, email/mật khẩu, mã hóa token, lưu trữ session trong DB (Postgres/PGLite) và cấp cookie an toàn.
+ * Được gọi ở: src/server/auth/verify.server.ts (hàm getSessionUser để xác thực session từ request headers), src/server/auth/popup.server.ts (xử lý popup đăng nhập OAuth).
+ */
 export const auth = betterAuth({
   baseURL,
   // Deployed apps inject BETTER_AUTH_SECRET. Preview: process-stable secret on
@@ -252,10 +277,20 @@ export const auth = betterAuth({
   ],
 });
 
+/**
+ * Làm gì: Đọc session token từ cookie của HTTP request hiện tại bằng helper getCookie của TanStack Start server.
+ * Được gọi ở: Các server functions hoặc SSR loaders cần kiểm tra hoặc lấy trực tiếp session token từ cookie __Host-grok-auth.session_token.
+ * @returns Chuỗi session token nếu cookie tồn tại, hoặc null nếu không tìm thấy cookie.
+ */
 export function readSessionToken(): string | null {
+  // Đọc cookie theo tên SESSION_TOKEN_COOKIE qua TanStack Start server helper; trả về null nếu không tìm thấy cookie.
   return getCookie(SESSION_TOKEN_COOKIE) ?? null;
 }
 
 // Re-exported for convenience; the array lives in the dependency-free
 // `providers.ts` so the client can import it too.
+/**
+ * Làm gì: Re-export danh sách các nhà cung cấp định danh OAuth (Google, X, ...) từ shared/auth/providers để các module phía server có thể dùng trực tiếp mà không cần import đường dẫn tương đối phức tạp.
+ * Được gọi ở: Các thành phần phía server cần tham chiếu danh sách nhà cung cấp OAuth được hệ thống hỗ trợ.
+ */
 export { GROK_PROVIDERS } from "../../shared/auth/providers";
