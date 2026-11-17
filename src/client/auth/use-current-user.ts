@@ -1,3 +1,9 @@
+/**
+ * Quản lý thông tin người dùng hiện tại (current user) và trạng thái phiên đăng nhập (session state) ở phía client.
+ * File chuẩn hóa cấu trúc người dùng (AppUser) dùng chung cho toàn bộ ứng dụng dù bật hay tắt xác thực,
+ * cung cấp fallback DEV_USER khi tắt auth (môi trường dev/sandbox), và tích hợp hook useSession của Better Auth.
+ * Các hook useCurrentUserState và useCurrentUser được sử dụng bởi các auth gates (gates.tsx), UserButton và các trang cần kiểm tra quyền truy cập.
+ */
 import { authClient, authEnabled } from "./client";
 
 /** Normalized user shape used across the app, auth on or off. */
@@ -55,10 +61,17 @@ export type CurrentUserState = {
  * call keeps a stable hook order across every render of a given component.
  */
 export function useCurrentUserState(): CurrentUserState {
+  // Bước 1: Nếu tính năng auth bị tắt (VITE_AUTH_ENABLED=false), trả về ngay người dùng fallback DEV_USER với isPending = false mà không cần truy vấn session.
+  // Giúp môi trường dev/sandbox hoạt động ngay với một tài khoản cố định ('dev-user') mà không yêu cầu luồng đăng nhập.
   if (!authEnabled) return { user: DEV_USER, isPending: false };
+  // Bước 2: Khi auth được bật, gọi hook useSession từ Better Auth để lấy dữ liệu phiên đăng nhập và trạng thái đang tải isPending.
+  // authEnabled là hằng số cố định khi ứng dụng khởi chạy nên thứ tự gọi hook luôn đảm bảo ổn định, an toàn để bỏ qua cảnh báo Rules of Hooks.
   // eslint-disable-next-line react-hooks/rules-of-hooks -- authEnabled is constant for the app's lifetime
   const { data, isPending } = authClient.useSession();
+  // Bước 3: Trích xuất thông tin người dùng từ dữ liệu session trả về (nếu chưa đăng nhập hoặc session đang tải thì user là undefined).
   const user = data?.user;
+  // Bước 4: Chuẩn hóa dữ liệu người dùng về cấu trúc AppUser thống nhất trong toàn app (chuyển các trường thiếu về null, đặt isDevFallback = false vì đây là phiên thật).
+  // Giữ nguyên cờ isPending để các route guard phân biệt trạng thái đang xác thực với việc người dùng đã thực sự đăng xuất (tránh chuyển hướng nhầm khi tải lại trang).
   return {
     user: user
       ? {

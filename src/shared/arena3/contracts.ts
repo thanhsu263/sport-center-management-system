@@ -23,9 +23,25 @@ export type Iso = string;
 /** A Postgres `numeric`, which arrives as text. */
 export type Numeric = string;
 
+/**
+ * Làm gì: Định nghĩa 4 vai trò người dùng trong hệ thống Arena 3: manager (quản lý), coach (huấn luyện viên), receptionist (lễ tân) và member (hội viên).
+ * Được gọi ở: src/server/auth/session.ts, src/client/arena3/client.ts, src/shared/arena3/contracts.ts (PublicUser).
+ */
 export type Role = "manager" | "coach" | "receptionist" | "member";
+/**
+ * Làm gì: Định nghĩa các trạng thái vòng đời của một lượt đặt sân: hold (đang giữ chỗ tạm thời), confirmed (đã xác nhận), in_use (khách đang dùng sân), completed (hoàn thành), cancelled (đã hủy) và no_show (khách không đến).
+ * Được gọi ở: src/shared/arena3/contracts.ts (Booking), src/server/controllers/handlers/bookings.ts, src/client/components/court-grid.tsx.
+ */
 export type BookingStatus = "hold" | "confirmed" | "in_use" | "completed" | "cancelled" | "no_show";
+/**
+ * Làm gì: Định nghĩa các phương thức thanh toán: cash (tiền mặt tại quầy), transfer (chuyển khoản VietQR), card (thẻ POS), gateway (cổng thanh toán) và quota (trừ giờ từ gói tập hội viên).
+ * Được gọi ở: src/shared/arena3/contracts.ts (Payment), src/server/controllers/handlers/desk.ts, src/server/controllers/handlers/bookings.ts.
+ */
 export type PayMethod = "cash" | "transfer" | "card" | "gateway" | "quota";
+/**
+ * Làm gì: Định nghĩa trạng thái bản ghi thanh toán: posted (thành công), refund_pending (chờ duyệt hoàn tiền), refund_rejected (từ chối hoàn tiền), pending (chờ thanh toán), expired (hết hạn) và failed (thất bại).
+ * Được gọi ở: src/shared/arena3/contracts.ts (Payment), src/server/controllers/handlers/desk.ts, src/server/controllers/handlers/bookings.ts.
+ */
 export type PayStatus = "posted" | "refund_pending" | "refund_rejected" | "pending" | "expired" | "failed";
 
 /** The signed-in person as every endpoint returns them: no password hash, ever. */
@@ -118,6 +134,10 @@ export type Invoice = {
   exported_at: Iso | null;
 };
 
+/**
+ * Làm gì: Định nghĩa một bậc quy định hoàn tiền khi hủy sân: hours (số giờ hủy trước giờ chơi) và refund_pct (tỷ lệ phần trăm tiền được hoàn).
+ * Được gọi ở: src/server/services/policy.ts, src/shared/arena3/contracts.ts (MeBookingsResponse, CancelQuoteResponse).
+ */
 export type CancelTier = { hours: number; refund_pct: number };
 
 // ---- Booking flow -------------------------------------------------------
@@ -145,6 +165,10 @@ export type MyClassSession = {
   coach_name: string;
 };
 
+/**
+ * Làm gì: Định nghĩa cấu trúc phản hồi của API GET /me/bookings trả về danh sách đặt sân của hội viên, các buổi học sắp tới kèm chính sách hủy sân.
+ * Được gọi ở: GET /me/bookings, src/server/controllers/handlers/bookings.ts (meBookings), src/client/lib/pages/app.book.ts.
+ */
 export type MeBookingsResponse = {
   window_hours: number;
   cancel_tiers: CancelTier[];
@@ -240,6 +264,10 @@ export type BookingResponse = Booking;
 /** `POST /payments`: money taken at the desk, with its receipt. */
 export type PaymentCreateResponse = { payment: Payment; invoice: Invoice };
 
+/**
+ * Làm gì: Cấu trúc gói tập/thẻ hội viên trong danh mục catalog công khai, hiển thị thời hạn, số buổi học, số giờ thuê sân và giá bán niêm yết.
+ * Được gọi ở: GET /catalog, src/server/services/catalog.ts (buildCatalog), src/routes/app.plans.tsx.
+ */
 export type CatalogPlan = {
   id: string;
   name: string;
@@ -250,6 +278,10 @@ export type CatalogPlan = {
   price_vnd: number;
 };
 
+/**
+ * Làm gì: Cấu trúc lớp học thể thao trong danh mục catalog công khai, gồm môn, trình độ, sĩ số, sân tập, huấn luyện viên, quy tắc lặp (rrule) và thời lượng.
+ * Được gọi ở: GET /catalog, src/server/services/catalog.ts, src/client/components/landing/plans.tsx, src/client/components/landing/ticker.tsx.
+ */
 export type CatalogClass = {
   id: string;
   sport: string;
@@ -262,6 +294,10 @@ export type CatalogClass = {
   duration_min: number;
 };
 
+/**
+ * Làm gì: Cấu trúc quy tắc bảng giá sân trong danh mục catalog công khai theo môn thể thao, loại ngày, khung giờ chơi và đánh dấu giờ cao điểm (is_peak).
+ * Được gọi ở: GET /catalog, src/server/services/catalog.ts, src/client/components/landing/pricing.tsx, src/client/components/landing/schedule.tsx.
+ */
 export type CatalogPrice = {
   sport: string;
   day_kind: string;
@@ -272,6 +308,10 @@ export type CatalogPrice = {
   court_id?: string | null;
 };
 
+/**
+ * Làm gì: Cấu trúc thông tin tóm tắt của sân thể thao trong catalog công khai, gồm mã sân (court_code), môn thể thao và trạng thái hoạt động.
+ * Được gọi ở: GET /catalog, src/server/services/catalog.ts, src/client/components/landing/courts.tsx, src/client/components/landing/schedule.tsx.
+ */
 export type CatalogCourt = {
   id: string;
   court_code: string;
@@ -279,6 +319,10 @@ export type CatalogCourt = {
   status: string;
 };
 
+/**
+ * Làm gì: Cấu trúc một ô giờ (slot) trên lịch sân công khai, biểu diễn khoảng thời gian và loại sử dụng (trống, đã đặt, lớp học).
+ * Được gọi ở: GET /catalog, src/server/services/catalog.ts, src/client/components/landing/schedule.tsx.
+ */
 export type CatalogSlot = {
   court_id: string;
   start: string;
