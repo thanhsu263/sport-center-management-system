@@ -7,8 +7,8 @@
  * src/server/services/{rules,promos,pricing,checkin,flags}.ts and src/server/controllers/handlers/*.ts.
  */
 export const VI_SERVER_EXACT: Record<string, string> = {
-  "Complete the human verification and try again.": "Ho?n th?nh x?c minh b?n l? ng??i r?i th? l?i.",
-  "Wait 60 seconds before requesting another code.": "??i 60 gi?y tr??c khi y?u c?u m? m?i.",
+  "Complete the human verification and try again.": "Hoàn thành xác minh bạn là người rồi thử lại.",
+  "Wait 60 seconds before requesting another code.": "Đợi 60 giây trước khi yêu cầu mã mới.",
   "Choose manager, receptionist or coach.": "Chọn quản lý, lễ tân hoặc HLV.",
   "Only manager, receptionist and coach accounts are managed from this screen.": "Màn hình này chỉ quản lý tài khoản quản lý, lễ tân và HLV.",
   "At least one active manager must remain.": "Phải còn ít nhất một quản lý đang hoạt động.",
