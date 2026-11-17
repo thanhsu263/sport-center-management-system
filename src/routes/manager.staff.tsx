@@ -1,3 +1,9 @@
+/**
+ * Màn hình quản lý nhân sự dành cho Quản lý (Manager) tại route `/manager/staff`.
+ * Trong hệ thống Arena3, Manager là người trực tiếp cấp phát và quản lý tài khoản nội bộ
+ * (Manager, Receptionist, Coach), cấp mật khẩu tạm, khóa/mở khóa tài khoản,
+ * hủy phiên làm việc và phân công môn thể thao/chứng chỉ cho huấn luyện viên.
+ */
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { Copy, Upload } from "lucide-react";
@@ -18,6 +24,11 @@ import { t, tServer, tData } from "@/client/lib/i18n";
 import { usePageState } from "@/client/lib/use-page-state";
 import { useRead } from "@/client/lib/use-read";
 
+/**
+ * Làm gì: Định nghĩa route `/manager/staff` cho TanStack Router, liên kết URL với component Page để hiển thị giao diện quản lý nhân sự.
+ * Được gọi ở: URL `/manager/staff` (khi người dùng truy cập từ thanh điều hướng hoặc liên kết tạo nhanh).
+ * @returns Đối tượng cấu hình route của TanStack Router.
+ */
 export const Route = createFileRoute("/manager/staff")({ component: Page });
 
 type Staff = {
@@ -38,8 +49,14 @@ type Staff = {
 
 type Issued = { name: string; phone: string; password: string; why: string };
 
+/**
+ * Làm gì: Component trang quản lý nhân sự, hiển thị danh sách nhân viên, thanh thống kê, bộ lọc tìm kiếm và các hộp thoại quản trị tài khoản nội bộ.
+ * Được gọi ở: Route `/manager/staff` (TanStack Router render khi khớp URL).
+ * @returns Giao diện quản lý nhân sự được bọc trong component Shell dành cho Manager.
+ */
 function Page() {
   const user = useSessionUser();
+  // Bước 1: Khởi tạo state và đọc query params trên URL (hỗ trợ mở sẵn modal tạo mới với vai trò chỉ định, ví dụ khi chuyển từ /manager).
   const searchParams = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
   const initialCreating = searchParams?.get("create") === "1" || searchParams?.get("create") === "true";
   const initialRole = searchParams?.get("role") || "receptionist";
@@ -58,21 +75,25 @@ function Page() {
     const timer = setTimeout(() => setTerm(q.trim()), 250);
     return () => clearTimeout(timer);
   }, [q]);
+  // Bước 2: Chuẩn bị query string chứa các tiêu chí lọc (role, status, term) để gửi kèm request API.
   const qs = new URLSearchParams();
   if (role) qs.set("role", role);
   if (status) qs.set("status", status);
   if (term) qs.set("q", term);
   const filtered = !!(role || status || term);
   const { offset, setOffset, pageSize, setPageSize, reset } = usePageState("manager.staff", 25);
+  // Reset trang về đầu (offset = 0) mỗi khi người dùng thay đổi bộ lọc hoặc từ khóa tìm kiếm.
   useEffect(reset, [role, status, term, reset]);
   qs.set("limit", String(pageSize));
   qs.set("offset", String(offset));
   // The list on screen stays (dimmed) while a new filter loads; a failed read replaces it with the reason.
   const read = useRead<{ items: Staff[]; total: number }>(`/staff?${qs}`, { keepPrevious: true });
   const items = read.data?.items ?? null;
+  // Tải danh sách toàn bộ nhân sự (tối đa 100) độc lập với bộ lọc để tính toán số lượng thống kê trên các tab và thanh số liệu.
   const allStaffRead = useRead<{ items: Staff[] }>("/staff?limit=100");
   const allStaff = allStaffRead.data?.items ?? [];
 
+  // Bước 3: Tính toán số lượng nhân sự theo từng vai trò phục vụ thanh bộ lọc tab và thanh chỉ số.
   const roleCounts = {
     "": allStaff.length,
     receptionist: allStaff.filter((s) => s.role === "receptionist").length,
@@ -94,9 +115,18 @@ function Page() {
     { label: t("Open sessions"), value: allStaff.reduce((sum, s) => sum + s.open_sessions, 0) },
   ];
 
+  /**
+   * Làm gì: Thực hiện các thao tác quản trị tài khoản nhân viên bao gồm khóa/mở khóa tài khoản, đặt lại mật khẩu tạm và thu hồi phiên làm việc.
+   * Được gọi ở: src/routes/manager.staff.tsx (menu tác vụ RowActions trên từng thẻ nhân sự tại các dòng 232, 237, 244, 248).
+   * @param s Đối tượng thông tin nhân viên cần xử lý.
+   * @param what Loại hành động quản trị: "lock" (khóa tài khoản), "unlock" (mở khóa), "reset" (đặt lại mật khẩu tạm), "revoke" (thu hồi tất cả phiên đăng nhập).
+   * @returns Promise không có giá trị trả về sau khi hoàn tất cập nhật và tải lại dữ liệu.
+   */
   async function act(s: Staff, what: "lock" | "unlock" | "reset" | "revoke") {
     try {
+      // Bước 1: Gọi API tương ứng với thao tác quản trị được chọn.
       if (what === "lock" || what === "unlock") {
+        // Cập nhật trạng thái tài khoản thành locked (khóa) hoặc active (mở khóa hoạt động).
         await apiPatch(`/staff/${s.id}`, { status: what === "lock" ? "locked" : "active" });
         toast.success(
           what === "lock"
@@ -104,6 +134,7 @@ function Page() {
             : t("{name} can sign in again", { name: s.full_name }),
         );
       } else if (what === "reset") {
+        // Đặt lại mật khẩu: server sinh mật khẩu tạm thời, hủy toàn bộ phiên đang chạy và mở modal bàn giao thông tin.
         const r = await apiPost<{ temp_password: string }>(`/staff/${s.id}/reset-password`);
         setIssued({
           name: s.full_name,
@@ -112,6 +143,7 @@ function Page() {
           why: t("Password reset. Every open session for this account was signed out."),
         });
       } else {
+        // Thu hồi phiên: buộc đăng xuất tài khoản khỏi tất cả các thiết bị đang đăng nhập.
         const r = await apiPost<{ revoked: number }>(`/staff/${s.id}/revoke-sessions`);
         toast.success(
           r.revoked
@@ -119,6 +151,7 @@ function Page() {
             : t("No open sessions"),
         );
       }
+      // Bước 2: Tải lại cả danh sách phân trang và danh sách thống kê để cập nhật trạng thái mới nhất.
       read.reload();
       allStaffRead.reload();
     } catch (e) {
@@ -126,6 +159,7 @@ function Page() {
     }
   }
 
+  // Bước 4: Render giao diện quản lý nhân sự. Quản lý không thể tự khóa hoặc đổi vai trò của chính mình (s.id !== user.id).
   return (
     <Shell role="manager">
       <PageHero
@@ -346,8 +380,16 @@ function Page() {
   );
 }
 
+/**
+ * Làm gì: Hiển thị danh sách nút chọn nhanh (chip/pill) các môn thể thao mà huấn luyện viên có thể giảng dạy, cho phép chọn nhiều môn hoặc chọn tất cả ("all").
+ * Được gọi ở: src/routes/manager.staff.tsx (component CreateModal tại dòng 478 và component RoleModal tại dòng 593).
+ * @param value Danh sách mã định danh các môn thể thao đang được chọn (ví dụ: ["badminton", "pickleball"]).
+ * @param onChange Hàm callback được gọi khi thay đổi lựa chọn môn thể thao, nhận vào mảng mã môn thể thao mới.
+ * @returns Giao diện danh sách nút chọn môn thể thao hỗ trợ bật/tắt (toggle).
+ */
 function SportPicker({ value, onChange }: { value: string[]; onChange: (v: string[]) => void }) {
   const { sports } = useSports();
+  // Lấy danh sách mã các môn thể thao đang hoạt động từ hook useSports và bổ sung thêm tùy chọn "all" (áp dụng cho mọi môn).
   const allChoices = [...sports.map((s) => s.code), "all"];
   return (
     <div className="flex flex-wrap gap-2">
@@ -369,6 +411,15 @@ function SportPicker({ value, onChange }: { value: string[]; onChange: (v: strin
   );
 }
 
+/**
+ * Làm gì: Modal tạo mới tài khoản nhân sự nội bộ (receptionist, coach, manager). Cho phép nhập thông tin, phân công môn dạy, tải ảnh đại diện cho HLV và hiển thị mật khẩu tạm thời sau khi tạo thành công.
+ * Được gọi ở: src/routes/manager.staff.tsx (component Page tại dòng 268 khi quản lý bấm nút thêm nhân sự hoặc khi URL có query param ?create=1).
+ * @param open Trạng thái đóng/mở của hộp thoại modal.
+ * @param defaultRole Vai trò mặc định được chọn sẵn khi mở form (mặc định là "receptionist").
+ * @param onClose Hàm callback đóng modal khi bấm Hủy hoặc đóng hộp thoại.
+ * @param onDone Hàm callback nhận thông tin tài khoản bàn giao (Issued) gồm tên, SĐT và mật khẩu tạm để hiển thị cho quản lý.
+ * @returns Hộp thoại modal chứa form tạo tài khoản nhân sự.
+ */
 function CreateModal({
   open,
   defaultRole = "receptionist",
@@ -380,6 +431,7 @@ function CreateModal({
   onClose: () => void;
   onDone: (i: Issued) => void;
 }) {
+  // Bước 1: Khởi tạo các state lưu dữ liệu form (f), danh sách môn dạy (sports), file ảnh đại diện, lỗi kiểm tra (fe) và cờ trạng thái xử lý (busy).
   const [f, setF] = useState({ full_name: "", phone: "", email: "", role: defaultRole });
   const [sports, setSports] = useState<string[]>([]);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
@@ -387,8 +439,15 @@ function CreateModal({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [fe, setFe] = useState<{ field: string; message: string } | null>(null);
   const [busy, setBusy] = useState(false);
+  /**
+   * Làm gì: Trích xuất thông điệp lỗi của một trường nhập liệu cụ thể từ state fe nếu server trả về lỗi.
+   * Được gọi ở: Thuộc tính hint của các component Field (full_name, phone, email, sports) trong CreateModal.
+   * @param field Tên trường nhập liệu cần lấy thông điệp lỗi.
+   * @returns Chuỗi thông báo lỗi hiển thị cho người dùng, hoặc undefined nếu trường không có lỗi.
+   */
   const bad = (field: string) => (fe?.field === field ? fe.message : undefined);
 
+  // Reset toàn bộ dữ liệu form, môn thể thao, file ảnh và lỗi kiểm tra về trạng thái ban đầu mỗi khi mở lại modal hoặc đổi vai trò mặc định.
   useEffect(() => {
     if (open) {
       setF({ full_name: "", phone: "", email: "", role: defaultRole });
@@ -399,15 +458,23 @@ function CreateModal({
     }
   }, [open, defaultRole]);
 
+  /**
+   * Làm gì: Xử lý gửi form tạo tài khoản nhân viên mới: gọi API POST /staff, tải ảnh đại diện nếu là HLV, dọn dẹp form và kích hoạt callback bàn giao tài khoản.
+   * Được gọi ở: src/routes/manager.staff.tsx (sự kiện onClick của nút "Create account" trong footer của CreateModal tại dòng 452).
+   * @returns Promise không có giá trị trả về sau khi hoàn tất quy trình tạo tài khoản.
+   */
   async function submit() {
+    // Bước 1: Xóa thông báo lỗi cũ và bật cờ busy để khóa nút bấm, tránh gửi trùng lặp request.
     setFe(null);
     setBusy(true);
     try {
+      // Bước 2: Gọi API POST /staff để tạo tài khoản nhân sự. Server sẽ sinh mật khẩu ngẫu nhiên và bật cờ must_change_password.
       const r = await apiPost<{ staff: Staff; temp_password: string }>("/staff", {
         ...f,
         email: f.email || undefined,
         sports: f.role === "coach" ? sports : undefined,
       });
+      // Bước 3: Nếu là huấn luyện viên và có chọn file ảnh đại diện, tải ảnh lên endpoint /manager/site-assets/upload với slot "coach.{id}".
       if (avatarFile && f.role === "coach") {
         const fd = new FormData();
         fd.append("slot", `coach.${r.staff.id}`);
@@ -415,9 +482,11 @@ function CreateModal({
         try {
           await apiPost("/manager/site-assets/upload", fd);
         } catch {
+          // Lỗi tải ảnh đại diện không làm gián đoạn việc tạo tài khoản; chỉ hiển thị thông báo cảnh báo cho người dùng.
           toast.error(t("Staff created, but avatar upload failed"));
         }
       }
+      // Bước 4: Reset form về trạng thái ban đầu và gọi callback onDone để mở modal hiển thị mật khẩu tạm thời cho quản lý bàn giao.
       setF({ full_name: "", phone: "", email: "", role: "receptionist" });
       setSports([]);
       setAvatarFile(null);
@@ -429,12 +498,14 @@ function CreateModal({
         why: t("{role} account created.", { role: roleLabel(r.staff.role) }),
       });
     } catch (e) {
+      // Bước 5: Bắt lỗi nghiệp vụ từ server: nếu trùng SĐT/email (mã BR-01) hoặc lỗi validate trường thì gắn vào fe để hiển thị cạnh ô nhập liệu.
       if (e instanceof ApiClientError && (e.body?.field || e.body?.br === "BR-01")) {
         setFe({ field: (e.body?.field as string) || "phone", message: tServer(e.message) });
       } else {
         toast.error(e instanceof Error ? tServer(e.message) : t("Something went wrong"));
       }
     } finally {
+      // Bước 6: Luôn tắt trạng thái busy khi hoàn thành (dù thành công hay thất bại).
       setBusy(false);
     }
   }
@@ -522,7 +593,16 @@ function CreateModal({
   );
 }
 
+/**
+ * Làm gì: Modal thay đổi vai trò (role), môn thể thao phụ trách và ảnh đại diện cho nhân sự hiện có; server sẽ tự động thu hồi phiên làm việc cũ khi đổi vai trò.
+ * Được gọi ở: src/routes/manager.staff.tsx (component Page tại dòng 283 khi quản lý chọn tác vụ chỉnh sửa vai trò từ menu RowActions).
+ * @param staff Đối tượng thông tin nhân sự đang được chỉnh sửa, hoặc null nếu modal đang đóng.
+ * @param onClose Hàm callback đóng modal khi bấm nút Hủy hoặc đóng hộp thoại.
+ * @param onDone Hàm callback thông báo hoàn tất để component Page tải lại danh sách nhân sự mới nhất.
+ * @returns Hộp thoại modal chỉnh sửa vai trò nhân sự.
+ */
 function RoleModal({ staff, onClose, onDone }: { staff: Staff | null; onClose: () => void; onDone: () => void }) {
+  // Bước 1: Khởi tạo các state lưu vai trò (role), danh sách môn dạy (sports), file ảnh đại diện mới, thông báo lỗi (fe) và cờ xử lý (busy).
   const [role, setRole] = useState("receptionist");
   const [sports, setSports] = useState<string[]>([]);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
@@ -531,6 +611,7 @@ function RoleModal({ staff, onClose, onDone }: { staff: Staff | null; onClose: (
   const [fe, setFe] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
+  // Đồng bộ thông tin vai trò và danh sách môn thể thao của nhân sự được chọn vào state form mỗi khi mở modal hoặc đổi nhân sự khác.
   useEffect(() => {
     if (staff) {
       setRole(staff.role);
@@ -541,11 +622,19 @@ function RoleModal({ staff, onClose, onDone }: { staff: Staff | null; onClose: (
     }
   }, [staff]);
 
+  /**
+   * Làm gì: Lưu thay đổi vai trò và môn dạy qua API PATCH /staff/:id, tải ảnh đại diện mới nếu có, hiển thị thông báo thành công và đóng modal.
+   * Được gọi ở: src/routes/manager.staff.tsx (sự kiện onClick của nút "Save" trong footer của RoleModal tại dòng 578).
+   * @returns Promise không có giá trị trả về sau khi hoàn tất cập nhật.
+   */
   async function save() {
+    // Bước 1: Kiểm tra dữ liệu nhân sự tồn tại và bật cờ busy để ngăn thao tác bấm lưu nhiều lần.
     if (!staff) return;
     setBusy(true);
     try {
+      // Bước 2: Gọi API PATCH /staff/:id để cập nhật vai trò mới (chỉ gửi danh sách môn thể thao khi vai trò là coach).
       await apiPatch(`/staff/${staff.id}`, { role, sports: role === "coach" ? sports : undefined });
+      // Bước 3: Tải ảnh đại diện mới lên slot "coach.{id}" nếu nhân sự có vai trò HLV và quản lý có chọn file ảnh mới.
       if (avatarFile && role === "coach") {
         const fd = new FormData();
         fd.append("slot", `coach.${staff.id}`);
@@ -553,14 +642,18 @@ function RoleModal({ staff, onClose, onDone }: { staff: Staff | null; onClose: (
         try {
           await apiPost("/manager/site-assets/upload", fd);
         } catch {
+          // Lỗi tải ảnh đại diện không chặn tiến trình cập nhật vai trò; chỉ hiển thị thông báo cảnh báo.
           toast.error(t("Staff updated, but avatar upload failed"));
         }
       }
+      // Bước 4: Thông báo thành công và gọi onDone. Lưu ý: server tự động thu hồi (revoke) các phiên đăng nhập cũ để quyền mới áp dụng ở lần đăng nhập tiếp theo.
       toast.success(t("{name} is now {role}. They were signed out.", { name: staff.full_name, role: roleLabel(role).toLowerCase() }));
       onDone();
     } catch (e) {
+      // Bước 5: Bắt lỗi từ server (ví dụ: HLV vẫn còn lớp học đang mở chưa chuyển giao) và hiển thị thông báo lỗi lên form.
       setFe(e instanceof Error ? tServer(e.message) : t("Something went wrong"));
     } finally {
+      // Bước 6: Luôn mở khóa trạng thái bận (busy) khi kết thúc tiến trình lưu.
       setBusy(false);
     }
   }

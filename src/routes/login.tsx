@@ -1,3 +1,8 @@
+/**
+ * File: src/routes/login.tsx
+ * Vai trò: Định nghĩa route và giao diện trang đăng nhập (/login) của hệ thống thể thao Lê Long Sport (Arena 3).
+ * Vị trí trong app: Tuyến đường public cho phép người dùng đăng nhập bằng SĐT/email và mật khẩu, tài khoản demo nhanh, hoặc Google Sign-In; tự động chuyển hướng người dùng đến dashboard phù hợp với role (manager, receptionist, coach, member) hoặc trang đã truy cập trước đó.
+ */
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Eye, EyeOff } from "lucide-react";
 import { useEffect, useState, type FormEvent } from "react";
@@ -17,17 +22,26 @@ import { t, tServer, tk } from "@/client/lib/i18n";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function navigateAfterLogin(navigate: any, role: SessionUser["role"]) {
   let next: string | null = null;
+  // Bước 1: Lấy URL trang đích đã lưu trước đó trong sessionStorage và xóa ngay để không dùng lại.
   try {
     next = sessionStorage.getItem("arena3:after-login");
     sessionStorage.removeItem("arena3:after-login");
   } catch {
     /* storage blocked: go home */
   }
+  // Bước 2: Xác định URL trang chủ mặc định (home) tương ứng với vai trò (role) của tài khoản.
   const home = homeFor(role);
+  // Bước 3: Điều hướng an toàn: chỉ chuyển hướng đến next nếu đường dẫn đó thuộc đúng tiền tố vai trò (tránh trường hợp tài khoản quyền thấp bị chuyển hướng sang trang quản trị).
   if (next && next.startsWith(home.split("/").slice(0, 2).join("/") + "/")) navigate({ href: next });
   else navigate({ to: home });
 }
 
+/**
+ * Làm gì: Định nghĩa route cho trang đăng nhập ("/login") thông qua TanStack Router, liên kết URL với component Login.
+ * Được gọi ở: URL /login (TanStack Router tự động nạp qua routeTree.gen.ts).
+ * @returns Route cấu hình cho đường dẫn /login.
+ * @throws Không ném lỗi.
+ */
 export const Route = createFileRoute("/login")({ component: Login });
 
 /**
@@ -46,6 +60,7 @@ const DEMO_LOGINS_ON = import.meta.env.PROD
   ? import.meta.env.VITE_DEMO_LOGINS === "on"
   : import.meta.env.VITE_DEMO_LOGINS !== "off";
 
+// Danh sách tài khoản demo đại diện cho các vai trò trong hệ thống (manager, receptionist, coach, member) để đăng nhập nhanh trong môi trường phát triển.
 const DEMOS: { role: SessionUser["role"]; phone: string; name: string; note: string }[] = [
   { role: "manager", phone: "0900000001", name: "Phạm Quốc Bảo", note: tk("Pricing · classes · reports") },
   { role: "receptionist", phone: "0900000002", name: "Trần Thu Hà", note: tk("Search · take payment · walk-ins") },
@@ -55,6 +70,12 @@ const DEMOS: { role: SessionUser["role"]; phone: string; name: string; note: str
   { role: "member", phone: "0901230106", name: "Ha", note: tk("No booking today · nothing to pay") },
 ];
 
+/**
+ * Làm gì: Component giao diện trang đăng nhập, quản lý form xác thực người dùng (SĐT/email + mật khẩu, tài khoản demo, Google Sign-In) và cảnh báo phiên làm việc hết hạn.
+ * Được gọi ở: src/routes/login.tsx (khai báo làm component hiển thị trong Route tại dòng 31).
+ * @returns JSX layout trang đăng nhập gồm 2 cột (media giới thiệu bên trái và form đăng nhập bên phải).
+ * @throws Không ném lỗi.
+ */
 function Login() {
   const navigate = useNavigate();
   const [login, setLogin] = useState("");
@@ -71,21 +92,33 @@ function Login() {
     if (takeSessionNotice()) setEnded(true);
   }, []);
 
+  /**
+   * Làm gì: Xử lý gửi thông tin đăng nhập đến API /auth/login (hỗ trợ cả form thông thường lẫn nút bấm tài khoản demo), lưu session và điều hướng sau khi thành công.
+   * Được gọi ở: src/routes/login.tsx (form onSubmit tại dòng 164 và onClick của các nút tài khoản demo tại dòng 245).
+   * @param e Sự kiện FormEvent từ trình duyệt khi người dùng submit form (tùy chọn).
+   * @param demo Dữ liệu tài khoản demo gồm số điện thoại nếu đăng nhập qua nút demo (tùy chọn).
+   * @returns Promise<void>
+   * @throws Không ném lỗi ra ngoài; tự bắt lỗi để hiển thị toast thông báo và cập nhật lỗi vào state.
+   */
   async function submit(e?: FormEvent, demo?: { phone: string }) {
+    // Bước 1: Ngăn hành vi tải lại trang mặc định của form, xóa thông báo lỗi cũ và bật trạng thái chờ (busy).
     e?.preventDefault();
     setError(null);
     setBusy(true);
     try {
+      // Bước 2: Gửi yêu cầu đăng nhập POST tới API /auth/login với thông tin tài khoản demo hoặc dữ liệu người dùng nhập.
       const res = await apiPost<{ token: string; user: SessionUser }>("/auth/login", {
         login: demo?.phone ?? login,
         // The demo password rides along with the button that knows it rather
         // than sitting in the form where a visitor can read it back.
         password: demo ? DEMO_PASSWORD : password,
       });
+      // Bước 3: Đăng nhập thành công: lưu phiên làm việc (token và user), hiển thị toast chào mừng và điều hướng đến trang phù hợp với role.
       setSession(res.token, res.user);
       toast.success(t("Welcome, {name}", { name: res.user.full_name }), { id: "login-hello" });
       navigateAfterLogin(navigate, res.user.role);
     } catch (err) {
+      // Bước 4: Xử lý lỗi đăng nhập: chuyển đổi thông điệp lỗi từ server, hiển thị toast và lưu trạng thái lỗi để hiển thị trên form.
       const msg = err instanceof Error ? tServer(err.message) : t("Could not sign you in");
       toast.error(msg, { id: "login-error-toast" });
       setError({
@@ -94,6 +127,7 @@ function Login() {
         credentials: err instanceof ApiClientError && (err.status === 400 || err.status === 401),
       });
     } finally {
+      // Bước 5: Luôn hoàn tất trạng thái chờ (busy = false) dù đăng nhập thành công hay gặp lỗi.
       setBusy(false);
     }
   }
