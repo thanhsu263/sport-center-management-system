@@ -1296,7 +1296,12 @@ export async function templateSave(sql: Sql, id: string, request: Request, user:
   const payload = { ...src.payload } as Record<string, unknown>;
   const sports = await getActiveSportCodes(sql);
   payload.sport = oneOf(sports, b.sport ?? payload.sport, "sport");
-  payload.level = oneOf(LEVELS, b.level ?? payload.level, "level");
+  // Lớp "mọi trình độ" hay giáo án AI có thể mang trình độ ngoài danh sách: lấy giá trị hợp lệ đầu tiên, không có thì "beginner"
+  const cls = src.class_id ? await one<{ level: string }>(sql, `select level from classes where id = $1`, [src.class_id]) : undefined;
+  payload.level =
+    [b.level, payload.level, cls?.level]
+      .map((v) => (typeof v === "string" ? v.trim().toLowerCase() : ""))
+      .find((v): v is (typeof LEVELS)[number] => (LEVELS as readonly string[]).includes(v)) ?? "beginner";
   const title = (str(b.title) ?? src.title ?? "").trim().slice(0, 120);
   // Bước 4: Tạo bản ghi giáo án mẫu mới (scope = 'template', is_template = true, published = false) vào training_plans.
   const row = await one(
