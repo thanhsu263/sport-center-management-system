@@ -247,7 +247,16 @@ function Page() {
             <ResultsPanel sessionId={open.id} cancelled={open.status === "cancelled"} />
           ) : null}
           {open && f4 && current === "plan" ? (
-            <PlanPanel session={open} f5={flags.F5 !== false} />
+            <PlanPanel
+              session={open}
+              f5={flags.F5 !== false}
+              onPickSession={(id) => {
+                // Chỉ chuyển khi buổi đó có trong lịch, và giữ nguyên tab Giáo án để form đang sửa không mất
+                if (!items.some((s) => s.id === id)) return;
+                setPicked({ id, step: "plan" });
+                void navigate({ to: "/coach/attendance", search: { session: id } });
+              }}
+            />
           ) : null}
           {open && f4 && current === "homework" ? <HomeworkPanel classId={open.class_id} /> : null}
         </div>

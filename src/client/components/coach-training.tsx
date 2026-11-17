@@ -356,7 +356,16 @@ function lastWeekMonday(iso: string) {
  * @param f5 Cờ tính năng (feature flag) bật/tắt các tiện ích mở rộng của giáo án.
  * @returns JSX hiển thị form soạn thảo và danh sách các giáo án của lớp.
  */
-export function PlanPanel({ session, f5 }: { session: TrainingSession; f5: boolean }) {
+export function PlanPanel({
+  session,
+  f5,
+  onPickSession,
+}: {
+  session: TrainingSession;
+  f5: boolean;
+  /** Chuyển trang sang buổi của giáo án đang sửa, để ô "Đổi buổi" luôn khớp với giáo án trên form. */
+  onPickSession?: (sessionId: string) => void;
+}) {
   const plansRead = useRead<{ items: PlanRow[] }>(`/training-plans?class_id=${session.class_id}`);
   const plans = plansRead.data?.items ?? null;
   // Templates are an extra: if they do not come, the coach simply builds the plan from scratch.
@@ -575,6 +584,8 @@ export function PlanPanel({ session, f5 }: { session: TrainingSession; f5: boole
    * @returns Không trả về dữ liệu.
    */
   function edit(p: PlanRow) {
+    // Giáo án của buổi khác (vd. tháng 12): chuyển ô chọn buổi sang đúng buổi đó trước khi nạp form
+    if (p.session_id && p.session_id !== session.id) onPickSession?.(p.session_id);
     setEditing(p);
     setTitle(p.title ?? "");
     setNote(p.payload.note ?? "");
