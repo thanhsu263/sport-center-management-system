@@ -49,7 +49,7 @@ export const Route = createFileRoute("/forgot")({ component: Forgot });
 const SLOT = "";
 /**
  * Làm gì: Chèn một React node vào vị trí ký tự phân tách SLOT (" ") trong chuỗi văn bản đã dịch.
- * Được gọi ở: src/routes/forgot.tsx (trong component Forgot, hiển thị email che sentTo và mã demoOtp).
+ * Được gọi ở: src/routes/forgot.tsx (trong component Forgot, hiển thị email che sentTo).
  * @param text Chuỗi văn bản đã dịch có chứa ký tự phân tách SLOT.
  * @param node ReactNode cần chèn vào vị trí giữa hai phần văn bản (thẻ span hiển thị email hoặc mã OTP).
  * @returns Đoạn JSX Fragment chứa phần văn bản đầu, React node được tạo kiểu và phần văn bản cuối.
@@ -78,7 +78,6 @@ function Forgot() {
   const [step, setStep] = useState<"phone" | "reset">("phone");
   const [phone, setPhone] = useState("");
   const [sentTo, setSentTo] = useState<string | null>(null);
-  const [demoOtp, setDemoOtp] = useState<string | null>(null);
   const [otp, setOtp] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -122,7 +121,6 @@ function Forgot() {
       });
       // Bước 3: Lưu email đã che (sent_to), mã OTP demo (nếu có) và chuyển giao diện sang bước 'reset'.
       setSentTo(res.sent_to ?? null);
-      setDemoOtp(res.otp ?? null);
       setStep("reset");
       setOtp("");
       // Đặt thời gian đếm ngược 60 giây trước khi cho phép gửi lại mã OTP (rate limiting phía client).
@@ -247,11 +245,6 @@ function Forgot() {
               <p className="text-sm text-muted">
                 {t("No email on your account, or can't open it? Ask the front desk to reset your password. They will give you a temporary one.")}
               </p>
-              {demoOtp ? (
-                <p className="rounded-[var(--radius-md)] border border-hold/40 px-3 py-2 text-sm text-hold">
-                  {slot(t("Demo build: the code is {code}.", { code: SLOT }), <span className="font-medium tabular-nums">{demoOtp}</span>)}
-                </p>
-              ) : null}
 
               <OtpInput value={otp} onChange={setOtp} invalid={error?.field === "otp"} errorId="forgot-error" />
               <Field label={t("New password")} hint={tooWeak ? t("At least 8 characters, letters and digits.") : undefined}>

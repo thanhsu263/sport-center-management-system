@@ -95,7 +95,6 @@ function Register() {
   const [resendAt, setResendAt] = useState(0);
   const [step, setStep] = useState<"form" | "otp">("form");
   const [otp, setOtp] = useState("");
-  const [shown, setShown] = useState("");
   const [busy, setBusy] = useState(false);
   const [legalDoc, setLegalDoc] = useState<"terms" | "privacy" | null>(null);
   // Nothing about the password is pre-filled. It used to arrive holding the
@@ -162,7 +161,6 @@ function Register() {
         { ...form, ...(needGuardian ? { guardian_name: guardian.name, guardian_phone: guardian.phone } : {}), captcha_token: captcha.token, website: captcha.website },
       );
       // Bước 3: Đăng ký bước đầu thành công: lưu mã OTP demo (nếu có), email nhận mã, chuyển sang bước nhập OTP và đặt thời gian chờ gửi lại sau 60 giây.
-      setShown(res.otp ?? "");
       setSentTo(res.sent_to ?? null);
       setStep("otp");
       setOtp("");
@@ -425,11 +423,6 @@ function Register() {
                   <>{t("We could not email the code. Ask the front desk to verify you in person.")}</>
                 )}
               </p>
-              {shown ? (
-                <p className="rounded-[var(--radius-md)] border border-hold/40 px-3 py-2 text-sm text-hold">
-                  {slot(t("Demo build: the code is {code}.", { code: SLOT }), <span className="font-medium tabular-nums">{shown}</span>)}
-                </p>
-              ) : null}
               <OtpInput value={otp} onChange={setOtp} invalid={error?.field === "otp"} errorId="register-error" />
               {error ? (
                 <p id="register-error" role="alert" className="text-sm text-danger">
