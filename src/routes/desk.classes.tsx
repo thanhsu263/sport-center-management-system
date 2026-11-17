@@ -1,3 +1,9 @@
+/**
+ * Tuyến đường (route) màn hình danh sách lớp học dành cho bộ phận lễ tân (/desk/classes).
+ * Cho phép nhân viên lễ tân tra cứu thông tin các lớp học thể thao (môn học, trình độ, HLV, sân tập, sĩ số, lịch lặp rrule)
+ * để giải đáp thắc mắc cho hội viên và khách vãng lai tại quầy (nghiệp vụ D-07).
+ * Hỗ trợ đồng bộ dữ liệu thời gian thực và xem chi tiết danh sách học viên/ca học qua ClassDetailModal.
+ */
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { ClassDetailModal } from "@/client/components/class-detail";
@@ -9,10 +15,16 @@ import { levelLabel, rruleLabel, sportLabel } from "@/shared/arena3/labels";
 import { useRead } from "@/client/lib/use-read";
 import { HighlightBadge, useLive } from "@/client/lib/use-live";
 
+/**
+ * Làm gì: Định nghĩa route cho màn hình danh sách lớp học của lễ tân tại đường dẫn /desk/classes, gắn kết với component Page.
+ * Được gọi ở: URL /desk/classes (TanStack Router, đăng ký trong src/routeTree.gen.ts).
+ * @returns Đối tượng route được cấu hình cho TanStack Router.
+ */
 export const Route = createFileRoute("/desk/classes")({
   component: Page,
 });
 
+// Cấu trúc dữ liệu của từng lớp học trong danh sách trả về từ endpoint /classes.
 type Row = {
   id: string;
   code: string;
@@ -28,13 +40,25 @@ type Row = {
 };
 
 /** The same classes the manager sees, so the desk can answer "who is in it, and when?" (D-07). */
+/**
+ * Làm gì: Component trang hiển thị danh sách lớp học cho lễ tân, hỗ trợ phân trang client, cập nhật realtime và mở modal xem chi tiết học viên/buổi học.
+ * Được gọi ở: src/routes/desk.classes.tsx (thuộc tính component của Route tại URL /desk/classes).
+ * @returns Giao diện Shell lễ tân chứa lưới thẻ lớp học, trạng thái tải/lỗi và modal chi tiết.
+ */
 function Page() {
+  // Bước 1: Tải danh sách lớp học từ API /classes và đăng ký kênh realtime "classes" để tự động cập nhật khi có thay đổi dữ liệu
   const read = useRead<{ items: Row[] }>("/classes");
   useLive("classes", read.reload);
+  // Dữ liệu danh sách lớp: null khi đang tải lần đầu, mảng rỗng nếu chưa có lớp học nào mở
   const items = read.data?.items ?? null;
+  // Bước 2: Khởi tạo state lưu ID lớp học để mở modal chi tiết (detail) và giới hạn số lượng thẻ hiển thị ban đầu (limit: 8 lớp)
   const [detail, setDetail] = useState<string | null>(null);
   const [limit, setLimit] = useState(8);
 
+  // Bước 3: Render giao diện khung Shell với vai trò receptionist:
+  // - Hiển thị LoadError nếu xảy ra lỗi tải, Skeleton khi đang tải dữ liệu, hoặc EmptyState nếu không có lớp nào mở.
+  // - Hiển thị danh sách lớp học dạng lưới 2 cột kèm hiệu ứng chuyển động Stagger; mỗi Card thể hiện mã lớp, môn, cấp độ, HLV, sân, sĩ số và lịch lặp.
+  // - Phân trang phía client với ShowMore (tăng 8 lớp mỗi lần bấm) và mở ClassDetailModal khi chọn xem buổi học & học viên.
   return (
     <Shell role="receptionist" title={t("Classes")} subtitle={t("Open a class to see its sessions, court, coach and who is enrolled.")}>
       {read.error ? (

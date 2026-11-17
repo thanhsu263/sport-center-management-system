@@ -1,3 +1,9 @@
+/**
+ * Tệp này định nghĩa component lưới lịch sân (CourtGrid) và các hàm tiện ích xử lý khung giờ, trạng thái sân của Arena 3.
+ * Đóng vai trò là giao diện cốt lõi hiển thị tình trạng sân theo thời gian thực (trống, giữ chỗ, đã đặt, đang sử dụng, lớp học, bảo trì, đóng cửa, quá khứ).
+ * Được tích hợp trong trang chủ giới thiệu (src/routes/index.tsx, landing/schedule.tsx), trang đặt sân của hội viên (src/routes/app.book.tsx),
+ * và màn hình quản lý sơ đồ sân trực tiếp cho nhân viên lễ tân (src/routes/desk.courts.tsx).
+ */
 import { useEffect, useRef, useState } from "react";
 import { ChevronDown, Plus } from "lucide-react";
 import { availLabel, type AvailMap } from "@/client/components/availability-calendar";
@@ -13,6 +19,12 @@ import {
   weekdayShort,
 } from "@/shared/arena3/labels";
 
+/**
+ * Làm gì: Định dạng chuỗi thời gian ISO thành chuỗi giờ:phút (HH:mm) theo múi giờ Việt Nam (Asia/Ho_Chi_Minh).
+ * Được gọi ở: src/client/components/court-grid.tsx:cellTitle (tạo nhãn tooltip chi tiết cho ô giờ).
+ * @param iso Chuỗi thời gian chuẩn ISO cần định dạng.
+ * @returns Chuỗi thời gian dạng "HH:mm" (ví dụ: "07:00", "18:30").
+ */
 function hhmm(iso: string) {
   return new Date(iso).toLocaleTimeString(locale(), {
     timeZone: "Asia/Ho_Chi_Minh",
@@ -42,6 +54,12 @@ export type OccSlot = {
   ref?: string;
 };
 
+/**
+ * Làm gì: Danh sách 16 khung giờ hoạt động tiêu chuẩn trong ngày của trung tâm thể thao (từ 06:00 đến 21:00).
+ * Được gọi ở:
+ * - src/client/components/court-grid.tsx: giá trị mặc định cho tham số hours trong freeHours và CourtGrid.
+ * - src/routes/app.book.tsx, src/routes/desk.courts.tsx: làm mốc đối chiếu khi render lưới giờ.
+ */
 export const HOURS = [6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21];
 
 export { sportLabel };
@@ -112,17 +130,40 @@ function isBookable(s: SlotState) {
   return s === "free";
 }
 
+/**
+ * Làm gì: Tìm bản ghi chiếm chỗ (OccSlot) của một sân cụ thể tại khung giờ và ngày xác định.
+ * Được gọi ở:
+ * - src/client/components/court-grid.tsx: hàm freeHours.
+ * - src/client/components/court-grid.tsx: component CourtGrid (trong useEffect phát hiện thay đổi và khi render từng ô sân).
+ * @param slots Danh sách các lượt chiếm chỗ sân (đặt sân, lớp học, bảo trì, giữ chỗ).
+ * @param courtId ID định danh của sân cần kiểm tra.
+ * @param date Ngày kiểm tra theo định dạng YYYY-MM-DD.
+ * @param hour Khung giờ bắt đầu kiểm tra (0-23, ví dụ 7 tức là 07:00 - 08:00).
+ * @returns Bản ghi OccSlot nếu khung giờ bị chiếm dụng, hoặc undefined nếu sân còn trống.
+ */
 function occAt(slots: OccSlot[], courtId: string, date: string, hour: number): OccSlot | undefined {
+  // Bước 1: Tính toán khoảng thời gian [start, end) của khung giờ 1 tiếng theo múi giờ Việt Nam (+07:00)
   const start = new Date(`${date}T${String(hour).padStart(2, "0")}:00:00+07:00`).getTime();
   const end = start + 60 * 60 * 1000;
+  // Bước 2: Tìm slot chiếm chỗ trùng mã sân và có khoảng thời gian giao nhau với khung giờ này
   return slots.find((s) => {
     if (s.court_id !== courtId) return false;
     const a = new Date(s.start).getTime();
     const b = new Date(s.end).getTime();
+    // Hai khoảng thời gian giao nhau khi thời điểm bắt đầu slot này trước khi slot kia kết thúc và ngược lại
     return a < end && b > start;
   });
 }
 
+/**
+ * Làm gì: Chuyển đổi ngày và giờ thành mốc thời gian timestamp (mili-giây) tại thời điểm bắt đầu khung giờ theo múi giờ Việt Nam (+07:00).
+ * Được gọi ở:
+ * - src/client/components/court-grid.tsx: hàm isPast.
+ * - src/client/components/court-grid.tsx: hàm isNow.
+ * @param date Chuỗi ngày theo chuẩn ISO (YYYY-MM-DD).
+ * @param hour Giờ bắt đầu trong ngày (0-23).
+ * @returns Timestamp tính bằng mili-giây (epoch ms) tại đầu khung giờ.
+ */
 function hourStart(date: string, hour: number) {
   return new Date(`${date}T${String(hour).padStart(2, "0")}:00:00+07:00`).getTime();
 }
@@ -144,11 +185,25 @@ function isPast(date: string, hour: number, now: number, startedIsPast = false) 
 
 /** Is this the hour the clock is in right now? */
 function isNow(date: string, hour: number, now: number) {
+  // Tránh đánh dấu nhầm khung giờ hiện tại khi SSR hoặc trước khi client lấy được timestamp thực tế (now = 0)
   if (!now) return false;
   const start = hourStart(date, hour);
   return now >= start && now < start + 3_600_000;
 }
 
+/**
+ * Làm gì: Xác định trạng thái nghiệp vụ duy nhất của một ô giờ trên sân dựa trên thời gian thực, tình trạng sân và lịch chiếm chỗ.
+ * Được gọi ở:
+ * - src/client/components/court-grid.tsx: hàm freeHours.
+ * - src/client/components/court-grid.tsx: component CourtGrid (trong useEffect theo dõi biến động và khi render giao diện desktop/mobile).
+ * @param court Thông tin sân (id, court_code, sport, status).
+ * @param occ Bản ghi chiếm chỗ tại khung giờ này (nếu có).
+ * @param date Ngày đang xét (YYYY-MM-DD).
+ * @param hour Khung giờ đang xét (0-23).
+ * @param now Timestamp hiện tại từ useNowMinute.
+ * @param startedIsPast Cờ quy tắc nghiệp vụ BR-07: true (hội viên/khách) thì giờ đã bắt đầu xem như đã qua; false (lễ tân) thì phải hết cả tiếng mới qua.
+ * @returns Trạng thái SlotState: 'past' | 'closed' | 'maintenance' | 'free' | 'hold' | 'class' | 'in_use' | 'booked'.
+ */
 export function slotState(
   court: Court,
   occ: OccSlot | undefined,
@@ -157,16 +212,20 @@ export function slotState(
   now: number,
   startedIsPast = false,
 ): SlotState {
+  // Bước 1: Ưu tiên cao nhất - kiểm tra nếu giờ đã qua thì luôn tính là 'past'
   if (isPast(date, hour, now, startedIsPast)) return "past";
   // A court out of service is out of service for the whole day, whatever the
   // occupancy table says — the row for a booking taken before it broke is
   // history reception has to ring about, not an hour anyone can buy.
   if (court.status === "closed") return "closed";
   if (court.status === "maintenance") return "maintenance";
+  // Bước 2: Nếu không có lịch chiếm dụng thì ô giờ còn trống ('free')
   if (!occ) return "free";
+  // Bước 3: Phân loại theo loại chiếm chỗ cụ thể (hold: giữ chỗ tạm thời, maintenance: bảo trì, session: lớp học)
   if (occ.kind === "hold") return "hold";
   if (occ.kind === "maintenance") return "maintenance";
   if (occ.kind === "session") return "class";
+  // Bước 4: Đơn đặt chỗ (booking): nếu đang trong khung giờ hiện tại thì là 'in_use', ngược lại là 'booked'
   return isNow(date, hour, now) ? "in_use" : "booked";
 }
 
@@ -179,7 +238,9 @@ export function freeHours(
   startedIsPast = false,
   hours: readonly number[] = HOURS,
 ): { court: Court; hour: number }[] {
+  // Bước 1: Khởi tạo danh sách chứa các cặp { court, hour } còn trống
   const out: { court: Court; hour: number }[] = [];
+  // Bước 2: Duyệt từng khung giờ từ sớm đến muộn, quét qua tất cả các sân để tìm ô có trạng thái 'free'
   for (const h of hours) {
     for (const c of courts) {
       if (slotState(c, occAt(slots, c.id, date, h), date, h, now, startedIsPast) === "free") {
@@ -210,6 +271,18 @@ export function useNowMinute() {
   return now;
 }
 
+/**
+ * Làm gì: Thanh cuộn ngang chọn ngày (DateStrip) hiển thị danh sách các ngày kế tiếp kèm thứ, ngày trong tháng và số lượng sân trống.
+ * Được gọi ở:
+ * - src/client/components/landing/schedule.tsx: thanh chọn ngày trên lịch trang chủ.
+ * - src/routes/desk.courts.tsx: thanh chọn ngày trên sơ đồ sân của lễ tân.
+ * Props quan trọng:
+ * - value: Chuỗi ngày ISO (YYYY-MM-DD) đang được chọn.
+ * - onChange: Hàm callback nhận vào chuỗi ngày ISO khi người dùng nhấn chọn ngày khác.
+ * - days: Số ngày hiển thị trên thanh (mặc định là 7 ngày).
+ * - avail: Bản đồ số sân trống theo ngày (AvailMap) để hiển thị gợi ý số slot còn lại.
+ * @returns Phần tử JSX thanh cuộn ngang các nút chọn ngày.
+ */
 export function DateStrip({
   value,
   onChange,
@@ -222,11 +295,13 @@ export function DateStrip({
   /** Free-slot counts per day; a day with none left says so before it is opened. */
   avail?: AvailMap | null;
 }) {
+  // Bước 1: Tạo danh sách N ngày liên tiếp bắt đầu từ hôm nay kèm tên thứ viết tắt và ngày trong tháng
   const today = todayISO();
   const items = Array.from({ length: days }, (_, i) => {
     const iso = addDaysISO(today, i);
     return { iso, wd: weekdayShort(iso), day: Number(iso.slice(8, 10)), isToday: iso === today };
   });
+  // Bước 2: Render thanh cuộn ngang; ngày đang chọn sẽ có màu nền accent nổi bật
   return (
     <div className="flex gap-2 overflow-x-auto pb-1">
       {items.map((it) => {
@@ -303,9 +378,11 @@ function NoFreeSlots({
   onPickSport?: (sport: string) => void;
   onPickDate?: (date: string) => void;
 }) {
+  // Bước 1: Xác định ngày mai và tổng hợp số lượng phương án thay thế khả dụng (ngày mai hoặc môn khác còn sân)
   const tomorrow = addDaysISO(date, 1);
   const sportName = sport ? sportLabel(sport).toLowerCase() : "";
   const offers = (onPickDate ? 1 : 0) + (onPickSport ? alternatives.length : 0);
+  // Bước 2: Hiển thị thông báo trạng thái hết sân và các nút gợi ý chuyển đổi nếu có lựa chọn thay thế
   return (
     <div className="rounded-[var(--radius-xl)] border border-hold/30 bg-hold/5 p-4">
       <p className="text-sm font-medium">
@@ -351,6 +428,28 @@ function NoFreeSlots({
   );
 }
 
+/**
+ * Làm gì: Component chính hiển thị lưới lịch sân tương tác theo thời gian thực; tự động chuyển đổi giữa dạng bảng ma trận (desktop) và dạng accordion theo giờ (mobile).
+ * Được gọi ở:
+ * - src/client/components/landing/schedule.tsx: lịch tổng quan trên trang chủ giới thiệu sân.
+ * - src/routes/app.book.tsx: giao diện đặt sân trực quan của hội viên.
+ * - src/routes/desk.courts.tsx: màn hình điều phối và kiểm tra tình trạng sân của nhân viên lễ tân.
+ * Props quan trọng:
+ * - date: Ngày hiển thị lịch (YYYY-MM-DD).
+ * - courts: Danh sách các sân đang hoạt động.
+ * - slots: Danh sách các lượt chiếm chỗ sân (đặt sân, lớp học, bảo trì, giữ chỗ).
+ * - sport: Mã môn thể thao cần lọc (badminton, basketball, volleyball...).
+ * - onPick: Callback khi người dùng nhấn vào ô giờ trống để tiến hành đặt hoặc giữ sân.
+ * - onInspect: Callback dành riêng cho lễ tân khi nhấn vào ô đã có người để xem thông tin đặt chỗ.
+ * - onPickSport / onPickDate: Callback khi hết sân để chuyển đổi nhanh sang môn khác hoặc ngày tiếp theo.
+ * - onRefresh: Callback kích hoạt làm mới dữ liệu từ SSE (useLive).
+ * - selected: Ô giờ và sân đang được chọn để làm nổi bật { courtId, hour }.
+ * - startedIsPast: Cờ BR-07 (true cho hội viên: giờ đã bắt đầu xem như đã qua không thể đặt).
+ * - freeCount: Số slot trống được truyền từ server để đồng bộ với thanh ngày phía trên.
+ * - defaultShowPast: Thiết lập hiển thị sẵn các giờ đã qua (hữu ích cho lễ tân đối soát ca sáng).
+ * - hours: Danh sách các khung giờ hiển thị trong ngày (mặc định từ HOURS).
+ * @returns Phần tử JSX lưới lịch sân hoàn chỉnh kèm chú giải và khối thông báo khi kín sân.
+ */
 export function CourtGrid({
   date,
   courts,
@@ -396,11 +495,13 @@ export function CourtGrid({
   /** The hour the caller is currently asking about, marked on the grid. */
   selected?: { courtId: string; hour: number } | null;
 }) {
+  // Bước 1: Khởi tạo mốc thời gian thực cập nhật từng phút và lắng nghe sự kiện SSE (kênh "courts") để tự động làm mới khi có thay đổi.
   const now = useNowMinute();
   useLive("courts", () => {
     onRefresh?.();
   });
 
+  // Bước 2: Khởi tạo state theo dõi các ô vừa đổi trạng thái (hiệu ứng pulse) và lọc danh sách sân theo môn thể thao được chọn.
   const [changedCells, setChangedCells] = useState<Set<string>>(() => new Set());
   const prevSlotsMap = useRef<Map<string, SlotState>>(new Map());
   const initialMount = useRef(true);
@@ -408,6 +509,7 @@ export function CourtGrid({
   const [showPast, setShowPast] = useState(defaultShowPast);
   const list = sport ? courts.filter((c) => c.sport === sport) : courts;
 
+  // Bước 3: So sánh trạng thái (diffing) các ô giờ giữa các lần render để phát hiện ô vừa thay đổi và kích hoạt hiệu ứng thị giác.
   useEffect(() => {
     const nextMap = new Map<string, SlotState>();
     for (const c of list) {
@@ -418,12 +520,14 @@ export function CourtGrid({
       }
     }
 
+    // Bỏ qua lần render đầu tiên (initial mount) để không kích hoạt hiệu ứng nhấp nháy toàn bộ lưới khi mới tải trang.
     if (initialMount.current) {
       initialMount.current = false;
       prevSlotsMap.current = nextMap;
       return;
     }
 
+    // Quét tìm các ô có trạng thái khác với lần render trước (ví dụ từ free sang hold hoặc booked).
     const changed = new Set<string>();
     for (const [key, state] of nextMap.entries()) {
       const prev = prevSlotsMap.current.get(key);
@@ -433,6 +537,7 @@ export function CourtGrid({
     }
     prevSlotsMap.current = nextMap;
 
+    // Nếu phát hiện thay đổi, bật viền pulse và hẹn giờ 1.5 giây để tự động tắt hiệu ứng.
     if (changed.size > 0) {
       setChangedCells(changed);
       const timer = setTimeout(() => {
@@ -441,7 +546,9 @@ export function CourtGrid({
       return () => clearTimeout(timer);
     }
   }, [slots, list, date, dayHours, now, startedIsPast]);
+  // Bước 4: Thống kê số lượng khung giờ còn trống và phân tách các khung giờ đã qua với các khung giờ còn hoạt động trong ngày.
   const freeList = freeHours(list, slots, date, now, startedIsPast, dayHours);
+  // Ưu tiên dùng số lượng slot trống từ server (freeCount) để đồng bộ với thanh DateStrip phía trên; fallback là đếm trực tiếp từ freeList.
   const free = freeCount ?? freeList.length;
   // Finished hours fold away, so the first row on screen is an hour you can still play.
   const pastHours = dayHours.filter((h) => isPast(date, h, now, startedIsPast));
@@ -450,6 +557,7 @@ export function CourtGrid({
   const byHour = dayHours.map((h) => ({ hour: h, open: freeList.filter((f) => f.hour === h).map((f) => f.court) })).filter(
     (x) => x.open.length > 0,
   );
+  // Bước 5: Kiểm tra lịch lớp học hôm nay và tìm các môn thể thao thay thế còn sân trống nếu môn hiện tại đã hết sạch chỗ.
   const hasClass = slots.some((s) => s.kind === "session" && list.some((c) => c.id === s.court_id));
 
   // Only worth computing when the answer above was zero.
@@ -465,6 +573,7 @@ export function CourtGrid({
           .sort((a, b) => b.count - a.count)
       : [];
 
+  // Bước 6: Xử lý giao diện trống (Empty State) khi không có sân nào thuộc môn thể thao đã chọn hoặc chưa có dữ liệu cấu hình.
   if (list.length === 0) {
     return (
       <div className="grid place-items-center gap-1 rounded-[var(--radius-xl)] bg-surface px-6 py-14 text-center shadow-[var(--shadow-border)]">
@@ -476,6 +585,7 @@ export function CourtGrid({
     );
   }
 
+  // Bước 7: Render giao diện lưới lịch sân gồm chú thích trạng thái, thanh chọn nhanh giờ (mobile) và lưới ma trận thời khóa biểu (desktop).
   return (
     // One shrinkable column: the sideways strips below scroll inside it instead of widening the
     // page (a phone at 390px used to scroll the whole screen sideways by 138px).
@@ -543,6 +653,7 @@ export function CourtGrid({
                 // Past hours are shown, never offered — seeing the whole day is
                 // the point of the grid, but nothing can be sold backwards.
                 const clickable = onPick && (isBookable(state));
+                // Dành cho lễ tân: nếu ô đã có người chiếm (canInspect), cho phép bấm để mở modal tra cứu chi tiết người đặt (B-07).
                 const inspect = !clickable && onInspect && canInspect(occ) ? occ : null;
                 const isChanged = changedCells.has(`${c.id}:${h}`);
                 const cls = cn(
@@ -673,6 +784,21 @@ function cellTitle(state: SlotState, occ: OccSlot | undefined) {
   return `${slotStateLabel(state)} · ${kindLabel(occ.kind)} ${hhmm(occ.start)}-${hhmm(occ.end)}`;
 }
 
+/**
+ * Làm gì: Component render một hàng khung giờ trên lưới ma trận thời khóa biểu desktop, gồm cột mốc giờ cố định bên trái và các ô trạng thái của từng sân trong khung giờ đó.
+ * Được gọi ở: src/client/components/court-grid.tsx:CourtGrid (khối lưới thời khóa biểu dành cho màn hình desktop).
+ * @param hour Mốc giờ của hàng cần hiển thị (từ 6 đến 21).
+ * @param list Danh sách các sân thể thao đang hiển thị trên lưới.
+ * @param slots Danh sách các khung giờ đã có người đặt, giữ chỗ hoặc lớp học.
+ * @param date Ngày đang xem lịch sân (chuỗi ISO YYYY-MM-DD).
+ * @param onPick Callback xử lý khi người dùng bấm chọn một ô giờ còn trống để đặt sân.
+ * @param onInspect Callback dành cho nhân viên lễ tân bấm xem chi tiết người đặt của ô giờ đã có người chiếm chỗ.
+ * @param selected Vị trí ô giờ đang được chọn để làm nổi bật viền ({ courtId, hour }).
+ * @param now Mốc thời gian hiện tại (timestamp ms) để xác định trạng thái giờ đã qua hoặc đang diễn ra.
+ * @param startedIsPast Cờ xác định khung giờ đang diễn ra có bị coi là đã qua hay không (áp dụng cho hội viên theo quy tắc BR-07).
+ * @param changedCells Tập hợp các mã ô (courtId:hour) vừa thay đổi trạng thái cần chạy hiệu ứng nhấp nháy.
+ * @returns Khối JSX chứa ô tiêu đề giờ và các ô tương tác của từng sân trong khung giờ tương ứng.
+ */
 function HourRow({
   hour,
   list,
@@ -696,8 +822,10 @@ function HourRow({
   startedIsPast?: boolean;
   changedCells?: Set<string>;
 }) {
+  // Bước 1: Xác định xem mốc giờ này đã trôi qua (past) hay đang diễn ra ở thời điểm hiện tại (live).
   const past = isPast(date, hour, now, startedIsPast);
   const live = isNow(date, hour, now);
+  // Bước 2: Render ô tiêu đề mốc giờ sticky bên trái và duyệt qua từng sân để vẽ các ô trạng thái tương ứng.
   return (
     <>
       <div
@@ -710,6 +838,7 @@ function HourRow({
         {String(hour).padStart(2, "0")}
       </div>
       {list.map((c) => {
+        // Xác định trạng thái của sân tại khung giờ này (free, booked, hold, class...) và kiểm tra xem có thể tương tác hay không.
         const occ = occAt(slots, c.id, date, hour);
         const state = slotState(c, occ, date, hour, now, startedIsPast);
         const title = cellTitle(state, occ);
@@ -725,6 +854,7 @@ function HourRow({
             "ring-2 ring-accent ring-offset-1 ring-offset-surface",
           isChanged && "motion-safe:ring-2 motion-safe:ring-accent/70 motion-safe:animate-pulse",
         );
+        // Phân quyền lễ tân: cho phép bấm vào ô đã chiếm chỗ để tra cứu thông tin đặt sân (B-07), trong khi hội viên chỉ bấm được ô trống.
         const inspect = !clickable && onInspect && canInspect(occ) ? occ : null;
         if (inspect) {
           return (
