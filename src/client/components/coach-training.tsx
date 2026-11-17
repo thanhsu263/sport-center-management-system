@@ -729,9 +729,14 @@ export function PlanPanel({
               <span>
                 {editing.published
                   ? t("Editing “{title}”. Students will be told it changed and the old version is kept.", {
-                      title: editing.title || t("plan"),
+                      title: editing.title || editing.payload.goal || t("plan"),
                     })
-                  : t("Editing “{title}”.", { title: editing.title || t("plan") })}
+                  : t("Editing “{title}”.", { title: editing.title || editing.payload.goal || t("plan") })}
+                {editing.session_start ? (
+                  <span className="ml-2 font-medium tabular-nums">
+                    {sessionDay(editing.session_start)} · {hhmm(editing.session_start)}
+                  </span>
+                ) : null}
               </span>
               <Button size="sm" variant="ghost" onClick={reset}>
                 {t("Cancel edit")}
