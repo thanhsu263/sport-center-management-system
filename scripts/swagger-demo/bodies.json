@@ -1,0 +1,510 @@
+{
+ "GET /rtc": {
+  "query": "?room=demo-room&peer=mgr&name=Manager"
+ },
+ "POST /rtc": {
+  "body": {
+   "room": "demo-room",
+   "peer": "mgr",
+   "op": "join",
+   "kind": "join",
+   "from": "mgr",
+   "to": "all",
+   "payload": {}
+  }
+ },
+ "POST /conversations": {
+  "body": {
+   "recipient_id": "$member",
+   "target_id": "$member",
+   "member_id": "$member"
+  }
+ },
+ "POST /conversations/{p1}/messages": {
+  "body": {
+   "id": "$uuid",
+   "body": "Xin chào, sân 3 tối nay còn trống không?"
+  }
+ },
+ "POST /auth/register": {
+  "body": {
+   "full_name": "Khách Demo Swagger",
+   "phone": "0912000777",
+   "email": "demo.swagger@example.test",
+   "password": "DemoSwagger#2026",
+   "date_of_birth": "2000-05-05",
+   "pii_consent": true,
+   "captcha_token": "valid"
+  }
+ },
+ "POST /auth/otp/verify": {
+  "body": {
+   "phone": "0912000777",
+   "otp": "000000",
+   "purpose": "register"
+  }
+ },
+ "POST /auth/login": {
+  "body": {
+   "login": "0900000000",
+   "password": "wrong-password"
+  }
+ },
+ "POST /auth/google": {
+  "body": {
+   "credential": "invalid-google-token"
+  }
+ },
+ "POST /auth/password/forgot": {
+  "body": {
+   "phone": "0912000777",
+   "captcha_token": "valid"
+  }
+ },
+ "POST /coaches/{p1}/certifications": {
+  "body": {
+   "name": "BWF Level 1 Coach",
+   "issuer": "BWF",
+   "issued_on": "2025-06-01",
+   "expires_on": "2028-06-01"
+  }
+ },
+ "GET /occupancy/detail": {
+  "query": "?kind=booking&ref=$booking"
+ },
+ "PATCH /courts/{p1}": {
+  "body": {
+   "status": "ready",
+   "reason": "Kiểm tra định kỳ xong"
+  }
+ },
+ "POST /staff": {
+  "body": {
+   "full_name": "Coach Demo Swagger",
+   "phone": "0912000888",
+   "email": "coach.demo@example.test",
+   "role": "coach",
+   "sports": [
+    "badminton"
+   ]
+  }
+ },
+ "PATCH /staff/{p1}": {
+  "body": {
+   "status": "active",
+   "sports": [
+    "badminton"
+   ]
+  }
+ },
+ "POST /members": {
+  "body": {
+   "full_name": "Hội viên Demo",
+   "phone": "0912000999",
+   "date_of_birth": "1998-03-03",
+   "pii_consent": true
+  }
+ },
+ "POST /plans": {
+  "body": {
+   "name": "Gói Demo 2 tháng",
+   "duration_months": 2,
+   "price_vnd": 900000,
+   "is_on_sale": false
+  }
+ },
+ "POST /subscriptions": {
+  "body": {
+   "plan_id": "$plan",
+   "user_id": "$student"
+  },
+  "role": "receptionist"
+ },
+ "POST /bookings": {
+  "body": {
+   "court_id": "$court",
+   "start_at": "2026-11-22T14:00:00+07:00"
+  },
+  "role": "member"
+ },
+ "POST /walk-in": {
+  "body": {
+   "court_id": "$court",
+   "start_at": "2026-11-23T20:00:00+07:00",
+   "guest_name": "Khách vãng lai",
+   "guest_phone": "0912000555",
+   "method": "cash"
+  }
+ },
+ "POST /shifts/{p1}/close": {
+  "body": {
+   "cash_declared_vnd": 0,
+   "reason": "Đóng ca demo"
+  }
+ },
+ "POST /classes": {
+  "body": {
+   "sport": "badminton",
+   "level": "beginner",
+   "coach_id": "$coachUser",
+   "court_id": "$badCourt",
+   "capacity": 8,
+   "min_enrolled": 2,
+   "price_vnd": 1200000,
+   "duration_min": 120,
+   "rrule": "FREQ=WEEKLY;BYDAY=TU,TH;BYHOUR=18;BYMINUTE=0",
+   "start_on": "2026-12-01",
+   "end_on": "2027-01-31",
+   "description": "Lớp demo Swagger"
+  }
+ },
+ "POST /classes/{p1}/coach": {
+  "body": {
+   "coach_id": "$coachUser"
+  }
+ },
+ "POST /sessions/{p1}/cancel": {
+  "body": {
+   "reason": "Sân bảo trì đột xuất"
+  }
+ },
+ "POST /sessions/{p1}/reschedule": {
+  "body": {
+   "start_at": "2026-11-28T18:00:00+07:00",
+   "reason": "Dời lịch"
+  }
+ },
+ "POST /payments/online": {
+  "body": {
+   "ref_type": "booking",
+   "ref_id": "$booking"
+  }
+ },
+ "POST /payments": {
+  "body": {
+   "ref_type": "booking",
+   "ref_id": "$booking",
+   "method": "cash",
+   "amount_vnd": 50000
+  }
+ },
+ "POST /payments/{p1}/refund": {
+  "body": {
+   "reason": "Khách huỷ đúng hạn",
+   "amount_vnd": 10000
+  }
+ },
+ "POST /series/preview": {
+  "body": {
+   "court_id": "$court",
+   "first_date": "2026-12-02",
+   "start_local": "07:00",
+   "weeks": 4,
+   "guest_name": "Đội Demo",
+   "guest_phone": "0912000444"
+  }
+ },
+ "POST /series": {
+  "body": {
+   "court_id": "$court",
+   "first_date": "2026-12-02",
+   "start_local": "07:00",
+   "weeks": 4,
+   "guest_name": "Đội Demo",
+   "guest_phone": "0912000444",
+   "method": "cash"
+  }
+ },
+ "POST /series/{p1}/cancel": {
+  "body": {
+   "reason": "Đội huỷ"
+  }
+ },
+ "POST /me/points/redeem": {
+  "body": {
+   "points": 100,
+   "note": "Đổi điểm demo"
+  },
+  "role": "member"
+ },
+ "GET /me/points": {
+  "role": "member"
+ },
+ "POST /members/{p1}/points": {
+  "body": {
+   "points": 50,
+   "note": "Thưởng sự kiện"
+  }
+ },
+ "POST /commission/close": {
+  "body": {
+   "period": "2026-10"
+  }
+ },
+ "PATCH /commission/rates/{p2}": {
+  "body": {
+   "per_session_vnd": 150000,
+   "per_student_vnd": 20000,
+   "period": "2026-11"
+  }
+ },
+ "POST /commission/pay/{p2}": {
+  "body": {
+   "period": "2026-10"
+  }
+ },
+ "POST /work-orders": {
+  "body": {
+   "title": "Lưới sân hỏng",
+   "description": "Lưới bị rách góc trái",
+   "court_id": "$court",
+   "priority": "normal",
+   "blocks_court": false
+  }
+ },
+ "POST /contacts": {
+  "body": {
+   "user_id": "$student",
+   "reason": "idle",
+   "channel": "phone",
+   "outcome": "reached",
+   "note": "Đã gọi nhắc quay lại tập"
+  }
+ },
+ "PUT /price-rules": {
+  "body": {
+   "items": "$priceItems"
+  }
+ },
+ "POST /subscriptions/{p1}/freeze": {
+  "body": {
+   "days": 7,
+   "reason": "Ốm"
+  }
+ },
+ "POST /subscriptions/{p1}/decline": {
+  "body": {
+   "reason": "Sai gói"
+  }
+ },
+ "POST /equipment": {
+  "body": {
+   "name": "Vợt demo",
+   "sku": "RKT-DEMO",
+   "sport": "badminton",
+   "stock": 5,
+   "rent_vnd": 30000
+  }
+ },
+ "POST /equipment/loans": {
+  "body": {
+   "item_id": "$equipment",
+   "qty": 1,
+   "user_id": "$student",
+   "method": "cash"
+  }
+ },
+ "POST /sessions/{p1}/attendance": {
+  "body": {
+   "items": "$attItems"
+  }
+ },
+ "POST /training-plans": {
+  "body": {
+   "class_id": "$classes",
+   "title": "Giáo án demo tuần 1",
+   "payload": "$suggestPayload",
+   "published": false
+  }
+ },
+ "POST /training-plans/from-template": {
+  "body": {
+   "template_id": "$tplan",
+   "class_id": "$classes"
+  }
+ },
+ "PATCH /training-plans/{p1}": {
+  "body": {
+   "title": "Giáo án demo (sửa)"
+  }
+ },
+ "POST /classes/{p1}/plans/duplicate-week": {
+  "body": {
+   "from": "2026-11-16",
+   "to": "2026-11-23"
+  }
+ },
+ "PUT /sessions/{p1}/results": {
+  "body": {
+   "items": "$resItems"
+  }
+ },
+ "PUT /students/{p1}/level": {
+  "body": {
+   "sport": "badminton",
+   "level": "intermediate"
+  }
+ },
+ "POST /students/{p1}/notes": {
+  "body": {
+   "sport": "badminton",
+   "body": "Tiến bộ footwork",
+   "comment": "Tiến bộ footwork",
+   "technique": 4,
+   "fitness": 3,
+   "attitude": 5,
+   "period_weeks": 4
+  }
+ },
+ "POST /students/{p1}/reviews": {
+  "body": {
+   "sport": "badminton",
+   "technique": 4,
+   "fitness": 3,
+   "attitude": 5,
+   "period_weeks": 4,
+   "comment": "Đánh giá 4 tuần"
+  }
+ },
+ "POST /homework": {
+  "body": {
+   "class_id": "$classes",
+   "title": "Tập đập cầu 50 lần",
+   "body": "Mỗi ngày 50 lần",
+   "due_on": "2026-11-24",
+   "checklist": [
+    "Khởi động",
+    "50 cú đập"
+   ]
+  }
+ },
+ "GET /me/training": {
+  "role": "member"
+ },
+ "PUT /me/training-goal": {
+  "body": {
+   "sport": "badminton",
+   "level": "beginner",
+   "goal": "compete"
+  },
+  "role": "member"
+ },
+ "GET /me/homework": {
+  "role": "member"
+ },
+ "PUT /me/homework/{p2}": {
+  "body": {
+   "done": true
+  },
+  "role": "member"
+ },
+ "GET /me/checkin-token": {
+  "role": "member"
+ },
+ "GET /me/bookings/{p2}/checkin-token": {
+  "role": "member"
+ },
+ "POST /me/self-checkin": {
+  "role": "member"
+ },
+ "POST /desk/gate-checkin": {
+  "body": {
+   "q": "$memberCode",
+   "reason": "dead_battery"
+  }
+ },
+ "POST /desk/scan": {
+  "body": {
+   "token": "INVALID-QR-DEMO"
+  }
+ },
+ "POST /promotions/validate": {
+  "body": {
+   "code": "$promoCode",
+   "scope": "plan",
+   "plan_id": "$plan",
+   "user_id": "$student"
+  }
+ },
+ "POST /promotions": {
+  "body": {
+   "code": "SWAGGER10",
+   "name": "Giảm 10% demo",
+   "kind": "percent",
+   "value": 10,
+   "applies_to": "plans",
+   "starts_at": "2026-11-17",
+   "ends_at": "2026-12-31",
+   "max_uses": 100,
+   "max_per_member": 1
+  }
+ },
+ "PATCH /promotions/{p1}": {
+  "body": {
+   "status": "paused"
+  }
+ },
+ "POST /assistant": {
+  "body": {
+   "message": "Giờ mở cửa của Arena3 là mấy giờ?"
+  },
+  "role": "member"
+ },
+ "POST /tickets": {
+  "body": {
+   "body": "Đèn sân 2 nhấp nháy"
+  },
+  "role": "member"
+ },
+ "POST /tickets/{p1}/reply": {
+  "body": {
+   "reply": "Cảm ơn bạn, kỹ thuật sẽ kiểm tra trong hôm nay."
+  }
+ },
+ "POST /manager/site-assets/upload": {
+  "body": {
+   "slot": "$asset"
+  }
+ },
+ "POST /manager/courts": {
+  "body": {
+   "sport": "badminton",
+   "display_name": "Sân Demo",
+   "court_code": "DM-01",
+   "status": "ready"
+  }
+ },
+ "PATCH /manager/courts/{p2}": {
+  "body": {
+   "status": "maintenance",
+   "reason": "Bảo trì demo"
+  }
+ },
+ "POST /manager/sports": {
+  "body": {
+   "code": "pickleball",
+   "name_en": "Pickleball",
+   "name_vi": "Pickleball",
+   "court_prefix": "PK",
+   "color_key": "amber"
+  }
+ },
+ "PATCH /manager/sports/{p2}": {
+  "body": {
+   "name_vi": "Bóng Pickleball"
+  }
+ },
+ "POST /me/password": {
+  "body": {
+   "current_password": "wrong-current",
+   "new_password": "NewPass#2026",
+   "confirm_password": "NewPass#2026"
+  }
+ },
+ "POST /bookings/{p1}/reschedule": {
+  "body": {
+   "start_at": "2026-11-22T16:00:00+07:00"
+  },
+  "role": "member"
+ }
+}
