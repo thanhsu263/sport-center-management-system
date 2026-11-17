@@ -1,3 +1,12 @@
+/**
+ * File: src/client/components/report-panels.tsx
+ * Vai trò: Cung cấp các panel và biểu đồ báo cáo quản trị cho hệ thống Arena3 (công suất sử dụng sân, giờ cao điểm, doanh thu và hội viên).
+ * Vị trí trong app:
+ * - Được tích hợp trong trang báo cáo quản lý tại src/routes/manager.index.tsx (route /manager).
+ * - Cung cấp component dùng chung ExportButtons để xuất file Excel/PDF cho các loại báo cáo.
+ * - Cung cấp CapacityPanel (thống kê công suất sân, doanh thu sân vs lớp, biểu đồ giờ bận BusyBars).
+ * - Cung cấp MembersPanel (thống kê số lượng hội viên, chuyển đổi gói tập và phân bổ hạng thành viên).
+ */
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { CalendarDays, Flame, Gauge, LayoutGrid, TrendingUp, UserPlus, Users } from "lucide-react";
 import { CardTitle, SectionTitle } from "@/client/components/section";
@@ -13,9 +22,23 @@ import { useRead } from "@/client/lib/use-read";
 import { useLimits } from "@/client/lib/use-centre";
 import { cn } from "@/client/lib/cn";
 
+// Các loại báo cáo trong hệ thống hỗ trợ xuất dữ liệu ra file Excel hoặc PDF
 type Kind = "revenue" | "capacity" | "members" | "attendance" | "at-risk";
 
 /** Excel and PDF of the report on screen, with the same filters it is showing. */
+/**
+ * Làm gì: Hiển thị bộ nút xuất báo cáo ra file Excel (.xlsx) hoặc PDF (.pdf) theo các bộ lọc hiện tại trên giao diện.
+ * Được gọi ở:
+ * - src/routes/manager.index.tsx (báo cáo doanh thu tại route /manager)
+ * - src/client/components/report-panels.tsx (panel công suất sân CapacityPanel và hội viên MembersPanel)
+ * - src/client/components/attendance-panels.tsx (panel chuyên cần AttendancePanel và học viên nguy cơ AtRiskPanel)
+ * @param kind Loại báo cáo cần xuất ("revenue" | "capacity" | "members" | "attendance" | "at-risk").
+ * @param from Ngày bắt đầu kỳ báo cáo (định dạng YYYY-MM-DD).
+ * @param to Ngày kết thúc kỳ báo cáo (định dạng YYYY-MM-DD).
+ * @param extra Các tham số lọc bổ sung gửi kèm theo dạng query param (ví dụ: sport, method, by).
+ * @param disabled Cờ vô hiệu hóa các nút xuất (ví dụ khi server từ chối khoảng ngày hoặc không có dữ liệu).
+ * @returns Khung JSX chứa các nút Button xuất file Excel và PDF.
+ */
 export function ExportButtons({
   kind,
   from,
@@ -31,11 +54,20 @@ export function ExportButtons({
   disabled?: boolean;
 }) {
   const [busy, setBusy] = useState<"xlsx" | "pdf" | null>(null);
+  /**
+   * Làm gì: Tải file báo cáo từ server theo định dạng được chọn và hiển thị thông báo toast khi hoàn thành hoặc có lỗi.
+   * Được gọi ở: ExportButtons (sự kiện onClick của nút Export Excel và Export PDF).
+   * @param format Định dạng file cần tải xuống ("xlsx" hoặc "pdf").
+   * @returns Promise<void>
+   */
   async function go(format: "xlsx" | "pdf") {
+    // Bước 1: Đánh dấu trạng thái đang xử lý (busy) để vô hiệu hóa nút bấm và hiển thị nhãn "Preparing…".
     setBusy(format);
     try {
+      // Bước 2: Tạo query parameters gồm khoảng ngày (from, to), định dạng file và các bộ lọc bổ sung từ props extra.
       const q = new URLSearchParams({ from, to, format });
       for (const [k, v] of Object.entries(extra)) if (v) q.set(k, v);
+      // Bước 3: Gọi API /reports/:kind/export để tải file về máy và hiển thị toast thông báo thành công hoặc lỗi từ server.
       const name = await downloadReport(`/reports/${kind}/export?${q}`, `lelong-${kind}-${from}_${to}.${format}`);
       toast.success(t("Saved {name}", { name }));
     } catch (e) {
@@ -56,9 +88,28 @@ export function ExportButtons({
   );
 }
 
+/**
+ * Làm gì: Chuyển đổi số phút sang số giờ và làm tròn đến 1 chữ số thập phân.
+ * Được gọi ở: src/client/components/report-panels.tsx (trong CapacityPanel để hiển thị số giờ đã bán và giờ mở cửa).
+ * @param min Số phút cần quy đổi sang giờ.
+ * @returns Số giờ sau khi làm tròn (ví dụ: 90 phút thành 1.5 giờ).
+ */
 const hours = (min: number) => Math.round((min / 60) * 10) / 10;
+/**
+ * Làm gì: Chuyển đổi giá trị tỷ lệ phần trăm thành chuỗi hiển thị có ký tự "%", hoặc trả về "-" nếu null hoặc undefined.
+ * Được gọi ở: src/client/components/report-panels.tsx (trong CapacityPanel để hiển thị tỷ lệ giờ cao điểm và thấp điểm trong bảng).
+ * @param v Tỷ lệ phần trăm dạng số, hoặc null/undefined nếu chưa có số liệu.
+ * @returns Chuỗi định dạng tỷ lệ phần trăm (ví dụ: "75%") hoặc "-".
+ */
 const pctText = (v: number | null | undefined) => (v == null ? "-" : `${v}%`);
 
+/**
+ * Làm gì: Dropdown lựa chọn môn thể thao để lọc dữ liệu báo cáo, lấy danh sách môn hoạt động từ hook useSports.
+ * Được gọi ở: src/client/components/report-panels.tsx (các panel CapacityPanel và MembersPanel).
+ * @param value Mã code của môn thể thao đang chọn (chuỗi rỗng "" đại diện cho tất cả môn).
+ * @param onChange Callback kích hoạt khi người dùng thay đổi môn thể thao đã chọn.
+ * @returns Khung JSX Select chứa danh sách các môn thể thao.
+ */
 function SportSelect({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const { sports } = useSports();
   return (
@@ -77,6 +128,7 @@ function SportSelect({ value, onChange }: { value: string; onChange: (v: string)
 
 // ---- capacity -------------------------------------------------------------------
 
+// Cấu trúc dữ liệu báo cáo công suất sân và doanh thu trả về từ API GET /reports/capacity
 type Capacity = {
   open_hour: number;
   close_hour: number;
@@ -103,7 +155,15 @@ type Capacity = {
 };
 
 /** Share of courts in play per hour, one labelled bar per hour; the peak hours are lit. */
+/**
+ * Làm gì: Hiển thị biểu đồ thanh dọc tỷ lệ sử dụng sân theo từng khung giờ trong ngày; các khung giờ cao điểm được làm nổi bật với hiệu ứng phát sáng.
+ * Được gọi ở: src/client/components/report-panels.tsx (trong CapacityPanel khi hiển thị phần chi tiết part="busy").
+ * @param rows Danh sách các khung giờ kèm tỷ lệ phần trăm sử dụng sân tương ứng (hour, pct).
+ * @param peakPct Ngưỡng phần trăm so với mức cao nhất để xác định giờ cao điểm cần làm nổi bật.
+ * @returns Khung JSX danh sách thanh bar cuộn ngang hiển thị công suất từng giờ.
+ */
 function BusyBars({ hours: rows, peakPct }: { hours: Array<{ hour: number; pct: number }>; peakPct: number }) {
+  // Bước 1: Tìm tỷ lệ sử dụng cao nhất (tối thiểu là 1 để tránh chia cho 0) làm mốc quy đổi 100% chiều cao cột biểu đồ.
   const top = Math.max(1, ...rows.map((x) => x.pct));
   return (
     <div className="overflow-x-auto px-4 pb-4 pt-4" role="region" aria-label={t("Busy hours chart, scrolls sideways")} tabIndex={0}>
@@ -135,19 +195,30 @@ function BusyBars({ hours: rows, peakPct }: { hours: Array<{ hour: number; pct: 
 }
 
 /** `summary` = totals and the per-sport table; `busy` = the whole-day court × hour grid, shown last on the page. */
+/**
+ * Làm gì: Hiển thị panel báo cáo công suất sử dụng sân thể thao theo khoảng ngày, hỗ trợ xem tổng quan (summary) hoặc chi tiết giờ bận (busy).
+ * Được gọi ở: src/routes/manager.index.tsx (màn hình báo cáo trung tâm của quản lý tại route /manager).
+ * @param from Ngày bắt đầu kỳ báo cáo (định dạng YYYY-MM-DD).
+ * @param to Ngày kết thúc kỳ báo cáo (định dạng YYYY-MM-DD).
+ * @param part Chế độ hiển thị: "summary" (tổng quan số giờ, doanh thu và bảng theo môn) hoặc "busy" (biểu đồ giờ bận và ma trận sân theo giờ). Mặc định là "summary".
+ * @returns Khung giao diện JSX phần báo cáo công suất sân kèm bộ lọc và các thẻ chỉ số.
+ */
 export function CapacityPanel({ from, to, part = "summary" }: { from: string; to: string; part?: "summary" | "busy" }) {
+  // Bước 1: Khởi tạo state môn thể thao, tạo URLSearchParams và nạp dữ liệu công suất qua useRead từ API /reports/capacity.
   const [sport, setSport] = useState("");
   const q = new URLSearchParams({ from, to });
   if (sport) q.set("sport", sport);
   const limits = useLimits();
   const { data, error, reload } = useRead<Capacity>(`/reports/capacity?${q}`);
 
+  // Bước 2: Tính toán chuỗi tóm tắt các khung giờ cao điểm bận nhất dựa trên tỷ lệ đặt sân (sắp xếp giảm dần).
   const busiestSummary = useMemo(() => {
     if (!data?.by_hour?.length) return "";
     const sorted = [...data.by_hour]
       .filter((h) => h.pct > 0)
       .sort((a, b) => b.pct - a.pct);
     if (sorted.length === 0) return t("No bookings in this window");
+    // Lấy top các giờ bận nhất theo cấu hình giới hạn (limits.report_peak_hours, mặc định 3 giờ cao điểm)
     const top3 = sorted.slice(0, limits.report_peak_hours);
     const text = top3
       .map((h, idx) =>
@@ -159,6 +230,7 @@ export function CapacityPanel({ from, to, part = "summary" }: { from: string; to
     return t("Busiest: {hours}", { hours: text });
   }, [data, limits.report_peak_hours]);
 
+  // Bước 3: Render giao diện báo cáo: tiêu đề theo chế độ hiển thị, bộ lọc môn & nút xuất file, các thẻ Stat tổng quan và bảng chi tiết từng môn.
   return (
     <section className="mt-10" aria-labelledby={part === "summary" ? "cap-h" : "busy-h"}>
       <div className="flex flex-wrap items-end justify-between gap-3">
@@ -261,6 +333,7 @@ export function CapacityPanel({ from, to, part = "summary" }: { from: string; to
 
 // ---- members and class sign-ups -------------------------------------------------
 
+// Cấu trúc dữ liệu báo cáo hội viên và danh sách lớp học trả về từ API GET /reports/members
 type MembersReport = {
   members: {
     new: number;
@@ -283,22 +356,35 @@ type MembersReport = {
   }>;
 };
 
+/**
+ * Làm gì: Hiển thị báo cáo hội viên và tình hình đăng ký lớp học theo khoảng ngày được chọn, gồm số lượng hội viên mới/đang hoạt động, biểu đồ xu hướng 12 tháng qua và danh sách lớp học kèm tỷ lệ lấp đầy, danh sách chờ.
+ * Được gọi ở: src/routes/manager.index.tsx (component Page tại route /manager).
+ * @param from Ngày bắt đầu kỳ báo cáo (định dạng YYYY-MM-DD).
+ * @param to Ngày kết thúc kỳ báo cáo (định dạng YYYY-MM-DD).
+ * @returns Khung giao diện JSX section chứa báo cáo hội viên và danh sách lớp học.
+ */
 export function MembersPanel({ from, to }: { from: string; to: string }) {
+  // Bước 1: Khởi tạo state môn thể thao cần lọc và cờ sẵn sàng render biểu đồ Recharts.
   const [sport, setSport] = useState("");
   const [chartReady, setChartReady] = useState(false);
+  // Recharts ResponsiveContainer cần DOM đo kích thước; trì hoãn sang useEffect để tránh lỗi hydration mismatch khi render ở client.
   useEffect(() => setChartReady(true), []);
+  // Bước 2: Tạo query parameters và nạp dữ liệu báo cáo hội viên qua hook useRead từ API /reports/members.
   const q = new URLSearchParams({ from, to });
   if (sport) q.set("sport", sport);
   const { data, error, reload } = useRead<MembersReport>(`/reports/members?${q}`);
   // Only show the attendance column when at least one class has a figure for it.
   const showAttendance = !!data?.attendance_on && !!data?.classes.some((c) => c.attendance_pct != null);
+  // Bước 3: Quản lý số lượng lớp hiển thị ban đầu; mỗi lần bấm xem thêm sẽ tăng 12 lớp (CLASS_STEP) để giữ DOM nhẹ.
   const CLASS_STEP = 12;
   const [classShown, setClassShown] = useState(CLASS_STEP);
+  // Bước 4: Sắp xếp danh sách lớp theo độ ưu tiên cần xử lý (tỷ lệ lấp đầy giảm dần -> số người chờ giảm dần -> mã lớp theo alphabet).
   // Fullest first, so the classes that need a decision (full with a waitlist, or nearly empty) sit at the two ends.
   const classes = useMemo(
     () => [...(data?.classes ?? [])].sort((a, b) => b.fill_pct - a.fill_pct || b.waitlisted - a.waitlisted || a.code.localeCompare(b.code)),
     [data],
   );
+  // Bước 5: Thống kê nhanh các chỉ số vận hành: số lớp đã đầy chỗ (>= 100%), số lớp vắng (< 40%) và tổng số học viên trong danh sách chờ.
   const classSummary = useMemo(() => {
     const full = classes.filter((c) => c.fill_pct >= 100).length;
     const low = classes.filter((c) => c.fill_pct < 40).length;
@@ -306,6 +392,7 @@ export function MembersPanel({ from, to }: { from: string; to: string }) {
     return { full, low, waiting };
   }, [classes]);
 
+  // Bước 6: Render giao diện báo cáo: tiêu đề, bộ lọc môn & nút xuất file, các thẻ Stat hội viên, biểu đồ Recharts xu hướng 12 tháng và bảng chi tiết các lớp học.
   return (
     <section className="mt-10" aria-labelledby="mem-h">
       <div className="flex flex-wrap items-end justify-between gap-3">

@@ -1,3 +1,11 @@
+/**
+ * File: src/routes/manager.members.tsx
+ * Vai trò: Định nghĩa route và trang danh bạ hội viên (/manager/members) dành riêng cho vai trò quản lý (manager).
+ * Vị trí trong app:
+ * - Route "/manager/members" hiển thị danh bạ toàn bộ hội viên (members) có tài khoản trong hệ sinh thái thể thao Arena 3.
+ * - Hỗ trợ lọc theo từ khóa tìm kiếm (tên, SĐT, mã hội viên), trạng thái tài khoản, môn thể thao tham gia và trạng thái gói tập (FR-MEM-04).
+ * - Tích hợp thanh thống kê nhanh (StatStrip), phân trang dữ liệu (usePageState) và điều hướng đến chi tiết hồ sơ hội viên (/desk/member/$id).
+ */
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Shell } from "@/client/components/shell";
@@ -14,10 +22,16 @@ import { MessageButton } from "@/client/components/message-button";
 import { useRead } from "@/client/lib/use-read";
 import { usePageState } from "@/client/lib/use-page-state";
 
+/**
+ * Làm gì: Cấu hình định tuyến TanStack Router cho đường dẫn /manager/members, liên kết URL với component Page.
+ * Được gọi ở: URL /manager/members (TanStack Router tự động đăng ký và nạp khi quản lý truy cập).
+ * @returns Route object của TanStack Router cho trang /manager/members.
+ */
 export const Route = createFileRoute("/manager/members")({
   component: Page,
 });
 
+// Cấu trúc dữ liệu một dòng hội viên trả về từ API /directory/members, bao gồm thông tin cá nhân, gói tập và số lớp đã tham gia.
 type Row = {
   id: string;
   member_code: string | null;
@@ -32,6 +46,7 @@ type Row = {
   classes: number;
 };
 
+// Bảng ánh xạ trạng thái gói tập (active, expiring, expired, none) sang nhãn văn bản đa ngôn ngữ có hỗ trợ trích xuất bản dịch.
 const PLAN_LABEL: Record<Row["plan_state"], string> = {
   active: tk("Plan active"),
   expiring: tk("Ends within a week"),
@@ -39,14 +54,21 @@ const PLAN_LABEL: Record<Row["plan_state"], string> = {
   none: tk("No plan"),
 };
 
+/**
+ * Làm gì: Component trang danh bạ hội viên của quản lý (FR-MEM-04); hỗ trợ tìm kiếm, lọc theo nhiều tiêu chí, xem thống kê gói tập, phân trang và truy cập hồ sơ chi tiết.
+ * Được gọi ở: src/routes/manager.members.tsx (Route /manager/members, dòng 18).
+ * @returns JSX hiển thị toàn bộ màn hình danh bạ hội viên bọc trong Shell vai trò manager.
+ */
 /** FR-MEM-04: every member, filtered by who they are and where their plan stands. */
 function Page() {
+  // Bước 1: Khởi tạo các state lọc (từ khóa q, trạng thái tài khoản status, môn thể thao sport, gói tập plan) và phân trang (offset, pageSize mặc định 25).
   const [q, setQ] = useState("");
   const [status, setStatus] = useState("");
   const [sport, setSport] = useState("");
   const [plan, setPlan] = useState("");
   const { offset, setOffset, pageSize, setPageSize, reset } = usePageState("manager.members", 25);
 
+  // Bước 2: Quản lý độ trễ debounce (250ms) cho ô tìm kiếm và tự động đặt lại trang về đầu khi bộ lọc thay đổi.
   // Typing waits a beat so one search is one request, and any filter change goes back to page one.
   const [term, setTerm] = useState("");
   useEffect(() => {
@@ -55,6 +77,7 @@ function Page() {
   }, [q]);
   useEffect(reset, [term, status, sport, plan, reset]);
 
+  // Bước 3: Tạo query params và gọi API GET /directory/members để tải danh sách hội viên.
   const params = new URLSearchParams({ limit: String(pageSize), offset: String(offset) });
   if (term) params.set("q", term);
   if (status) params.set("status", status);
@@ -66,6 +89,7 @@ function Page() {
   const data = read.data;
   const total = data?.total ?? 0;
 
+  // Danh sách các tùy chọn chip lọc trạng thái gói tập hiển thị phía trên bảng danh sách.
   const PLAN_CHIPS: Array<{ value: string; label: string }> = [
     { value: "", label: t("Everyone") },
     { value: "active", label: t("Plan active") },
@@ -74,11 +98,14 @@ function Page() {
     { value: "none", label: t("No plan") },
   ];
 
+  // Bước 4: Lấy danh mục môn thể thao và tính toán số lượng hội viên theo từng trạng thái gói tập trên trang hiện tại để hiển thị StatStrip.
   const sports = useSports();
+  // Đếm trực tiếp trên trang dữ liệu hiện tại (data.items) phục vụ thống kê nhanh mà không cần thêm truy vấn phụ từ server.
   const activeCount = data?.items.filter((m) => m.plan_state === "active").length ?? 0;
   const expiringCount = data?.items.filter((m) => m.plan_state === "expiring").length ?? 0;
   const noPlanCount = data?.items.filter((m) => m.plan_state === "none").length ?? 0;
 
+  // Bước 5: Render giao diện người dùng với Shell của manager, thanh tiêu đề PageHero, thống kê StatStrip, bộ lọc và danh sách hội viên kèm phân trang.
   return (
     <Shell role="manager">
       <PageHero
