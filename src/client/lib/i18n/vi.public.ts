@@ -1,11 +1,11 @@
 /** Vietnamese for the public area: landing page, sign-in / register / forgot, payment return, pay-online dialog, promo box. */
 export const pub: Record<string, string> = {
-  "Digit {n}": "Ch? s? {n}",
-  "Resend in {seconds}s": "G?i l?i sau {seconds} gi?y",
-  "Didn't get a code? Resend": "Ch?a nh?n ???c m?? G?i l?i",
-  "Leave this field empty": "?? tr?ng ? n?y",
-  "Human verification could not load. Try again.": "Kh?ng t?i ???c b??c x?c minh. Vui l?ng th? l?i.",
-  "Try again": "Th? l?i",
+  "Digit {n}": "Chữ số {n}",
+  "Resend in {seconds}s": "Gửi lại sau {seconds} giây",
+  "Didn't get a code? Resend": "Chưa nhận được mã? Gửi lại",
+  "Leave this field empty": "Để trống ô này",
+  "Human verification could not load. Try again.": "Không tải được bước xác minh. Vui lòng thử lại.",
+  "Try again": "Thử lại",
   // landing: weekdays (short) and nav
   "Mon": "T2",
   "Tue": "T3",
