@@ -1,3 +1,8 @@
+/**
+ * Quản lý trạng thái và nghiệp vụ cho trang thanh toán tại quầy lễ tân (/desk/payments).
+ * Hook useDeskPayments kết nối các hàng đợi thanh toán (đơn mua gói tập, giữ sân/suất học chờ chuyển khoản,
+ * duyệt và chi tiền hoàn) với hệ thống ca trực và danh sách biên lai lịch sử của trung tâm thể thao.
+ */
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { money, useSessionUser } from "@/client/components/shell";
@@ -37,6 +42,7 @@ type Refund = {
   member_code: string | null;
   raised_by: string | null;
   centre_owed?: boolean;
+  needs_approval: boolean;
 };
 
 
@@ -106,6 +112,10 @@ type Queue = {
 // `gateway` is one of the five values `pay_method` allows, so a payment taken
 // online was reachable only under "All" — and reconciliation is exactly the job
 // where a method you cannot isolate is the one you need.
+/**
+ * Làm gì: Danh sách các phương thức thanh toán dùng để lọc biên lai tại quầy lễ tân.
+ * Được gọi ở: src/routes/desk.payments.tsx (component Page, thanh chọn Seg để lọc receipts).
+ */
 const METHODS = [
   { value: "all", label: tk("All") },
   { value: "cash", label: tk("Cash") },
@@ -115,6 +125,12 @@ const METHODS = [
 ] as const;
 
 
+/**
+ * Làm gì: Chuyển đổi mã phương thức thanh toán sang nhãn hiển thị đa ngôn ngữ (i18n).
+ * Được gọi ở: src/routes/desk.payments.tsx (hiển thị chi tiết biên lai và tiêu đề thông báo rỗng).
+ * @param m Mã phương thức thanh toán dạng chuỗi (cash, card, transfer, gateway, quota).
+ * @returns Chuỗi nhãn hiển thị đã được dịch, hoặc giữ nguyên mã m nếu không có trong danh mục.
+ */
 function methodLabel(m: string) {
   const label = (
     {
@@ -132,10 +148,17 @@ function methodLabel(m: string) {
 /** Whole days between an ICT date string and today, floored at zero. */
 function daysWaiting(dateOnly: string) {
   const then = new Date(`${dateOnly}T00:00:00+07:00`).getTime();
+  // 86_400_000 ms = 1 ngày (24 * 60 * 60 * 1000); Math.max(0, ...) để không trả về số âm nếu ngày ở tương lai
   return Math.max(0, Math.floor((Date.now() - then) / 86_400_000));
 }
 
+/**
+ * Làm gì: Custom hook quản lý toàn bộ dữ liệu, bộ lọc và các thao tác thu tiền/hoàn tiền tại quầy thu ngân.
+ * Được gọi ở: src/routes/desk.payments.tsx (component Page tại URL /desk/payments).
+ * @returns Đối tượng chứa danh sách hàng đợi (orders, awaiting, refunds, receipts), trạng thái ca trực, quyền hạn và các hàm thanh toán/đối soát.
+ */
 export function useDeskPayments() {
+  // Bước 1: Khởi tạo thông tin người dùng, quyền hạn quản lý/thu ngân và các bộ lọc tìm kiếm biên lai
   const me = useSessionUser();
   const isManager = me?.role === "manager";
   const [days, setDays] = useState("7");
@@ -167,6 +190,7 @@ export function useDeskPayments() {
   const [busy, setBusy] = useState<string | null>(null);
   const [promo, setPromo] = useState<Record<string, { code: string; discount_vnd: number } | null>>({});
 
+  // Bước 2: Thiết lập tham số truy vấn và tải dữ liệu các hàng đợi thanh toán từ API /payments/pending
   // Every refresh here runs straight after a mutation, and `reload()` never joins a read that was
   // already in flight: two rows actioned in quick succession would otherwise let the second one adopt
   // the first one's older answer and redraw a row that has just been paid for.
@@ -187,11 +211,13 @@ export function useDeskPayments() {
   }, [read.data, read.error]);
   const data = read.error ? null : (read.data ?? last);
 
+  // Bước 3: Phân loại dữ liệu hàng đợi: giữ sân/suất học chờ chuyển khoản, đơn gói tập, và các khoản hoàn tiền
   const awaiting = data?.awaiting ?? [];
   const orders = data?.orders ?? [];
   const allRefunds = data?.refunds ?? [];
-  const refunds = allRefunds.filter((r) => !r.centre_owed);
-  const payouts = allRefunds.filter((r) => r.centre_owed);
+  // refunds: chờ quản lý duyệt; payouts: đã duyệt xong, chờ thu ngân xuất tiền hoàn từ két ca trực
+  const refunds = allRefunds.filter((r) => r.needs_approval);
+  const payouts = allRefunds.filter((r) => !r.needs_approval);
   // The server filters and pages the receipts across the whole window, so every row in it can be
   // reached when the list is read back against a bank statement; this is one page of them.
   const receiptPage = data?.receipts ?? [];
@@ -229,15 +255,25 @@ export function useDeskPayments() {
 
   const [transferTarget, setTransferTarget] = useState<Order | null>(null);
 
+  /**
+   * Làm gì: Thực hiện thanh toán tiền mặt/thẻ/chuyển khoản cho đơn đăng ký gói hội viên (subscription order).
+   * Được gọi ở: src/routes/desk.payments.tsx (nút thu tiền trên từng đơn hàng hoặc modal xác nhận chuyển khoản).
+   * @param o Đơn hàng gói hội viên (Order) cần thu tiền.
+   * @param forceMethod Phương thức thanh toán chỉ định sẵn nếu có (ví dụ khi chọn từ modal chuyển khoản).
+   * @returns Promise<void>
+   */
   async function takePayment(o: Order, forceMethod?: string) {
+    // Bước 1: Xác định phương thức thanh toán; nếu là chuyển khoản (transfer) thì mở modal hiển thị mã QR để nhân viên kiểm tra
     const activeMethod = forceMethod ?? (method[o.id] ?? "cash");
     if (!forceMethod && activeMethod === "transfer") {
       setTransferTarget(o);
       return;
     }
+    // Bước 2: Tính số tiền thực thu sau khi trừ khuyến mãi và đánh dấu đơn hàng đang bận để tránh bấm lặp lại
     const due = dueOf(o);
     setBusy(o.id);
     try {
+      // Bước 3: Gửi yêu cầu tạo thanh toán (POST /payments) kèm cờ idempotent=true để chống trừ tiền trùng
       const res = await apiPost<PaymentCreateResponse>(
         "/payments",
         {
@@ -249,6 +285,7 @@ export function useDeskPayments() {
         },
         true,
       );
+      // Bước 4: Thông báo thành công, làm mới ngay hàng đợi và tự động mở hóa đơn in nếu có
       toast.success(t("Paid: {name} is on {plan}", { name: o.full_name, plan: o.plan_name }));
       // The money is taken the moment that POST returns, so the queue is
       // refreshed before anything else is attempted. Printing is the step most
@@ -262,6 +299,7 @@ export function useDeskPayments() {
           toast.warning(t("Paid, but the receipt did not open. Reprint it from the member's profile."));
         }
       }
+    // Bước 5: Bắt lỗi nếu thanh toán thất bại và giải phóng trạng thái bận trong finally
     } catch (e) {
       toast.error(e instanceof Error ? tServer(e.message) : t("Payment did not go through"));
     } finally {
@@ -269,9 +307,17 @@ export function useDeskPayments() {
     }
   }
 
+  /**
+   * Làm gì: Từ chối hoặc hủy đơn đăng ký gói hội viên đang chờ, xóa đơn khỏi hàng đợi thanh toán.
+   * Được gọi ở: src/routes/desk.payments.tsx (nút "Decline" trên từng dòng đơn mua gói tập).
+   * @param o Đơn hàng gói hội viên (Order) cần hủy bỏ.
+   * @returns Promise<void>
+   */
   async function decline(o: Order) {
+    // Bước 1: Khóa trạng thái đơn hàng để vô hiệu hóa nút bấm tránh thao tác trùng
     setBusy(o.id);
     try {
+      // Bước 2: Gọi API hủy đơn gói tập (/subscriptions/:id/decline), thông báo và làm mới lại hàng đợi
       await apiPost(`/subscriptions/${o.id}/decline`);
       toast.success(t("Order cleared from the queue"));
       refresh();
@@ -290,11 +336,14 @@ export function useDeskPayments() {
    * made against the bank statement, which is why neither is a member action.
    */
   async function settleTransfer(a: Awaiting, received: boolean) {
+    // Bước 1: Khóa trạng thái giao dịch đặt sân đang đối soát
     setBusy(a.id);
     try {
+      // Bước 2: Gọi API xác nhận nhận tiền (transfer-confirm) hoặc từ chối để nhả lại sân (transfer-reject)
       const res = await apiPost<TransferConfirmResponse | TransferRejectResponse>(
         `/bookings/${a.id}/${received ? "transfer-confirm" : "transfer-reject"}`,
       );
+      // Bước 3: Thông báo kết quả, cập nhật lại hàng đợi và mở hóa đơn in nếu đã xác nhận thanh toán
       toast.success(
         received ? t("Confirmed: {court} is booked", { court: a.court_code }) : t("Slot released back to the grid"),
       );
@@ -315,13 +364,16 @@ export function useDeskPayments() {
 
   /** Money for a class seat found on the statement: posts it, which confirms the seat. */
   async function confirmSeat(a: AwaitingSeat) {
+    // Bước 1: Khóa trạng thái lượt ghi danh lớp học đang xử lý
     setBusy(a.id);
     try {
+      // Bước 2: Gọi API POST /payments (kèm cờ idempotent=true) để ghi nhận thanh toán cho suất đăng ký lớp học
       const res = await apiPost<PaymentCreateResponse>(
         "/payments",
         { ref_type: "enrollment", ref_id: a.id, method: method[a.id] ?? "transfer", amount_vnd: a.amount_vnd },
         true,
       );
+      // Bước 3: Thông báo thành công, làm mới dữ liệu hàng đợi và mở hóa đơn in nếu có
       toast.success(t("Confirmed: {name} has the seat", { name: a.member_name ?? t("Walk-in") }));
       refresh();
       if (res.invoice?.id) {
@@ -338,9 +390,18 @@ export function useDeskPayments() {
     }
   }
 
+  /**
+   * Làm gì: Phê duyệt hoặc từ chối yêu cầu hoàn tiền của hội viên (chỉ dành riêng cho vai trò Manager).
+   * Được gọi ở: src/routes/desk.payments.tsx (nút Approve / Reject trong bảng hoàn tiền chờ duyệt).
+   * @param r Đối tượng yêu cầu hoàn tiền (Refund) cần xử lý.
+   * @param approve true nếu duyệt hoàn tiền, false nếu từ chối yêu cầu.
+   * @returns Promise<void>
+   */
   async function settleRefund(r: Refund, approve: boolean) {
+    // Bước 1: Đánh dấu yêu cầu hoàn tiền đang được xử lý
     setBusy(r.id);
     try {
+      // Bước 2: Gọi API approve-refund hoặc reject-refund theo quyết định của quản lý và tải lại hàng đợi
       await apiPost(`/payments/${r.id}/${approve ? "approve-refund" : "reject-refund"}`);
       toast.success(approve ? t("Refund approved") : t("Refund rejected"));
       refresh();
@@ -351,9 +412,17 @@ export function useDeskPayments() {
     }
   }
 
+  /**
+   * Làm gì: Thực hiện xuất tiền mặt/chi trả tiền hoàn cho khách sau khi đã được quản lý duyệt (thu ngân thực hiện từ két tiền ca trực).
+   * Được gọi ở: src/routes/desk.payments.tsx (nút "Pay out" trong danh sách các khoản hoàn tiền đã duyệt).
+   * @param r Đối tượng yêu cầu hoàn tiền (Refund) đã được phê duyệt cần chi trả tiền.
+   * @returns Promise<void>
+   */
   async function payOut(r: Refund) {
+    // Bước 1: Khóa trạng thái để tránh thu ngân bấm chi tiền hai lần liên tiếp
     setBusy(r.id);
     try {
+      // Bước 2: Gọi API pay-out-refund trừ tiền quỹ két ca trực và cập nhật trạng thái khoản hoàn tiền
       await apiPost(`/payments/${r.id}/pay-out-refund`);
       toast.success(t("Refund paid out"));
       refresh();
@@ -364,6 +433,7 @@ export function useDeskPayments() {
     }
   }
 
+  // Bước 4: Tổng hợp các chỉ số thống kê hiển thị trên banner đầu trang (số lượt chờ, tổng tiền cần thu, trạng thái ca trực, tiền mặt trong két)
   const statItems = [
     { label: t("Waiting payments"), value: orders.length + awaiting.length },
     { label: t("Amount to collect"), value: money(toCollect) },
