@@ -361,10 +361,21 @@ function ActionForm({
 }) {
   const [reason, setReason] = useState("");
   const [start, setStart] = useState(action.kind === "move-session" ? toLocalInput(action.startAt) : "");
-  const coachRead = useRead<{ items: Array<{ id: string; full_name: string }> }>(
+  const coachRead = useRead<{ items: Array<{ id: string; full_name: string; sports: string[] | null }> }>(
     action.kind === "coach" ? "/staff?role=coach&status=active" : null,
   );
-  const coaches = (coachRead.data?.items ?? []).filter((x) => x.id !== classData.coach_id);
+  // Coaches who teach this class's sport come first, and every name carries its sports,
+  // so the manager is not picking a stranger from a bare list of names.
+  const teachesHere = (x: { sports: string[] | null }) =>
+    (x.sports ?? []).some((s) => s === classData.sport || s === "all");
+  const coaches = (coachRead.data?.items ?? [])
+    .filter((x) => x.id !== classData.coach_id)
+    .sort((a, b) => Number(teachesHere(b)) - Number(teachesHere(a)) || a.full_name.localeCompare(b.full_name, "vi"));
+  const coachSports = (x: { sports: string[] | null }) => {
+    const list = x.sports ?? [];
+    if (list.includes("all")) return t("All sports");
+    return list.length ? list.map(sportLabel).join(", ") : t("No sport yet");
+  };
   const [coachId, setCoachId] = useState("");
   const [capacity, setCapacity] = useState(String(classData.capacity));
   const [minEnrolled, setMinEnrolled] = useState(classData.min_enrolled == null ? "" : String(classData.min_enrolled));
@@ -460,7 +471,7 @@ function ActionForm({
               <option value="">{t("Choose…")}</option>
               {coaches.map((x) => (
                 <option key={x.id} value={x.id}>
-                  {x.full_name}
+                  {x.full_name} · {coachSports(x)}
                 </option>
               ))}
             </Select>

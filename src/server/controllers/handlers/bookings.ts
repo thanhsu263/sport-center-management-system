@@ -1,3 +1,4 @@
+import { reconcileLoyaltyRefund } from "../../services/loyalty";
 import { PLAYED_SQL } from "./played";
 import type { Sql } from "@/server/data/db";
 import { BOOKING_COLS, PAYMENT_COLS } from "../../services/columns";
@@ -1021,10 +1022,8 @@ const hasStarted = (booking: CancelRow) => booking.status === "confirmed" && new
 /**
  * What cancelling a booking would cost, right now.
  *
- * Read-only, so the app can show "cancel now: refund 50%, lose 125,000đ" before
- * the member presses the button. Staff may ask for it waived (the centre cancelled,
- * a flood, an emergency): that is the force-majeure rule — never charge a customer
- * for something that is not their doing.
+ * Members receive nothing back. Staff can quote a full cash refund when the
+ * centre cancels; the cancellation itself must include the centre's reason.
  */
 export async function bookingsCancelQuote(
   sql: Sql,
@@ -1039,7 +1038,6 @@ export async function bookingsCancelQuote(
   if (!["hold", "confirmed"].includes(booking.status)) {
     throw err.conflictState("A booking in this state cannot be cancelled.");
   }
-  const settings = await getSettings(sql);
   if (hasStarted(booking)) throw err.conflictState(CANNOT_CANCEL_STARTED);
   const staff = user.role === "receptionist" || user.role === "manager";
   const waived = staff && new URL(request.url).searchParams.get("waive") === "1";
@@ -1069,7 +1067,6 @@ export async function bookingsCancel(
   if (!["hold", "confirmed"].includes(booking.status)) {
     throw err.conflictState("A booking in this state cannot be cancelled.");
   }
-  const settings = await getSettings(sql);
   if (booking.status === "hold") {
     await sql.query(`select occupancy_release_booking($1::uuid, 'cancelled'::booking_status)`, [id]);
     return { status: 200, body: { refund: null, booking_id: id } };
@@ -1077,7 +1074,8 @@ export async function bookingsCancel(
   if (hasStarted(booking)) throw err.conflictState(CANNOT_CANCEL_STARTED);
   const staff = user.role === "receptionist" || user.role === "manager";
   const waived = staff && body.waive === true;
-  const reason = str(body.reason) ?? null;
+  const reason = str(body.reason)?.trim() ?? null;
+  if (waived && !reason) throw err.field("reason", "A reason is required for a centre cancellation.");
   const quote = quoteCancel({
     tiers: [],
     startAt: booking.start_at,
@@ -1097,17 +1095,18 @@ export async function bookingsCancel(
     // nothing to give back: those hours are history, and no row is touched.
     refund = null;
   } else if (quote.refund_vnd > 0) {
+    await sql.query(`select id from users where id = $1 for update`, [booking.user_id]);
     const payCode = await nextCode(sql, "PAY");
     const amount = -quote.refund_vnd;
-    const needMgr = Math.abs(amount) >= settings.refund_manager_vnd;
-    const st = needMgr ? "refund_pending" : "posted";
+    const st = "refund_pending";
     refund =
       (await one<Payment>(
         sql,
         `insert into payments (code, user_id, method, amount_vnd, vat_rate, status, ref_type, ref_id, created_by)
-         values ($1,$2,'cash',$3,0,$4,'booking',$5,$6) returning ${PAYMENT_COLS}`,
-        [payCode, booking.user_id, amount, st, id, user.id],
+         values ($1,$2,'cash',$3,0,$4,'booking',$5,null) returning ${PAYMENT_COLS}`,
+        [payCode, booking.user_id, amount, st, id],
       )) ?? null;
+    await reconcileLoyaltyRefund(sql, booking.user_id);
     // A full refund gives the member their use of the code back (BR-41).
     if (quote.fee_vnd === 0) await restoreIfFullyRefunded(sql, "booking", id);
   }
