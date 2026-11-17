@@ -1,3 +1,12 @@
+/**
+ * File: src/routes/desk.member.$id.tsx
+ * Vai trò: Trang chi tiết và quản trị hồ sơ hội viên dành cho nhân viên lễ tân (receptionist) và quản lý (manager).
+ * Vị trí trong app:
+ * - Khớp với route URL: /desk/member/$id ($id là mã định danh user_id của hội viên).
+ * - Được điều hướng từ trang tìm kiếm tại bàn lễ tân (/desk), danh sách hội viên (/members) hoặc lịch đặt sân.
+ * - Cung cấp các chức năng nghiệp vụ: xem thông tin hội viên, chỉnh sửa hồ sơ/người giám hộ, cấp lại mật khẩu tạm,
+ *   thu tiền gói tập (subscription), ghi nhận hoàn tiền (refund), đăng ký lớp học và hủy lịch đặt sân trong ngày.
+ */
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { AlertTriangle, ArrowLeft, Calendar, CheckCircle2, Mail, Phone } from "lucide-react";
 import { SectionTitle } from "@/client/components/section";
@@ -35,6 +44,11 @@ import { ageYears } from "@/shared/arena3/time";
 import { t, tServer, tData } from "@/client/lib/i18n";
 import { useRead } from "@/client/lib/use-read";
 
+/**
+ * Làm gì: Định nghĩa route TanStack Router cho trang chi tiết hội viên tại quầy lễ tân (/desk/member/$id).
+ * Được gọi ở: URL /desk/member/$id (TanStack Router tự động khớp đường dẫn và nạp component Page).
+ * @returns Cấu hình route liên kết với component Page.
+ */
 export const Route = createFileRoute("/desk/member/$id")({
   component: Page,
 });
@@ -53,7 +67,14 @@ type Payment = {
 };
 
 /** Digits only, so a typed "1.500.000" or "1,500,000" still means 1500000. */
+/**
+ * Làm gì: Chuyển đổi chuỗi tiền tệ người dùng nhập thành số nguyên VND bằng cách lọc bỏ các ký tự không phải số.
+ * Được gọi ở: Nội bộ file desk.member.$id.tsx (hàm submitRefund và biến tính toán refundTyped).
+ * @param raw Chuỗi tiền tệ người dùng nhập từ giao diện (ví dụ: "1.500.000" hoặc "1,500,000").
+ * @returns Số tiền nguyên kiểu number theo đơn vị VND; trả về 0 nếu chuỗi rỗng hoặc không có chữ số.
+ */
 function parseVnd(raw: string) {
+  // Lọc bỏ toàn bộ ký tự không phải chữ số (dấu chấm, phẩy, khoảng trắng) để chuẩn hóa về chuỗi số nguyên
   const digits = raw.replace(/\D/g, "");
   return digits ? Number(digits) : 0;
 }
@@ -109,6 +130,13 @@ type Member = {
   };
 };
 
+/**
+ * Làm gì: Component trang quản trị chi tiết hội viên tại quầy lễ tân; hiển thị thông tin cá nhân,
+ * gói tập, lớp học, lịch đặt sân trong ngày và lịch sử thanh toán; hỗ trợ sửa thông tin,
+ * đặt lại mật khẩu, thu tiền gói tập, hoàn tiền và đăng ký lớp học.
+ * Được gọi ở: TanStack Router khi người dùng truy cập URL /desk/member/$id (cấu hình trong Route).
+ * @returns Giao diện quản lý hội viên bọc trong component Shell theo vai trò của người dùng hiện tại.
+ */
 function Page() {
   const { id } = Route.useParams();
   const me = useSessionUser();
@@ -125,6 +153,7 @@ function Page() {
   // Classes the desk can put this member into: open and priced (BR-18, BR-53).
   const classesRead = useRead<{ items: Array<{ id: string; sport: string; level: string; rrule: string; status: string; price_vnd: number | null; capacity: number; enrolled_count: number }> }>("/classes");
   const [enrolClassId, setEnrolClassId] = useState("");
+  // Tuổi vị thành niên mặc định là 18 nếu trung tâm chưa cấu hình giá trị minor_age trong settings
   const minorAge = settingsRead.data?.settings?.minor_age ?? 18;
   const [cancelId, setCancelId] = useState<string | null>(null);
   const [transferSub, setTransferSub] = useState<Member["subscriptions"][number] | null>(null);
@@ -140,14 +169,25 @@ function Page() {
   // being answered would be a double charge or a double check-in waiting to happen.
   const busyRef = useRef(false);
   const [working, setWorking] = useState(false);
+  /**
+   * Làm gì: Cơ chế bọc an toàn cho các thao tác tại quầy lễ tân; chống kích hoạt đúp (double charge/double check-in) và bắt lỗi tự động qua toast.
+   * Được gọi ở: Component Page (khi nhân viên check-in, hủy đặt sân, thu tiền gói tập, đăng ký lớp).
+   * @param run Hàm bất đồng bộ thực hiện thao tác gọi API tương ứng.
+   * @param fallback Thông điệp lỗi tiếng Việt dự phòng khi server không trả về message chi tiết.
+   * @returns Promise<void> hoàn tất sau khi kết thúc tác vụ và khôi phục cờ trạng thái bận.
+   */
   async function act(run: () => Promise<void>, fallback: string) {
+    // Bước 1: Kiểm tra cờ bận; nếu đang có thao tác khác đang chạy dở thì lập tức bỏ qua để chống bấm đúp
     if (busyRef.current) return;
+    // Bước 2: Bật khóa busyRef và cập nhật state working để vô hiệu hóa các nút bấm trên giao diện
     busyRef.current = true;
     setWorking(true);
+    // Bước 3: Thực thi tác vụ truyền vào; bắt lỗi từ API hoặc hệ thống và hiển thị thông báo toast
     try {
       await run();
     } catch (e) {
       toast.error(e instanceof Error ? tServer(e.message) : fallback);
+    // Bước 4: Luôn giải phóng khóa busyRef và tắt state working trong khối finally để nhận thao tác tiếp theo
     } finally {
       busyRef.current = false;
       setWorking(false);
@@ -168,30 +208,49 @@ function Page() {
   const [resetErr, setResetErr] = useState("");
   const [tempPassword, setTempPassword] = useState("");
 
+  /**
+   * Làm gì: Đóng modal đặt lại mật khẩu và dọn sạch mật khẩu tạm cùng thông báo lỗi trong state để đảm bảo an toàn bảo mật.
+   * Được gọi ở: Component Page (nút đóng modal hoặc nút hủy trong hộp thoại cấp lại mật khẩu).
+   */
   function closeReset() {
     setResetStep("closed");
     setResetErr("");
     setTempPassword("");
   }
 
+  /**
+   * Làm gì: Gửi yêu cầu cấp lại mật khẩu tạm thời cho hội viên lên server và chuyển giao diện sang bước 'issued' để hiển thị mật khẩu một lần duy nhất.
+   * Được gọi ở: Component Page (khi nhân viên nhấn nút xác nhận đặt lại mật khẩu trong modal reset password).
+   * @returns Promise<void>
+   */
   async function resetPassword() {
+    // Bước 1: Bật cờ trạng thái đang xử lý và xóa các thông báo lỗi trước đó
     setResetBusy(true);
     setResetErr("");
+    // Bước 2: Gọi API POST /members/{id}/reset-password để máy chủ tạo mật khẩu tạm thời ngẫu nhiên
     try {
       const r = await apiPost<{ temp_password: string }>(`/members/${id}/reset-password`);
+      // Bước 3: Lưu mật khẩu tạm và chuyển sang trạng thái 'issued' để nhân viên đọc trực tiếp cho hội viên
       setTempPassword(r.temp_password);
       setResetStep("issued");
     } catch (e) {
       // Stays on the question, with the reason written under it: a toast would fade while the desk is
       // still looking at a button that appears to have done nothing.
       setResetErr(e instanceof Error ? tServer(e.message) : t("Could not reset the password"));
+    // Bước 4: Tắt cờ trạng thái bận khi kết thúc gọi API
     } finally {
       setResetBusy(false);
     }
   }
 
+  /**
+   * Làm gì: Nạp thông tin hiện tại của hội viên và người giám hộ vào state form, sau đó mở modal chỉnh sửa hồ sơ (B-11).
+   * Được gọi ở: Component Page (khi nhấn nút Chỉnh sửa hồ sơ hoặc liên kết "Thêm ngày sinh").
+   */
   function openEdit() {
+    // Bước 1: Kiểm tra an toàn; nếu dữ liệu hội viên chưa tải về thành công thì không mở form
     if (!data) return;
+    // Bước 2: Điền trước các giá trị hiện tại của hội viên (tên, số điện thoại, ngày sinh, người giám hộ) vào form
     setEdit({
       full_name: data.user.full_name,
       phone: data.user.phone,
@@ -199,26 +258,42 @@ function Page() {
       guardian_name: data.guardian.name ?? "",
       guardian_phone: data.guardian.phone ?? "",
     });
+    // Bước 3: Xóa lỗi cũ và bật state editing để hiển thị modal chỉnh sửa
     setEditErr(null);
     setEditing(true);
   }
 
+  /**
+   * Làm gì: Gửi dữ liệu chỉnh sửa hồ sơ hội viên lên API PATCH /members/{id}, làm mới giao diện và thông báo thành công.
+   * Được gọi ở: Component Page (khi nhân viên nhấn nút Lưu thay đổi trong modal chỉnh sửa hồ sơ).
+   * @returns Promise<void>
+   */
   async function saveEdit() {
+    // Bước 1: Bật cờ bận và xóa các thông báo lỗi trường nhập liệu trước đó
     setEditBusy(true);
     setEditErr(null);
+    // Bước 2: Gửi API PATCH cập nhật thông tin; chuẩn hóa date_of_birth rỗng thành null để server xử lý đúng kiểu
     try {
       await apiPatch(`/members/${id}`, { ...edit, date_of_birth: edit.date_of_birth || null });
+      // Bước 3: Thông báo thành công, đóng modal và gọi reload() để cập nhật lại dữ liệu mới nhất trên giao diện
       toast.success(t("Profile updated"));
       setEditing(false);
       reload();
+    // Bước 4: Bắt lỗi validation từ server; nếu lỗi gắn với trường nhập cụ thể thì hiển thị ngay tại trường đó
     } catch (e) {
       if (e instanceof ApiClientError) setEditErr({ field: e.body.field, message: tServer(e.message) });
       else setEditErr({ message: e instanceof Error ? tServer(e.message) : t("Could not save the profile") });
+    // Bước 5: Tắt trạng thái bận để khôi phục quyền tương tác với form
     } finally {
       setEditBusy(false);
     }
   }
 
+  /**
+   * Làm gì: Mở modal hoàn tiền cho một giao dịch, điền trước số tiền tối đa có thể hoàn và xóa sạch lỗi cũ.
+   * Được gọi ở: Component Page (khi nhân viên nhấn nút "Hoàn tiền" tại từng dòng trong bảng thanh toán).
+   * @param p Đối tượng Payment đại diện cho giao dịch cần thực hiện hoàn tiền.
+   */
   function openRefund(p: Payment) {
     setRefunding(p);
     // Pre-filled with the whole refundable amount, because a full refund is
@@ -228,31 +303,44 @@ function Page() {
     setRefundErr("");
   }
 
+  /**
+   * Làm gì: Gửi yêu cầu hoàn tiền cho giao dịch lên API POST /payments/{id}/refund để đưa vào hàng đợi chờ duyệt (B-32).
+   * Được gọi ở: Component Page (khi nhấn nút Xác nhận hoàn tiền trong modal hoàn tiền).
+   * @returns Promise<void>
+   */
   async function submitRefund() {
+    // Bước 1: Kiểm tra tính hợp lệ; yêu cầu phải có giao dịch thanh toán và lý do hoàn tiền không được bỏ trống
     if (!refunding || !refundReason.trim()) return;
+    // Bước 2: Parse số tiền từ chuỗi nhập và kiểm tra điều kiện nghiệp vụ: tiền phải > 0 và <= số tiền còn được hoàn (refundable_vnd)
     const amount = parseVnd(refundAmount);
     if (amount <= 0 || amount > refunding.refundable_vnd) return;
+    // Bước 3: Bật cờ đang xử lý và xóa các thông báo lỗi hoàn tiền cũ
     setRefundBusy(true);
     setRefundErr("");
+    // Bước 4: Gửi yêu cầu hoàn tiền lên API; yêu cầu duyệt qua quản lý trước khi lễ tân chi tiền mặt
     try {
       await apiPost<{ payment: { status: string } }>(
         `/payments/${refunding.id}/refund`,
         { amount_vnd: amount, reason: refundReason.trim() },
         true,
       );
+      // Bước 5: Thông báo thành công, đóng modal hoàn tiền và tải lại trang để cập nhật lại số dư còn lại
       toast.success(t("Refund pending. Pay it in cash from the payments queue after any required manager approval."));
       setRefunding(null);
       reload();
     } catch (e) {
       // Written inside the window the desk is looking at, where a toast would fade behind it.
       setRefundErr(e instanceof Error ? tServer(e.message) : t("Could not raise that refund"));
+    // Bước 6: Tắt cờ xử lý hoàn tiền trong khối finally
     } finally {
       setRefundBusy(false);
     }
   }
 
+  // Phân quyền hiển thị giao diện: chỉ manager mới có quyền quản lý, các vai trò khác mặc định xem theo receptionist
   const role = me?.role === "manager" ? "manager" : "receptionist";
 
+  // Xử lý các trạng thái khi chưa có dữ liệu: hiển thị EmptyState khi bị từ chối truy cập (link cũ/hội viên đã xóa), LoadError khi lỗi mạng, hoặc Skeleton khi đang tải
   if (!data) {
     return (
       <Shell role={role} title={t("Member")}>
@@ -275,6 +363,7 @@ function Page() {
     );
   }
 
+  // Tính toán số tiền hoàn từ ô nhập liệu và kiểm tra các điều kiện biên để hiển thị cảnh báo lỗi realtime trên form
   const refundTyped = parseVnd(refundAmount);
   const refundInvalid = !refunding
     ? ""
@@ -284,6 +373,7 @@ function Page() {
         ? t("Only {amount} of this payment is still refundable.", { amount: money(refunding.refundable_vnd) })
         : "";
 
+  // Tính số tuổi hiện tại từ ngày sinh và gắn cờ isMinor nếu nhỏ hơn độ tuổi vị thành niên theo quy định của trung tâm
   const age = data.user.date_of_birth ? ageYears(data.user.date_of_birth) : null;
   const isMinor = age != null && age < minorAge;
 
@@ -396,6 +486,7 @@ function Page() {
               size="sm"
               variant="outline"
               onClick={() => {
+                // Mở modal xác nhận trước khi cấp lại mật khẩu tạm thời cho hội viên
                 setResetErr("");
                 setResetStep("confirm");
               }}
@@ -458,18 +549,22 @@ function Page() {
                 <Button
                   disabled={working}
                   onClick={() => {
+                    // Bước 1: Nếu phương thức là chuyển khoản, mở modal hiển thị mã QR VietQR
                     if ((subMethod[s.id] ?? "cash") === "transfer") {
                       setTransferSub(s);
                       return;
                     }
+                    // Bước 2: Nếu thanh toán tiền mặt, gọi API tạo giao dịch với auto_post = true để kích hoạt gói ngay
                     void act(async () => {
                       const res = await apiPost<PaymentCreateResponse>(
                         "/payments",
                         { ref_type: "subscription", ref_id: s.id, method: "cash", amount_vnd: s.due_vnd },
                         true,
                       );
+                      // Bước 3: Thông báo thành công và làm mới dữ liệu để cập nhật trạng thái gói tập
                       toast.success(t("Payment recorded"));
                       reload();
+                      // Bước 4: Mở hóa đơn/biên lai vừa tạo để in phiếu thu cho khách nếu có invoice_id
                       if (res.invoice?.id) await openInvoice(res.invoice.id);
                     }, t("Something went wrong"));
                   }}
@@ -497,6 +592,7 @@ function Page() {
                 disabled={working}
                 onClick={() =>
                   void act(async () => {
+                    // Đóng băng gói tập 7 ngày: hệ thống sẽ tạm hoãn và tự động dời ngày hết hạn (end_on) thêm 7 ngày
                     await apiPost(`/subscriptions/${s.id}/freeze`, { days: 7 });
                     toast.success(t("Frozen for 7 days: the end date moves out to match"));
                     reload();
@@ -512,6 +608,7 @@ function Page() {
                 disabled={working}
                 onClick={() =>
                   void act(async () => {
+                    // Mở lại gói tập trước hạn: tiếp tục tính thời hạn sử dụng bình thường
                     await apiPost(`/subscriptions/${s.id}/unfreeze`);
                     toast.success(t("Plan resumed"));
                     reload();
@@ -575,8 +672,10 @@ function Page() {
                   variant="ghost"
                   disabled={working}
                   onClick={() => {
+                    // Bước 1: Hiển thị hộp thoại xác nhận để tránh nhân viên lễ tân bấm nhầm hủy ghi danh
                     if (!window.confirm(t("Cancel this enrolment for the member?"))) return;
                     void act(async () => {
+                      // Bước 2: Gọi API xóa lượt ghi danh lớp và làm mới lại dữ liệu
                       await apiDelete(`/enrollments/${enr.id}`);
                       toast.success(t("Enrolment cancelled"));
                       reload();
@@ -592,11 +691,14 @@ function Page() {
       )}
 
       {(() => {
+        // Bước 1: Thu thập tập hợp class_id các lớp hội viên đã đăng ký để tránh hiển thị trùng
         const taken = new Set((data.enrollments ?? []).map((e) => e.class_id));
+        // Bước 2: Lọc các lớp đang mở (open), đã được định giá (price_vnd), và hội viên chưa tham gia
         const open = (classesRead.data?.items ?? []).filter(
           (c) => c.status === "open" && c.price_vnd != null && !taken.has(c.id),
         );
         const picked = open.find((c) => c.id === enrolClassId);
+        // Bước 3: Trả về thông báo nếu chưa tải xong dữ liệu hoặc không còn lớp nào mở tuyển sinh
         if (!classesRead.data) return null;
         if (!open.length) {
           return (
@@ -627,17 +729,21 @@ function Page() {
                 void act(async () => {
                   const res = await apiPost<{ enrollment: { id: string; status: string }; waitlisted?: boolean; quote?: { total_vnd: number } }>(
                     `/classes/${picked.id}/enroll`,
+                    // Bước 1: Gửi yêu cầu đăng ký lớp học đã chọn cho hội viên
                     { user_id: id },
                   ).catch((e: { body?: { br?: string; class_end?: string } }) => {
                     if (e?.body?.br === "BR-19" && e.body.class_end) {
                       throw new Error(t("This member's plan must end after the class ends ({date}). Sell or extend a plan first.", { date: e.body.class_end }));
+                    // Quy tắc nghiệp vụ BR-19: Hạn gói tập của hội viên phải kết thúc sau ngày kết thúc lớp học
                     }
                     throw e;
                   });
                   if (res.waitlisted) {
                     toast.success(t("Class is full: added to the waitlist"));
+                  // Bước 2: Xử lý theo kết quả đăng ký: vào danh sách chờ (waitlist), giữ chỗ (hold), hoặc vào thẳng
                   } else if (res.enrollment.status === "hold") {
                     // The seat is held until paid; the desk takes the money there and then.
+                    // Ghế đang giữ chỗ (hold): thu tiền mặt ngay tại quầy lễ tân để kích hoạt ghi danh và mở biên lai
                     const pay = await apiPost<PaymentCreateResponse>(
                       "/payments",
                       { ref_type: "enrollment", ref_id: res.enrollment.id, method: "cash", amount_vnd: res.quote?.total_vnd ?? picked.price_vnd },
@@ -650,6 +756,7 @@ function Page() {
                   }
                   setEnrolClassId("");
                   reload();
+                  // Bước 3: Đặt lại ô chọn lớp và làm mới dữ liệu hội viên cùng danh sách lớp học
                   classesRead.reload();
                 }, t("Could not enrol the member"))
               }
@@ -713,8 +820,11 @@ function Page() {
               disabled={working}
               onClick={() =>
                 void act(async () => {
+                  // Bước 1: Tạo đăng ký gói tập mới (subscription) ở trạng thái chờ thanh toán
                   await apiPost("/subscriptions", { plan_id: p.id, user_id: id });
+                  // Bước 2: Thông báo tạo đơn thành công và nhắc lễ tân thu tiền để kích hoạt gói
                   toast.success(t("Order created: take payment to activate"));
+                  // Bước 3: Tải lại dữ liệu thành viên để hiển thị gói tập mới trong danh sách
                   reload();
                 }, t("Something went wrong"))
               }
@@ -731,6 +841,7 @@ function Page() {
       </p>
       <Stagger className="mt-3 grid gap-2" gap={0.04}>
         {data.payments.map((p) => {
+          // Số tiền âm (amount_vnd < 0) biểu thị giao dịch hoàn tiền (refund)
           const isRefund = p.amount_vnd < 0;
           return (
             <StaggerItem key={p.id}>
@@ -907,8 +1018,11 @@ function Page() {
                 disabled={working}
                 onClick={() =>
                   void act(async () => {
+                    // Bước 1: Thu số tiền còn thiếu (balance) của lượt đặt sân bằng tiền mặt tại quầy
                     await apiPost(`/bookings/${b.id}/collect-balance`, { method: "cash" });
+                    // Bước 2: Thông báo thu tiền thành công
                     toast.success(t("Balance collected"));
+                    // Bước 3: Tải lại dữ liệu trang để cập nhật trạng thái thanh toán của lượt đặt sân
                     reload();
                   }, t("Something went wrong"))
                 }
@@ -926,8 +1040,11 @@ function Page() {
                 disabled={working}
                 onClick={() =>
                   void act(async () => {
+                    // Bước 1: Xác nhận khách đến nhận sân (check-in) và chuyển trạng thái sang đang sử dụng (in_use)
                     await apiPost(`/bookings/${b.id}/check-in`);
+                    // Bước 2: Thông báo check-in thành công
                     toast.success(t("Checked in: on court"));
+                    // Bước 3: Tải lại dữ liệu trang để cập nhật trạng thái đặt sân trên giao diện
                     reload();
                   }, t("Something went wrong"))
                 }
@@ -951,7 +1068,9 @@ function Page() {
         open={cancelId !== null}
         onClose={() => setCancelId(null)}
         onDone={() => {
+          // Bước 1: Đóng dialog hủy đặt sân sau khi xử lý xong
           setCancelId(null);
+          // Bước 2: Tải lại dữ liệu để cập nhật danh sách đặt sân hôm nay
           reload();
         }}
       />
@@ -1014,13 +1133,17 @@ function Page() {
           refType="subscription"
           refId={transferSub.id}
           onConfirmManual={async () => {
+            // Bước 1: Ghi nhận thanh toán chuyển khoản thủ công cho gói tập (method: "transfer")
             const res = await apiPost<PaymentCreateResponse>(
               "/payments",
               { ref_type: "subscription", ref_id: transferSub.id, method: "transfer", amount_vnd: transferSub.due_vnd },
               true,
             );
+            // Bước 2: Thông báo đã ghi nhận thanh toán thành công
             toast.success(t("Payment recorded"));
+            // Bước 3: Tải lại dữ liệu thành viên để kích hoạt gói tập
             reload();
+            // Bước 4: Tự động mở hóa đơn (receipt) nếu giao dịch có tạo invoice
             if (res.invoice?.id) await openInvoice(res.invoice.id);
           }}
         />

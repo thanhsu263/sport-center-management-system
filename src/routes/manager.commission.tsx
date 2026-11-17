@@ -1,3 +1,11 @@
+/**
+ * Quản lý hoa hồng và thù lao cho huấn luyện viên (Coach commission).
+ * Màn hình thuộc vai trò Manager (/manager/commission), cung cấp các chức năng:
+ * - Xem báo cáo tổng hợp thù lao huấn luyện viên theo từng chu kỳ tháng (YYYY-MM).
+ * - Cập nhật mức đơn giá dạy theo buổi (per class) và theo học viên (per student).
+ * - Chốt số liệu hoa hồng của tháng đã kết thúc (close) để khóa số liệu không bị sửa đổi.
+ * - Đánh dấu đã chi trả tiền hoa hồng (mark paid) cho từng huấn luyện viên.
+ */
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -9,6 +17,11 @@ import { apiPatch, apiPost } from "@/client/arena3/client";
 import { t, tServer } from "@/client/lib/i18n";
 import { useRead } from "@/client/lib/use-read";
 
+/**
+ * Làm gì: Định nghĩa route cho trang quản lý hoa hồng huấn luyện viên (/manager/commission).
+ * Được gọi ở: TanStack Router (URL: /manager/commission).
+ * @returns Đối tượng route được cấu hình với component Page.
+ */
 export const Route = createFileRoute("/manager/commission")({ component: Page });
 
 type Row = {
@@ -24,43 +37,74 @@ type Row = {
 };
 type Report = { period: string; current: string; items: Row[]; total_vnd: number };
 
+/**
+ * Làm gì: Tính toán chu kỳ tháng mới bằng cách cộng hoặc trừ số tháng so với chu kỳ ban đầu.
+ * Được gọi ở: Page component trong src/routes/manager.commission.tsx (nút chuyển tháng trước/sau).
+ * @param p Chuỗi chu kỳ tháng hiện tại theo định dạng "YYYY-MM" (ví dụ: "2026-11").
+ * @param by Số lượng tháng cần dịch chuyển (ví dụ: -1 để lùi 1 tháng, 1 để tiến 1 tháng).
+ * @returns Chuỗi chu kỳ tháng mới theo định dạng "YYYY-MM".
+ */
 function shiftMonth(p: string, by: number) {
   const [y, m] = p.split("-").map(Number) as [number, number];
+  // Dùng Date.UTC vào ngày 1 của tháng để tránh lệch múi giờ và tránh lỗi tràn ngày khi số ngày các tháng khác nhau
   const d = new Date(Date.UTC(y, m - 1 + by, 1));
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
 }
 
+/**
+ * Làm gì: Hiển thị giao diện quản lý hoa hồng huấn luyện viên, hỗ trợ xem báo cáo theo tháng, điều chỉnh đơn giá, chốt số liệu và ghi nhận thanh toán.
+ * Được gọi ở: TanStack Router qua Route trong src/routes/manager.commission.tsx (URL: /manager/commission).
+ * @returns Giao diện bảng điều khiển hoa hồng huấn luyện viên được bọc trong Shell component.
+ */
 function Page() {
+  // Bước 1: Khởi tạo state và truy vấn báo cáo hoa hồng từ API theo chu kỳ tháng
   // null asks for "this month": the server says which one that is, and the answer names it.
   const [asked, setAsked] = useState<string | null>(null);
   const [rates, setRates] = useState<Record<string, { s: string; p: string }>>({});
   const [busy, setBusy] = useState(false);
   const read = useRead<Report>(`/commission${asked ? `?period=${asked}` : ""}`);
   const data = read.data;
+  // Ưu tiên chu kỳ chuẩn do server trả về, fallback về chu kỳ người dùng đang yêu cầu nếu chưa tải xong
   const period = data?.period ?? asked;
 
+  // Bước 2: Đồng bộ đơn giá thù lao của từng HLV từ server vào state nội bộ để người dùng chỉnh sửa
   // The rate boxes start from what the server holds and are the person's to edit from there.
   useEffect(() => {
     if (!data) return;
     setRates(Object.fromEntries(data.items.map((x) => [x.coach_id, { s: String(x.per_session_vnd), p: String(x.per_student_vnd) }])));
   }, [data]);
 
+  /**
+   * Làm gì: Thực thi tác vụ gọi API bất đồng bộ, quản lý trạng thái loading, hiển thị thông báo toast và làm mới lại dữ liệu.
+   * Được gọi ở: Page component trong src/routes/manager.commission.tsx (các nút Chốt tháng, Lưu đơn giá, Đánh dấu đã trả).
+   * @param fn Hàm bất đồng bộ gọi API cần thực hiện.
+   * @param ok Chuỗi thông báo thành công hiển thị cho người dùng qua toast.
+   * @returns Promise<void> hoàn thành khi tác vụ kết thúc.
+   */
   async function run(fn: () => Promise<unknown>, ok: string) {
+    // Bước 1: Đặt cờ busy = true để vô hiệu hóa các nút bấm, ngăn người dùng click lặp lại
     setBusy(true);
     try {
+      // Bước 2: Thực thi tác vụ API, hiển thị toast thành công và tải lại dữ liệu mới nhất từ server
       await fn();
       toast.success(ok);
       read.reload();
+    // Bước 3: Bắt lỗi nếu gọi API thất bại, chuyển đổi thông báo lỗi phù hợp qua tServer và hiển thị toast
     } catch (e) {
       toast.error(e instanceof Error ? tServer(e.message) : t("Something went wrong"));
+    // Bước 4: Luôn giải phóng cờ busy để người dùng tiếp tục thao tác
     } finally {
       setBusy(false);
     }
   }
 
+  // Bước 3: Kiểm tra các điều kiện nghiệp vụ để cho phép chốt sổ tháng
+  // Chỉ tháng đã kết thúc (period < current) mới được chốt; tháng hiện tại vẫn còn phát sinh buổi dạy
   const ended = data ? data.period < data.current : false;
+  // Đếm số HLV có dạy trong tháng (sessions > 0) nhưng chưa chốt sổ hoặc thanh toán (!payout_status)
   const open = data?.items.filter((r) => !r.payout_status && r.sessions > 0).length ?? 0;
 
+  // Bước 4: Render giao diện với thanh chuyển tháng, thẻ thống kê tổng quan và danh sách chi tiết hoa hồng từng HLV
   return (
     <Shell
       role="manager"

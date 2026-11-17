@@ -1,3 +1,11 @@
+/**
+ * Quản lý mã khuyến mãi (Promotions / Promo codes) dành cho Manager (FR-PAY-03, UC-25, BR-40..43).
+ * Màn hình cho phép:
+ * - Xem danh sách mã voucher, trạng thái (active, paused, expired, scheduled, exhausted) và thống kê chiết khấu.
+ * - Tạo mã khuyến mãi mới (giảm theo % hoặc số tiền cố định, giới hạn lượt dùng, áp dụng cho gói tập/sân/lớp).
+ * - Tạm dừng (Pause) hoặc kích hoạt lại (Resume) mã khuyến mãi.
+ * - Xem lịch sử những hội viên đã áp dụng mã (kèm trạng thái used hoặc given back khi hoàn tiền).
+ */
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -11,6 +19,11 @@ import { formatDate, sportLabel } from "@/shared/arena3/labels";
 import { t, tk, tServer, tData } from "@/client/lib/i18n";
 import { useRead } from "@/client/lib/use-read";
 
+/**
+ * Làm gì: Định nghĩa route `/manager/promos` trong TanStack Router cho trang quản lý mã khuyến mãi.
+ * Được gọi ở: TanStack Router (URL: `/manager/promos`), liên kết từ thanh điều hướng `Shell` của Manager.
+ * @returns Cấu hình route liên kết với component `Page`.
+ */
 export const Route = createFileRoute("/manager/promos")({ component: Page });
 
 type Promo = {
@@ -48,6 +61,7 @@ type Redemption = {
 
 type Plan = { id: string; name: string };
 
+// Ánh xạ trạng thái mã khuyến mãi sang màu sắc giao diện của Badge (accent: xanh nổi bật, hold: chờ kích hoạt, muted: xám mờ, danger: đỏ cảnh báo).
 const STATE_TONE: Record<Promo["state"], "accent" | "hold" | "muted" | "danger"> = {
   active: "accent",
   scheduled: "hold",
@@ -64,6 +78,7 @@ const STATE_LABEL: Record<Promo["state"], string> = {
   exhausted: tk("exhausted"),
 };
 
+// Giá trị mặc định ban đầu cho form tạo mã khuyến mãi mới.
 const empty = {
   code: "",
   name: "",
@@ -82,6 +97,12 @@ const empty = {
   plan_id: "",
 };
 
+/**
+ * Làm gì: Định dạng chuỗi văn bản mô tả giá trị giảm giá của mã (ví dụ: "10% off" hoặc "50,000 đ off").
+ * Được gọi ở: Component `Page` tại dòng hiển thị tóm tắt ưu đãi trên từng thẻ Card khuyến mãi.
+ * @param p Đối tượng mã khuyến mãi `Promo`.
+ * @returns Chuỗi mô tả mức giảm giá đã được bản địa hóa qua hàm `t()`.
+ */
 function describe(p: Promo) {
   return p.kind === "percent" ? t("{n}% off", { n: p.value }) : t("{amount} off", { amount: money(p.value) });
 }
@@ -90,10 +111,21 @@ function describe(p: Promo) {
 function endOfDay(d: string) {
   return d ? `${d}T23:59:59+07:00` : "";
 }
+/**
+ * Làm gì: Chuyển chuỗi ngày (YYYY-MM-DD) thành mốc thời gian bắt đầu ngày theo múi giờ Việt Nam (+07:00).
+ * Được gọi ở: Hàm `create` trong `Page` (`src/routes/manager.promos.tsx`).
+ * @param d Chuỗi ngày định dạng YYYY-MM-DD từ input date.
+ * @returns Chuỗi ISO datetime lúc 00:00:00+07:00 hoặc chuỗi rỗng nếu không có ngày.
+ */
 function startOfDay(d: string) {
   return d ? `${d}T00:00:00+07:00` : "";
 }
 
+/**
+ * Làm gì: Component trang quản lý khuyến mãi; hiển thị số liệu thống kê, danh sách voucher, modal tạo mã mới và modal lịch sử sử dụng.
+ * Được gọi ở: TanStack Router thông qua `Route` (`/manager/promos`).
+ * @returns Giao diện quản lý mã khuyến mãi của Manager bọc trong layout `Shell`.
+ */
 function Page() {
   const read = useRead<{ items: Promo[] }>("/promotions");
   const items = read.data?.items ?? null;
@@ -105,13 +137,27 @@ function Page() {
   const [busy, setBusy] = useState(false);
   const [fe, setFe] = useState<{ field: string; message: string } | null>(null);
   const [history, setHistory] = useState<{ promo: Promo; rows: Redemption[] } | null>(null);
+  /**
+   * Làm gì: Lấy thông báo lỗi validation của một trường dữ liệu từ state phản hồi lỗi của server.
+   * Được gọi ở: Các thuộc tính `hint` của component `Field` trong modal tạo mã mới (`Page`).
+   * @param f Tên trường cần kiểm tra lỗi (ví dụ: "code", "name", "value").
+   * @returns Chuỗi thông báo lỗi nếu trường đang bị lỗi, ngược lại trả về undefined.
+   */
   const bad = (f: string) => (fe?.field === f ? fe.message : undefined);
 
+  /**
+   * Làm gì: Gửi dữ liệu tạo mã khuyến mãi mới lên server và làm mới danh sách khi thành công.
+   * Được gọi ở: Nút "Create code" trong modal tạo mã (`Page`).
+   * @returns Promise<void>
+   */
   async function create() {
+    // Bước 1: Đánh dấu đang xử lý (busy) và xóa lỗi form cũ để tránh gửi trùng lặp
     setBusy(true);
     setFe(null);
     try {
+      // Bước 2: Gom các phạm vi áp dụng được chọn (gói tập, đặt sân, lớp học); lọc bỏ các mục không được chọn
       const applies = [form.plan ? "plan" : "", form.court ? "court" : "", form.class ? "class" : ""].filter(Boolean);
+      // Bước 3: Gửi payload lên API POST /promotions; chỉ gửi max_discount_vnd khi giảm theo % (loại amount không dùng trần giảm giá)
       await apiPost("/promotions", {
         code: form.code,
         name: form.name,
@@ -127,11 +173,13 @@ function Page() {
         sport: form.sport,
         plan_id: form.plan_id,
       });
+      // Bước 4: Hiển thị thông báo thành công, đóng modal, khôi phục form về giá trị rỗng và tải lại danh sách mã
       toast.success(t("Code {code} is live", { code: form.code.toUpperCase() }));
       setOpen(false);
       setForm(empty);
       read.reload();
     } catch (e) {
+      // Trích xuất lỗi validation theo từng trường cụ thể từ backend để hiển thị vào thuộc tính hint của Field tương ứng
       if (e instanceof ApiClientError && e.body.field) setFe({ field: e.body.field, message: tServer(e.message) });
       toast.error(e instanceof Error ? tServer(e.message) : t("Something went wrong"));
     } finally {
@@ -139,19 +187,35 @@ function Page() {
     }
   }
 
+  /**
+   * Làm gì: Bật hoặc tạm dừng mã khuyến mãi (chuyển đổi qua lại giữa status "active" và "paused").
+   * Được gọi ở: Nút "Pause" hoặc "Resume" trên từng thẻ Card khuyến mãi (`Page`).
+   * @param p Đối tượng mã khuyến mãi `Promo` cần thay đổi trạng thái.
+   * @returns Promise<void>
+   */
   async function toggle(p: Promo) {
     try {
+      // Bước 1: Gửi yêu cầu PATCH cập nhật trạng thái; mã ở trạng thái paused sẽ bị chặn không cho áp dụng vào đơn hàng mới
       await apiPatch(`/promotions/${p.id}`, { status: p.status === "active" ? "paused" : "active" });
       toast.success(p.status === "active" ? t("Paused: new orders can't use it") : t("Back on"));
+      // Bước 2: Tải lại danh sách mã khuyến mãi để cập nhật giao diện
       read.reload();
     } catch (e) {
       toast.error(e instanceof Error ? tServer(e.message) : t("Something went wrong"));
     }
   }
 
+  /**
+   * Làm gì: Lấy danh sách lịch sử các lần hội viên áp dụng mã khuyến mãi và mở modal hiển thị chi tiết.
+   * Được gọi ở: Nút "Who used it" trên từng thẻ Card khuyến mãi (`Page`).
+   * @param p Đối tượng mã khuyến mãi `Promo` cần xem lịch sử.
+   * @returns Promise<void>
+   */
   async function showHistory(p: Promo) {
     try {
+      // Bước 1: Gọi API GET /promotions/:id/redemptions để lấy danh sách hội viên đã dùng mã
       const r = await apiGet<{ items: Redemption[] }>(`/promotions/${p.id}/redemptions`);
+      // Bước 2: Lưu dữ liệu vào state history để mở modal hiển thị lịch sử đổi mã
       setHistory({ promo: p, rows: r.items });
     } catch (e) {
       toast.error(e instanceof Error ? tServer(e.message) : t("Could not load the history"));
@@ -159,6 +223,7 @@ function Page() {
   }
 
   const sports = useSports();
+  // Thống kê nhanh: tổng số mã, số mã đang hoạt động, số mã tạm dừng và tổng tiền chiết khấu đã cấp
   const totalCodes = items?.length ?? 0;
   const activeCodes = items?.filter((p) => p.state === "active").length ?? 0;
   const pausedCodes = items?.filter((p) => p.state === "paused").length ?? 0;

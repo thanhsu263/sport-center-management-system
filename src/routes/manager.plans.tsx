@@ -1,3 +1,8 @@
+/**
+ * File: src/routes/manager.plans.tsx
+ * Vai trò: Trang quản lý danh mục gói hội viên (membership plans) dành cho vai trò manager trong hệ thống Lê Long Sport (Arena 3).
+ * Vị trí trong app: Tuyến đường /manager/plans; cho phép xem danh sách gói tập, xem số lượng hội viên đang sở hữu, bật/tắt mở bán và tạo mới gói tập.
+ */
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { monthsLabel } from "@/shared/arena3/labels";
@@ -13,6 +18,12 @@ import { ApiClientError, apiGet, apiPatch, apiPost } from "@/client/arena3/clien
 import { t, tk, tServer, tData } from "@/client/lib/i18n";
 import { useRead } from "@/client/lib/use-read";
 
+/**
+ * Làm gì: Định nghĩa route cho trang quản lý gói tập (/manager/plans) qua TanStack Router, liên kết URL với component Page.
+ * Được gọi ở: URL /manager/plans (TanStack Router tự động nạp qua src/routeTree.gen.ts).
+ * @returns Route configuration của TanStack Router cho đường dẫn /manager/plans.
+ * @throws Không ném lỗi.
+ */
 export const Route = createFileRoute("/manager/plans")({
   component: Page,
 });
@@ -26,6 +37,7 @@ type Plan = {
   duration_days: number | null;
 };
 
+// Giá trị khởi tạo mặc định cho form tạo gói tập mới: gói 1 tháng, giá 500.000đ, mặc định mở bán ngay.
 const emptyForm = {
   name: "",
   price_vnd: "500000",
@@ -35,6 +47,7 @@ const emptyForm = {
 
 /** Plans sold before months existed still carry days. */
 function lasts(p: Plan) {
+  // Ưu tiên duration_months; nếu là dữ liệu cũ chỉ có duration_days thì quy đổi sang tháng (30 ngày/tháng, tối thiểu 1 tháng).
   return p.duration_months ?? Math.max(1, Math.round((p.duration_days ?? 30) / 30));
 }
 
@@ -43,7 +56,14 @@ type Detail = {
   holders: { active: number; pending: number; frozen: number; ever: number };
 };
 
+/**
+ * Làm gì: Component giao diện chính của trang quản lý gói tập (/manager/plans), cho phép xem danh sách, thống kê, tạo mới, bật/tắt mở bán và xem chi tiết gói tập.
+ * Được gọi ở: Thuộc tính component của Route trong file này (src/routes/manager.plans.tsx dòng 17).
+ * @returns JSX element hiển thị toàn bộ trang quản lý gói tập bọc trong Shell role="manager".
+ * @throws Không ném lỗi ra ngoài; các lỗi tải dữ liệu hoặc gọi API được xử lý qua toast và component LoadError.
+ */
 function Page() {
+  // Bước 1: Khởi tạo dữ liệu và state: nạp danh sách gói tập từ API GET /plans qua hook useRead, cùng các state quản lý modal, form và chi tiết gói.
   const read = useRead<{ items: Plan[] }>("/plans");
   const items = read.data?.items ?? null;
   const [detail, setDetail] = useState<Detail | null>(null);
@@ -51,35 +71,71 @@ function Page() {
   const [busy, setBusy] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [fe, setFe] = useState<{ field: string; message: string } | null>(null);
+  /**
+   * Làm gì: Trích xuất thông báo lỗi validate của một trường (field) cụ thể từ state fe nếu server báo lỗi trên trường đó.
+   * Được gọi ở: Thuộc tính hint của các component Field trong form tạo gói mới (dòng 187, 195, 198).
+   * @param f Tên trường cần lấy thông báo lỗi (ví dụ: "name", "price_vnd", "duration_months").
+   * @returns Chuỗi thông báo lỗi nếu trường f trùng khớp với lỗi từ server, ngược lại trả về undefined.
+   * @throws Không ném lỗi.
+   */
   const bad = (f: string) => (fe?.field === f ? fe.message : undefined);
 
+  /**
+   * Làm gì: Tải thông tin chi tiết của một gói tập kèm số lượng hội viên đang giữ gói (active, pending, frozen, ever) từ API GET /plans/:id và mở modal chi tiết.
+   * Được gọi ở: Nút "Details" trên từng card gói tập (dòng 156).
+   * @param id Mã định danh UUID của gói tập cần xem chi tiết.
+   * @returns Promise<void>
+   * @throws Không ném lỗi ra ngoài; tự bắt lỗi và hiển thị toast thông báo nếu không tải được thông tin gói.
+   */
   async function openDetail(id: string) {
     try {
+      // Bước 1: Gọi API GET /plans/:id để lấy dữ liệu gói tập và thống kê người sở hữu, sau đó cập nhật vào state detail để mở Modal.
       setDetail(await apiGet<Detail>(`/plans/${id}`));
     } catch (e) {
+      // Bước 2: Bắt lỗi nếu gọi API thất bại: hiển thị thông báo lỗi qua toast (ưu tiên thông điệp dịch từ server qua tServer).
       toast.error(e instanceof Error ? tServer(e.message) : t("Could not open that plan"));
     }
   }
 
+  /**
+   * Làm gì: Bật hoặc tắt trạng thái mở bán của gói tập qua API PATCH /plans/:id; gói ngừng bán sẽ ẩn khỏi app thành viên nhưng hội viên cũ vẫn tiếp tục sử dụng.
+   * Được gọi ở: Nút "Stop selling" / "Sell again" trên card gói tập (dòng 159) và nút toggle trong modal chi tiết gói (dòng 221).
+   * @param p Đối tượng gói tập Plan cần cập nhật trạng thái bán.
+   * @param on Trạng thái mở bán mới (true: mở bán lại, false: ngừng bán).
+   * @returns Promise<void>
+   * @throws Không ném lỗi ra ngoài; tự bắt lỗi và hiển thị toast thông báo nếu cập nhật thất bại.
+   */
   async function setSale(p: Plan, on: boolean) {
     try {
+      // Bước 1: Gửi request PATCH /plans/:id để cập nhật cờ is_on_sale trên server.
       await apiPatch(`/plans/${p.id}`, { is_on_sale: on });
+      // Bước 2: Hiển thị toast thông báo thành công tương ứng: thông báo mở bán lại hoặc thông báo ngừng bán (hội viên cũ vẫn giữ gói).
       toast.success(
         on
           ? t("{name} is on sale again", { name: tData(p.name) })
           : t("{name} is no longer sold. Members who hold it keep it.", { name: tData(p.name) }),
       );
+      // Bước 3: Tải lại danh sách gói tập và cập nhật state detail nếu modal chi tiết đang mở đúng gói này.
       read.reload();
       setDetail((d) => (d && d.plan.id === p.id ? { ...d, plan: { ...d.plan, is_on_sale: on } } : d));
     } catch (e) {
+      // Bước 4: Xử lý lỗi: hiển thị toast thông báo lỗi dịch từ server (tServer) nếu cập nhật trạng thái thất bại.
       toast.error(e instanceof Error ? tServer(e.message) : t("Something went wrong"));
     }
   }
 
+  /**
+   * Làm gì: Xử lý submit form tạo gói tập mới, gửi request POST /plans lên server, làm mới danh sách và đóng modal khi thành công.
+   * Được gọi ở: Nút "Create plan" trong Modal tạo gói tập mới (dòng 180).
+   * @returns Promise<void>
+   * @throws Không ném lỗi ra ngoài; bắt ApiClientError để gán lỗi inline vào từng trường nhập liệu hoặc hiển thị toast lỗi chung.
+   */
   async function create() {
+    // Bước 1: Xóa lỗi trường cũ và bật cờ busy để khóa nút submit, ngăn người dùng click liên tiếp gây trùng request.
     setFe(null);
     setBusy(true);
     try {
+      // Bước 2: Gửi request POST /plans tạo gói tập mới. Dữ liệu số được giữ nguyên dạng chuỗi để server validate và chỉ rõ trường bị sai.
       // Sent as typed: the server names the field that is wrong, so a typo
       // reaches the person who made it instead of quietly becoming a zero.
       await apiPost("/plans", {
@@ -88,22 +144,27 @@ function Page() {
         duration_months: form.duration_months,
         is_on_sale: form.is_on_sale,
       });
+      // Bước 3: Tạo gói thành công: hiển thị toast, đóng modal, reset form về giá trị ban đầu và tải lại danh sách gói tập.
       toast.success(t("Plan created"));
       setOpen(false);
       setForm(emptyForm);
       read.reload();
     } catch (e) {
+      // Bước 4: Bắt lỗi từ API: nếu server chỉ rõ trường bị sai (e.body.field), hiển thị lỗi inline dưới trường đó; ngược lại hiển thị toast lỗi chung.
       if (e instanceof ApiClientError && e.body.field) setFe({ field: e.body.field, message: tServer(e.message) });
       else toast.error(e instanceof Error ? tServer(e.message) : t("Could not create the plan"));
     } finally {
+      // Bước 5: Luôn giải phóng trạng thái chờ (busy = false) dù request thành công hay thất bại.
       setBusy(false);
     }
   }
 
+  // Bước 2: Tính toán các số liệu thống kê: tổng số gói, số gói đang mở bán và số gói đã ngừng bán để hiển thị trên StatStrip.
   const totalPlans = items?.length ?? 0;
   const onSalePlans = items?.filter((p) => p.is_on_sale).length ?? 0;
   const stoppedPlans = totalPlans - onSalePlans;
 
+  // Bước 3: Render giao diện quản lý gói tập: PageHero giới thiệu trang, StatStrip thống kê, danh sách card gói tập và các Modal tạo mới / chi tiết.
   return (
     <Shell role="manager">
       <PageHero
