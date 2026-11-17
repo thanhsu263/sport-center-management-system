@@ -1,3 +1,10 @@
+/**
+ * Tệp này định nghĩa danh mục registry và cấu hình các vị trí media (media slots) dùng chung trong Arena 3.
+ * Vai trò trong ứng dụng:
+ * - Chuẩn hóa định danh (slot ID), loại media (image/video), nhóm hiển thị (landing, auth, banner, sport, coach, brand) và tỉ lệ khung hình (aspect ratio).
+ * - Cung cấp nhãn và vị trí hiển thị song ngữ (EN/VI) cho từng vị trí media trên giao diện người dùng và trang quản trị (manager).
+ * - Được dùng chung giữa client (hiển thị hình ảnh/banner/video) và server (quản lý upload và gán tài nguyên media).
+ */
 export type MediaSlotKind = "image" | "video";
 export type MediaAspectRatio = "16:9" | "4:5" | "1:1" | "3:4";
 export type MediaSlotGroup =
@@ -19,6 +26,13 @@ export type MediaSlotDef = {
   aspect: MediaAspectRatio;
 };
 
+/**
+ * Làm gì: Danh sách đăng ký toàn bộ các vị trí media (media slots) tĩnh mặc định của hệ thống Arena 3.
+ *   Xác định rõ loại media (image/video), nhóm hiển thị (landing, auth, banner, sport, coach, brand),
+ *   nhãn song ngữ và tỉ lệ khung hình (aspect ratio) chuẩn cho từng vị trí.
+ * Được gọi ở: src/shared/arena3/media.ts (hàm findSlotDef); gián tiếp phục vụ API quản lý media tại src/server/controllers/handlers/assets.ts.
+ * @returns Mảng hằng số MediaSlotDef[] chứa các định nghĩa vị trí media mặc định.
+ */
 export const MEDIA_REGISTRY: MediaSlotDef[] = [
   // Landing
   {
@@ -456,10 +470,20 @@ export const MEDIA_REGISTRY: MediaSlotDef[] = [
   },
 ];
 
+/**
+ * Làm gì: Tìm định nghĩa cấu hình (metadata) của một slot media theo mã slot.
+ * Tự động sinh cấu hình mặc định (fallback) cho HLV mới ("coach.<id>") và môn thể thao mới ("sport.<code>") nếu chưa có trong MEDIA_REGISTRY.
+ * Được gọi ở: src/server/controllers/handlers/assets.ts (hàm managerAssetsList / API GET /v1/site-assets)
+ * @param slot Mã định danh vị trí media (ví dụ: "landing.hero.image", "coach.<id>", "sport.badminton")
+ * @returns Đối tượng MediaSlotDef chứa thông tin hiển thị (nhãn, vị trí, tỉ lệ aspect ratio), hoặc undefined nếu không tìm thấy
+ */
 export function findSlotDef(slot: string): MediaSlotDef | undefined {
+  // Bước 1: Xử lý riêng cho các slot thuộc nhóm HLV (bắt đầu bằng "coach.")
   if (slot.startsWith("coach.")) {
+    // Ưu tiên kiểm tra trong danh mục tĩnh nếu HLV đã được khai báo sẵn từ trước
     const existing = MEDIA_REGISTRY.find((r) => r.slot === slot);
     if (existing) return existing;
+    // Với HLV mới tạo trong database, tự động sinh cấu hình mặc định (ảnh vuông 1:1, nhóm coach)
     return {
       slot,
       kind: "image",
@@ -471,8 +495,11 @@ export function findSlotDef(slot: string): MediaSlotDef | undefined {
       aspect: "1:1",
     };
   }
+  // Bước 2: Tìm kiếm slot trong danh mục tĩnh MEDIA_REGISTRY
   const known = MEDIA_REGISTRY.find((r) => r.slot === slot);
+  // Nếu đã có cấu hình hoặc slot không thuộc nhóm môn thể thao ("sport."), trả về kết quả ngay
   if (known || !slot.startsWith("sport.")) return known;
+  // Bước 3: Tự động sinh cấu hình ảnh tỉ lệ 16:9 cho các môn thể thao mới được quản lý thêm sau
   // A sport the manager added later: its photo belongs with the other sport photos.
   return {
     slot,
@@ -486,8 +513,21 @@ export function findSlotDef(slot: string): MediaSlotDef | undefined {
   };
 }
 
+/**
+ * Làm gì: Chuẩn hóa tên hoặc mã môn thể thao thành mã slot media tương ứng (dạng "sport.<mã>").
+ * Giúp các màn hình lấy đúng ảnh đại diện của từng môn thể thao, hoặc dùng ảnh chung "sport.all" khi không có môn.
+ * Được gọi ở:
+ * - src/client/components/media.tsx: hook useSportPhoto
+ * - src/client/components/landing/plans.tsx: component PlansSection
+ * - src/routes/app.book.tsx: route /app/book (chọn banner theo môn)
+ * - src/routes/app.classes.tsx: route /app/classes (ảnh bìa lớp học theo môn)
+ * @param sport Tên hoặc mã môn thể thao (ví dụ: "badminton", "basketball", "volleyball")
+ * @returns Chuỗi mã slot media tương ứng (ví dụ: "sport.badminton" hoặc "sport.all")
+ */
 export function sportPhoto(sport: string): string {
+  // Bước 1: Chuẩn hóa tên môn thể thao (loại bỏ khoảng trắng thừa và chuyển về chữ thường)
   const s = (sport || "").trim().toLowerCase();
+  // Bước 2: Ghép thành slot "sport.<mã>", fallback về "sport.all" nếu không xác định được môn
   return s ? `sport.${s}` : "sport.all";
 }
 

@@ -1,3 +1,9 @@
+/**
+ * File: src/client/components/landing/plans.tsx
+ * Vai trò: Component hiển thị phân đoạn danh sách lớp học thể thao (ClassesScene) trên trang chủ (Landing page).
+ * Vị trí trong app: Được nạp tại route trang chủ ("/" trong src/routes/index.tsx), cho phép khách vãng lai
+ * xem danh sách lớp mở đăng ký, lọc theo môn thể thao, theo dõi mức độ lấp đầy chỗ học và điều hướng sang trang /register.
+ */
 import { useMemo, useRef, useState } from "react";
 import { Cover, sportPhoto } from "@/client/components/media";
 import { ButtonLink, Card } from "@/client/components/ui";
@@ -14,17 +20,30 @@ import { rise } from "./tweens";
  */
 const FIRST_SHOWN = 4;
 
+/**
+ * Làm gì: Render phân đoạn danh sách lớp học trên trang chủ, hỗ trợ lọc theo môn thể thao, theo dõi sĩ số/chỗ trống và tạo hiệu ứng cuộn mượt mà.
+ * Được gọi ở: src/routes/index.tsx (component Home -> Landing, route /)
+ * @param props.classes Danh sách các lớp học thể thao (CatalogClass[]) lấy từ catalog công khai của hệ thống.
+ * @returns JSX.Element biểu diễn phân đoạn danh sách lớp học mở đăng ký (section #classes).
+ */
 export function ClassesScene({ classes }: { classes: CatalogClass[] }) {
+  // Bước 1: Khởi tạo ref cho phần tử DOM gốc và các state quản lý bộ lọc
   const root = useRef<HTMLElement>(null);
   const [sport, setSport] = useState("");
   const [all, setAll] = useState(false);
+  // Bước 2: Trích xuất danh mục các môn thể thao duy nhất và lọc danh sách lớp theo điều kiện
   const sports = useMemo(() => [...new Set(classes.map((c) => c.sport))], [classes]);
   const picked = sport ? classes.filter((c) => c.sport === sport) : classes;
+  // Mặc định chỉ hiển thị tối đa FIRST_SHOWN (4) lớp học để giữ giao diện gọn gàng; bấm "Show all" mới mở toàn bộ
   const shown = all ? picked : picked.slice(0, FIRST_SHOWN);
+  // Bước 3: Thiết lập hiệu ứng hoạt họa GSAP khi phân đoạn cuộn vào tầm nhìn (viewport)
   useScene(root, ({ motion }) => {
     const el = root.current;
+    // Bỏ qua hiệu ứng nếu người dùng bật tùy chọn giảm chuyển động (prefers-reduced-motion) hoặc phần tử gốc chưa gắn vào DOM
     if (!motion || !el) return;
+    // Kích hoạt hiệu ứng xuất hiện trồi lên (rise) so le 0.08s cho các phần tử có thuộc tính data-rise
     rise(el, "[data-rise]", { stagger: 0.08 });
+    // Tạo hiệu ứng phóng to thanh đo sĩ số (data-meter) từ trái sang phải một lần duy nhất khi cuộn đến 92% mép trên màn hình
     gsap.utils.toArray<HTMLElement>("[data-meter]", el).forEach((m) => {
       gsap.fromTo(m, { scaleX: 0 }, {
         scaleX: 1,
@@ -35,6 +54,11 @@ export function ClassesScene({ classes }: { classes: CatalogClass[] }) {
       });
     });
   });
+  // Bước 4: Render giao diện phân đoạn lớp học (section #classes):
+  // - Tiêu đề và mô tả giới thiệu kèm hiệu ứng cuộn data-rise.
+  // - Thanh nút bấm lọc theo từng môn thể thao (chỉ hiển thị khi có từ 2 môn trở lên); khi đổi môn sẽ đặt lại all=false để xem 4 lớp đầu.
+  // - Lưới thẻ lớp học: tính toán tỷ lệ lấp đầy (pct), đánh dấu sắp hết chỗ khi >= 80% (nearlyFull) để đổi màu thanh đo sang màu cam (bg-hold), và trạng thái hết chỗ (full) để chuyển nút sang danh sách chờ (waitlist).
+  // - Nút "Show all / Show fewer" hiển thị khi số lớp vượt quá FIRST_SHOWN (4 lớp) để mở rộng hoặc thu gọn danh sách.
   return (
     <section ref={root} id="classes" className="mx-auto max-w-6xl scroll-mt-20 px-4 pb-20">
       <p data-rise className="kicker text-2xs text-muted">

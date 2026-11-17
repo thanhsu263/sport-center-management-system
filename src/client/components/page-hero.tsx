@@ -1,3 +1,8 @@
+/**
+ * Component PageHero: Banner đầu trang dùng chung cho các phân hệ của Arena 3.
+ * Hiển thị tiêu đề, phụ đề, huy hiệu (badge), nút hành động (action),
+ * các chỉ số thống kê (stats) kèm hiệu ứng CountUp, và ảnh nền slot hoặc hình minh họa Spot.
+ */
 import { type ReactNode } from "react";
 import { cn } from "@/client/lib/cn";
 import { useAsset } from "./media";
@@ -5,6 +10,10 @@ import { Spot, type SpotName } from "./illustrations";
 import { CountUp, useReducedMotionAfterMount } from "./motion";
 import { GLBackground } from "./fx";
 
+/**
+ * Làm gì: Định nghĩa kiểu dữ liệu cho từng chỉ số đo lường (stat metric) hiển thị ở chân banner PageHero.
+ * Được gọi ở: Thuộc tính stats của PageHero tại các màn hình quản lý (manager.*), lễ tân (desk.*), HLV (coach.*).
+ */
 export type PageHeroStat = {
   label: string;
   value: number | string;
@@ -13,6 +22,24 @@ export type PageHeroStat = {
   live?: boolean;
 };
 
+/**
+ * Làm gì: Render phần banner đầu trang thống nhất cho các phân hệ của Arena 3 (Member, Coach, Desk, Manager).
+ * Hỗ trợ hiển thị ảnh nền động từ CMS slot kèm lớp phủ tối màu đạt chuẩn tương phản WCAG AA,
+ * hoặc hình minh họa SVG Spot dự phòng, cùng các chỉ số thống kê thời gian thực.
+ * Được gọi ở: Các trang route trong src/routes/ (coach.index.tsx, manager.index.tsx, desk.index.tsx, app.book.tsx,...).
+ * @param props Đối tượng thuộc tính cấu hình banner:
+ *   - slot: Khóa định danh slot để tải ảnh banner tương ứng từ CMS media
+ *   - title: Tiêu đề chính của trang (hỗ trợ text hoặc ReactNode)
+ *   - subtitle: Phụ đề giải thích hoặc tóm tắt nội dung trang
+ *   - badge: Huy hiệu hoặc nhãn nhỏ đặt phía trên tiêu đề
+ *   - stats: Danh sách các thẻ chỉ số đo lường hiển thị ở chân banner
+ *   - action: Phần tử tương tác (nút bấm, bộ lọc) ở góc trên bên phải
+ *   - fallbackSpot: Tên hình minh họa Spot hiển thị khi không có ảnh slot (mặc định: "court")
+ *   - className: Tùy biến class CSS Tailwind bổ sung cho thẻ header
+ *   - display: Bật giao diện cỡ lớn (chữ và số siêu to cho trang lịch dạy của HLV)
+ * @returns JSX.Element thẻ <header> chứa toàn bộ bố cục banner trang
+ * @throws Không có
+ */
 export function PageHero({
   slot,
   title,
@@ -35,10 +62,14 @@ export function PageHero({
   fallbackSpot?: SpotName;
   className?: string;
 }) {
+  // Bước 1: Lấy tài nguyên hình ảnh banner theo slot định danh từ SiteAssetsContext
   const asset = useAsset(slot);
+  // Tránh lỗi hydration mismatch bằng cách chỉ đọc tùy chọn prefers-reduced-motion sau khi component đã mount
   const reduced = useReducedMotionAfterMount();
+  // Chỉ bật chế độ nền hình ảnh nếu slot được kích hoạt (enabled) và có đường dẫn URL hợp lệ
   const hasImage = Boolean(asset.enabled && asset.url);
 
+  // Bước 2: Render giao diện header gồm background (ảnh/Spot), tiêu đề, hành động và hàng chỉ số thống kê
   return (
     <header
       className={cn(

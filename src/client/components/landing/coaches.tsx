@@ -1,3 +1,8 @@
+/**
+ * File: src/client/components/landing/coaches.tsx
+ * Vai trò: Component hiển thị khu vực giới thiệu đội ngũ huấn luyện viên (Coaches Scene) trên Landing Page.
+ * Vị trí trong app: Được nhúng tại trang chủ (src/routes/index.tsx), hỗ trợ lọc HLV theo môn thể thao với hiệu ứng chuyển đổi GSAP Flip mượt mà và hộp thoại (modal) xem chi tiết tiểu sử, chứng chỉ chuyên môn.
+ */
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Flip } from "gsap/Flip";
 import { Cover, MediaCaption } from "@/client/components/media";
@@ -17,6 +22,7 @@ import { useLimits } from "@/client/lib/use-centre";
 import { SplitHeading } from "./kit";
 import { rise } from "./tweens";
 
+// Đăng ký plugin Flip với GSAP để kích hoạt tính năng ghi nhận tọa độ và diễn hoạt chuyển đổi layout mượt mà.
 registerGsap(Flip);
 
 /**
@@ -27,22 +33,33 @@ registerGsap(Flip);
  * A card carries the three things that decide whether you want to read more (face, sport,
  * role); the rest is one click away in the dialog.
  */
+/**
+ * Làm gì: Hiển thị phân đoạn giới thiệu đội ngũ huấn luyện viên (Coaches Scene) trên trang chủ, hỗ trợ lọc theo môn thể thao với hiệu ứng FLIP animation mượt mà và mở modal xem chi tiết chứng chỉ.
+ * Được gọi ở: src/routes/index.tsx (component Index trên trang chủ / của ứng dụng).
+ * Các props quan trọng:
+ * - dbCoaches: Danh sách huấn luyện viên thực tế từ database (tùy chọn); nếu để trống hoặc không truyền sẽ dùng danh sách mặc định COACHES.
+ * @returns Khối JSX section #coaches gồm lưới thẻ huấn luyện viên, bộ lọc môn thể thao và modal thông tin chi tiết.
+ */
 export function CoachesScene({
   dbCoaches,
 }: {
   dbCoaches?: Array<{ id: string; name: string; sports: string[] }>;
 } = {}) {
+  // Bước 1: Khởi tạo các ref và state quản lý bộ lọc môn thể thao, modal chi tiết và trạng thái hiệu ứng Flip.
   const root = useRef<HTMLElement>(null);
   const grid = useRef<HTMLDivElement>(null);
   const [sport, setSport] = useState("");
   const [open, setOpen] = useState<CoachCard | null>(null);
   const flipState = useRef<Flip.FlipState | null>(null);
   const flipHeight = useRef(0);
+  // Kiểm tra tùy chọn giảm chuyển động của người dùng (prefers-reduced-motion) để tắt animation khi cần thiết.
   const calm = useCalm();
 
+  // Bước 2: Chuẩn hóa danh sách huấn luyện viên, hợp nhất dữ liệu từ database với thông tin giới thiệu có sẵn trong COACHES.
   const allCoaches = useMemo<CoachCard[]>(() => {
     if (!dbCoaches || !dbCoaches.length) return COACHES;
     return dbCoaches.map((dbc) => {
+      // Ghép nối với danh sách COACHES theo id hoặc tên để tái sử dụng hình ảnh, chức danh và mô tả phong phú sẵn có.
       const match = COACHES.find((c) => c.userId === dbc.id || c.name === dbc.name);
       if (match) {
         return {
@@ -52,6 +69,7 @@ export function CoachesScene({
           slot: `coach.${dbc.id}`,
         };
       }
+      // Nếu là HLV mới từ database chưa có trong COACHES, tự động sinh thông tin mặc định theo môn đầu tiên được phân công.
       const sp = dbc.sports[0] ?? "";
       return {
         name: dbc.name,
@@ -66,23 +84,41 @@ export function CoachesScene({
   }, [dbCoaches]);
 
   // Certifications the centre has on record and that still hold; the dialog lists them under the bio.
+  // Bước 3: Tải danh sách chứng chỉ huấn luyện viên hợp lệ từ API backend (/coaches/certifications).
   const certRead = useRead<{ items: Certification[] }>("/coaches/certifications");
+  /**
+   * Làm gì: Lọc danh sách chứng chỉ hợp lệ theo coach_id (userId) của từng huấn luyện viên.
+   * Được gọi ở: Thẻ HLV (dòng 171, 174 để hiện huy hiệu) và modal thông tin chi tiết (dòng 226, 230).
+   * @param userId Mã định danh của huấn luyện viên.
+   * @returns Danh sách chứng chỉ Certification tương ứng.
+   */
   const certsOf = (userId?: string) => (userId ? (certRead.data?.items ?? []).filter((x) => x.coach_id === userId) : []);
 
   // Only sports still on offer, and only as many coaches as the manager chose to show.
+  // Bước 4: Lọc HLV theo các môn đang mở, giới hạn số lượng hiển thị (landing_coaches) theo cấu hình của quản lý.
   const { sports } = useSports();
   const limits = useLimits();
   const offered = sports.length ? allCoaches.filter((c) => !c.sport || sports.some((s) => s.code === c.sport)) : allCoaches;
   const featured = offered.slice(0, limits.landing_coaches);
+  // Lọc danh sách HLV hiển thị theo tab môn thể thao đang chọn (chuỗi rỗng nghĩa là chọn tất cả).
   const coaches = featured.filter((c) => !sport || c.sport === sport);
+  // Chỉ hiển thị các tab môn thể thao thực sự có huấn luyện viên xuất hiện trong danh sách featured.
   const filterSports = sports.filter((s) => featured.some((c) => c.sport === s.code));
 
+  // Kích hoạt hoạt ảnh cuộn trang (ScrollTrigger): đẩy section và các phần tử [data-rise] trồi lên khi người dùng cuộn tới.
   useScene(root, ({ motion }) => {
     if (motion && root.current) rise(root.current);
   });
 
+  /**
+   * Làm gì: Cập nhật môn thể thao được chọn và ghi lại vị trí các thẻ trước khi React re-render để phục vụ diễn hoạt FLIP.
+   * Được gọi ở: Component Seg (sự kiện onChange của thanh chọn môn thể thao ở dòng 139).
+   * @param next Mã môn thể thao được chọn (chuỗi rỗng "" tương ứng với "Tất cả").
+   * @returns Không trả về giá trị (void).
+   */
   const choose = (next: string) => {
     if (next === sport) return;
+    // Chụp lại tọa độ/kích thước cũ của từng thẻ và chiều cao lưới trước khi React render lại DOM.
     if (grid.current && !motionOff(calm)) {
       flipState.current = Flip.getState(grid.current.querySelectorAll("[data-coach]"));
       flipHeight.current = grid.current.offsetHeight;
@@ -91,6 +127,7 @@ export function CoachesScene({
   };
 
   // After React has laid the new grid out, play from where the cards were.
+  // Bước 5: Kích hoạt animation GSAP Flip sau khi DOM cập nhật để di chuyển mượt mà các thẻ đến vị trí mới.
   useLayoutEffect(() => {
     const state = flipState.current;
     flipState.current = null;
@@ -100,7 +137,9 @@ export function CoachesScene({
     // sections below jump up under them. Resize it from the old height to the new one instead,
     // started after Flip has read the new layout and held until the last card lands.
     const to = box.offsetHeight;
+    // Xóa thuộc tính height inline trên grid sau khi diễn hoạt hoàn tất để lưới tự động co giãn theo CSS.
     const release = () => void gsap.set(box, { clearProps: "height" });
+    // Diễn hoạt chuyển đổi FLIP: các thẻ giữ lại trượt đến vị trí mới, thẻ xuất hiện mới (onEnter) mờ dần và phóng to.
     const flip = Flip.from(state, {
       targets: box.querySelectorAll("[data-coach]"),
       duration: 0.65,
@@ -113,6 +152,7 @@ export function CoachesScene({
     });
     // Inside the Flip timeline, so it has rendered its last frame before onComplete clears it.
     flip.fromTo(box, { height: flipHeight.current }, { height: to, duration: 0.65, ease: "arena" }, 0);
+    // Hủy tween và khôi phục chiều cao grid khi component unmount hoặc khi môn thể thao thay đổi.
     return () => {
       flip.kill();
       release();
@@ -121,6 +161,7 @@ export function CoachesScene({
 
   const lang = useLang();
 
+  // Bước 6: Render giao diện khu vực huấn luyện viên gồm tiêu đề, thanh tab bộ lọc, lưới thẻ HLV và modal chi tiết.
   return (
     <section ref={root} id="coaches" className="mx-auto max-w-6xl scroll-mt-20 px-4 py-20">
       <p data-rise className="kicker text-2xs text-muted">

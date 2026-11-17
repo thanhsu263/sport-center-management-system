@@ -1,3 +1,9 @@
+/**
+ * File: src/client/components/ui/index.tsx
+ * Vai trò: Thư viện thành phần giao diện (UI primitives & components) dùng chung cho toàn bộ ứng dụng Arena 3.
+ * Vị trí trong app: Chạy ở frontend client, cung cấp các khối xây dựng giao diện cơ bản (Button, Input, MoneyInput, DateField, Dialog...)
+ * tuân thủ chuẩn trợ năng (a11y: focus trap, keyboard navigation), hỗ trợ đa ngôn ngữ, định dạng tiền tệ/ngày tháng và thiết kế nhất quán.
+ */
 import {
   useEffect,
   useId,
@@ -33,10 +39,12 @@ import { formatDate, statusLabel, statusTone } from "@/shared/arena3/labels";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { EASE_SMOOTH } from "../motion";
 
+// Định nghĩa các biến thể kiểu dáng (variant), kích thước (size) và cấu hình hiển thị (ButtonLook) của nút bấm
 type ButtonVariant = "primary" | "ghost" | "outline" | "danger" | "ink" | "espresso";
 type ButtonSize = "md" | "sm" | "lg";
 type ButtonLook = { variant?: ButtonVariant; size?: ButtonSize };
 
+// Chuỗi class CSS cơ sở cho tất cả các nút bấm: căn giữa, khoảng cách, font, bo góc, hiệu ứng active/focus/disabled
 const BUTTON_BASE =
   "inline-flex items-center whitespace-nowrap justify-center gap-2 font-medium tracking-tight transition-[opacity,transform,background-color,box-shadow,color] duration-150 ease-[var(--ease-smooth)] disabled:bg-disabled disabled:text-disabled-fg disabled:border-transparent disabled:pointer-events-none disabled:shadow-none active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 focus-visible:ring-offset-2 focus-visible:ring-offset-bg";
 // Softly squared (not pills): sits calmly next to tables, cards and court grids.
@@ -46,6 +54,7 @@ const BUTTON_SIZES = {
   // 44px on a phone (finger), 36px with a mouse: dense tables stay compact on a desk.
   sm: "min-h-11 rounded-[var(--radius-sm)] px-3.5 text-[0.8125rem] sm:min-h-9",
 } as const;
+// Bảng màu sắc tương ứng với từng biến thể của nút bấm (primary, ink, espresso, outline, ghost, danger)
 const BUTTON_STYLES = {
   primary: "bg-accent text-accent-fg hover:bg-accent-hover",
   ink: "bg-espresso text-espresso-fg hover:opacity-90",
@@ -55,11 +64,24 @@ const BUTTON_STYLES = {
   danger: "bg-danger text-bg hover:opacity-90",
 } as const;
 
+/**
+ * Làm gì: Tạo chuỗi class CSS tổng hợp cho nút bấm dựa trên biến thể (variant) và kích thước (size).
+ * Được gọi ở: src/client/components/ui/index.tsx (Button, ButtonAnchor).
+ * @param look Đối tượng chứa variant (primary, ghost, outline, danger...) và size (sm, md, lg).
+ * @returns Chuỗi tên class CSS đã được gộp qua hàm cn().
+ */
 /** The look of a button, for the things that must be a link but should read as a button. */
 export function buttonClass({ variant = "primary", size = "md" }: ButtonLook = {}) {
   return cn(BUTTON_BASE, BUTTON_SIZES[size], BUTTON_STYLES[variant]);
 }
 
+/**
+ * Làm gì: Thành phần nút bấm chuẩn (Button) của hệ thống, đồng bộ giao diện cho toàn bộ các hành động trong app.
+ * Được gọi ở: Hầu hết các màn hình trong ứng dụng (ví dụ src/client/auth/gates.tsx, src/client/components/assistant-widget.tsx).
+ * @param variant Biến thể màu sắc và phong cách hiển thị của nút (primary, ghost, outline, danger, ink, espresso).
+ * @param size Kích thước nút bấm (sm, md, lg).
+ * @returns Phần tử JSX <button> với đầy đủ kiểu dáng và thuộc tính HTML.
+ */
 export function Button({
   variant,
   size,
@@ -70,6 +92,13 @@ export function Button({
 }
 
 /**
+ * Làm gì: Thẻ liên kết <a> có giao diện như nút bấm; tối ưu trợ năng cho liên kết neo (anchor) trong trang để tránh lồng <button> vào <a>.
+ * Được gọi ở: src/client/components/landing/header.tsx, src/client/components/landing/hero.tsx, src/routes/manager.index.tsx.
+ * @param variant Biến thể màu sắc và phong cách của nút.
+ * @param size Kích thước nút bấm.
+ * @returns Phần tử JSX <a> mang kiểu dáng của nút bấm.
+ */
+/**
  * Plain `<a>` that looks like a button (for same-page `#anchors`). A `<button>` inside an `<a>` is
  * two tab stops and two announcements for one action, so a link that should look like a button is
  * styled itself instead.
@@ -78,9 +107,19 @@ export function ButtonAnchor({ variant, size, className, ...props }: ComponentPr
   return <a className={cn(buttonClass({ variant, size }), className)} {...props} />;
 }
 
+/**
+ * Làm gì: Thành phần liên kết điều hướng TanStack Router mang kiểu dáng nút bấm, hỗ trợ prefetch và mở tab mới.
+ * Được gọi ở: src/client/components/landing/header.tsx, src/client/components/landing/closing.tsx và các trang điều hướng.
+ */
 /** A router link that looks like a button: one control, one tab stop, keeps prefetch and "open in new tab". */
 export const ButtonLink = createLink(ButtonAnchor);
 
+/**
+ * Làm gì: Ô nhập liệu văn bản chuẩn (Input) với chiều cao h-11, bo góc, hiệu ứng viền focus (focus ring) theo thiết kế Arena 3.
+ * Được gọi ở: src/client/components/ui/index.tsx (trong MoneyInput), src/client/components/promo-input.tsx, và các form nhập liệu.
+ * @param className Class CSS tùy biến bổ sung cho thẻ input.
+ * @returns Phần tử JSX <input> được định kiểu chuẩn.
+ */
 export function Input({ className, ...props }: ComponentProps<"input">) {
   return (
     <input
@@ -93,6 +132,14 @@ export function Input({ className, ...props }: ComponentProps<"input">) {
   );
 }
 
+/**
+ * Làm gì: Ô nhập số tiền với định dạng phân cách hàng nghìn trực quan và ký hiệu "đ", đồng thời giữ nguyên chuỗi chữ số thô cho form.
+ * Được gọi ở: src/routes/desk.index.tsx, src/routes/desk.maintenance.tsx, src/routes/desk.member.$id.tsx, src/routes/manager.commission.tsx.
+ * @param value Chuỗi chữ số thô của số tiền (ví dụ: "1500000").
+ * @param onChange Hàm callback nhận chuỗi chữ số đã làm sạch để lưu vào form.
+ * @param wrapClassName Class CSS tùy biến cho container bao ngoài ô nhập và ký hiệu tiền tệ.
+ * @returns Phần tử JSX gồm ô nhập tiền tệ và ký hiệu "đ" cố định bên phải.
+ */
 /**
  * An amount of money typed the way people read it: 1,500,000 with the thousands set apart and
  * the currency sign beside it, instead of a bare run of digits that is easy to miscount by a zero.
@@ -112,6 +159,7 @@ export function MoneyInput({
   /** Sizing of the box that holds the field and its "đ" (width, margin); `className` styles the field itself. */
   wrapClassName?: string;
 }) {
+  // Bước 1: Khởi tạo ref trỏ vào thẻ input, lưu vị trí con trỏ (caret), và tách chuỗi số nguyên để định dạng theo locale
   const ref = useRef<HTMLInputElement>(null);
   const caret = useRef<number | null>(null);
   const [, redraw] = useState(0);
@@ -120,6 +168,7 @@ export function MoneyInput({
 
   // After every typed key the text is re-formatted, which throws the caret to the end;
   // walk the new text until the same number of digits has gone by and put it back there.
+  // Bước 2: Khôi phục vị trí con trỏ chuột (caret) sau mỗi lần format lại chuỗi số để người dùng gõ liền mạch
   useLayoutEffect(() => {
     const el = ref.current;
     const want = caret.current;
@@ -134,6 +183,7 @@ export function MoneyInput({
     el.setSelectionRange(pos, pos);
   });
 
+  // Bước 3: Xử lý sự kiện gõ phím - tính toán vị trí con trỏ, chuẩn hóa chuỗi số (bỏ ký tự không phải số, bỏ số 0 ở đầu) và kích hoạt vẽ lại
   function handle(e: ChangeEvent<HTMLInputElement>) {
     const raw = e.target.value;
     caret.current = raw.slice(0, e.target.selectionStart ?? raw.length).replace(/\D/g, "").length;
@@ -142,6 +192,7 @@ export function MoneyInput({
     redraw((n) => n + 1);
   }
 
+  // Bước 4: Render giao diện ô nhập với font số monospace (tabular-nums), chừa lề phải cho ký hiệu đơn vị "đ"
   return (
     <div className={cn("relative", wrapClassName)}>
       <Input
@@ -160,12 +211,21 @@ export function MoneyInput({
   );
 }
 
+// Bộ chọn CSS (selector) định danh tất cả các phần tử có thể nhận tiêu điểm bàn phím (focus) trong một hộp thoại
 const FOCUSABLE =
   'a[href],button:not([disabled]),input:not([disabled]):not([type="hidden"]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
 
+// Ngăn xếp (stack) theo dõi các dialog đang mở theo thứ tự từ dưới lên trên; chỉ dialog trên cùng được xử lý phím tắt (Escape, Tab)
 /** Open dialogs, topmost last: with one dialog over another, only the top one answers the keyboard. */
 const dialogStack: object[] = [];
 
+/**
+ * Làm gì: Custom hook quản lý hành vi trợ năng (a11y) cho hộp thoại: bẫy tiêu điểm (focus trap), phím Escape đóng hộp thoại, và khôi phục focus khi đóng.
+ * Được gọi ở: src/client/components/ui/index.tsx (Modal ở dòng 763), src/client/components/shell.tsx (CommandMenu ở dòng 671).
+ * @param open Trạng thái mở/đóng của dialog (boolean).
+ * @param panel Ref trỏ tới phần tử DOM container của dialog.
+ * @param onClose Hàm callback được gọi khi người dùng nhấn phím Escape để đóng dialog.
+ */
 /**
  * What a keyboard or screen-reader user needs from a dialog, in one place: focus moves in when it
  * opens, Tab stays inside while it is open, Escape closes it, and focus goes back to whatever
@@ -177,6 +237,7 @@ export function useDialog(open: boolean, panel: RefObject<HTMLElement | null>, o
   const close = useRef(onClose);
   close.current = onClose;
 
+  // Bước 1: Khi dialog mở, đẩy instance vào dialogStack, lưu lại phần tử đang focus trước đó (opener) và tự động focus vào dialog hoặc phần tử data-autofocus
   useEffect(() => {
     if (!open) return;
     const me = {};
@@ -187,13 +248,16 @@ export function useDialog(open: boolean, panel: RefObject<HTMLElement | null>, o
       if (!el) return;
       (el.querySelector<HTMLElement>("[data-autofocus]") ?? el).focus({ preventScroll: true });
     });
+    // Bước 2: Lắng nghe sự kiện bàn phím - chỉ xử lý nếu dialog này nằm trên cùng của ngăn xếp (topmost)
     const onKey = (e: KeyboardEvent) => {
       if (dialogStack[dialogStack.length - 1] !== me) return;
+      // Phím Escape: Ngăn sự kiện nổi bọt và gọi hàm close để đóng dialog
       if (e.key === "Escape") {
         e.stopPropagation();
         close.current();
         return;
       }
+      // Phím Tab: Bẫy focus (focus trap) luân chuyển giữa phần tử đầu tiên và cuối cùng, không cho focus lọt ra ngoài dialog
       if (e.key !== "Tab") return;
       const el = panel.current;
       if (!el) return;
@@ -216,6 +280,7 @@ export function useDialog(open: boolean, panel: RefObject<HTMLElement | null>, o
       }
     };
     document.addEventListener("keydown", onKey);
+    // Bước 3: Dọn dẹp khi unmount hoặc đóng dialog - hủy animation frame, gỡ listener, loại bỏ khỏi stack và trả lại focus cho phần tử opener
     return () => {
       cancelAnimationFrame(frame);
       document.removeEventListener("keydown", onKey);
@@ -225,6 +290,17 @@ export function useDialog(open: boolean, panel: RefObject<HTMLElement | null>, o
   }, [open, panel]);
 }
 
+/**
+ * Làm gì: Ô chọn ngày tháng kết hợp giữa input date native (ẩn) và lớp hiển thị tùy chỉnh định dạng rõ ràng (ví dụ: "17 Sep 2026").
+ * Được gọi ở: src/client/components/attendance-panels.tsx, src/client/components/coach-certifications.tsx, src/routes/manager.index.tsx.
+ * @param value Chuỗi ngày theo định dạng ISO (YYYY-MM-DD).
+ * @param onChange Hàm callback nhận chuỗi ngày được chọn.
+ * @param required Cờ bắt buộc chọn ngày; ngăn không cho xóa trống giá trị khi đang xem dữ liệu phụ thuộc vào ngày.
+ * @param invalid Đánh dấu trạng thái lỗi khi server từ chối ngày đã chọn.
+ * @param min Ngày nhỏ nhất cho phép chọn (chuỗi ISO).
+ * @param max Ngày lớn nhất cho phép chọn (chuỗi ISO).
+ * @returns Phần tử JSX gồm lớp hiển thị ngày tháng định dạng đẹp và thẻ input type="date" phủ mờ lên trên.
+ */
 /**
  * Native date picker with a readable "17 Sep 2026" overlay (Chromium ignores html lang).
  *
@@ -267,6 +343,7 @@ export function DateField({
   "aria-label"?: string;
   "aria-describedby"?: string;
 }) {
+  // Bước 1: Khởi tạo ref trỏ vào input native và state theo dõi giá trị vừa bị xóa trống (blankOf) để xử lý logic required
   const ref = useRef<HTMLInputElement>(null);
   // The `value` the box was emptied from. Remembering which value (not just "emptied") means a new
   // date chosen from outside, a "Tomorrow" button say, ends the blank state without an effect.
@@ -274,6 +351,7 @@ export function DateField({
   const blank = blankOf === value;
   const bad = invalid || blank;
 
+  // Bước 2: Hàm kích hoạt mở trình chọn ngày của trình duyệt (showPicker) khi người dùng nhấp vào bất kỳ vị trí nào trên ô
   const open = () => {
     const el = ref.current;
     if (!el || disabled) return;
@@ -287,6 +365,7 @@ export function DateField({
     }
   };
 
+  // Bước 3: Render khung bao ngoài mô phỏng ô input với nhãn hiển thị ngày tháng đã định dạng (formatDate) và icon lịch SVG
   return (
     <div
       role="presentation"
@@ -346,6 +425,13 @@ export function DateField({
   );
 }
 
+/**
+ * Làm gì: Thẻ select giao diện chuẩn hóa với icon mũi tên SVG tùy biến, bo góc và hiệu ứng focus ring đồng bộ design system.
+ * Được gọi ở: src/routes/app.classes.tsx, src/routes/app.train.tsx, src/routes/coach.attendance.tsx, src/routes/coach.student.$id.tsx, src/routes/desk.gear.tsx, src/routes/manager.prices.tsx.
+ * @param props Thuộc tính HTML của thẻ select (className, children chứa các thẻ option, value, onChange...).
+ * @returns Phần tử JSX <select> đã được áp dụng kiểu dáng chuẩn hóa của ứng dụng.
+ * @throws Không có
+ */
 export function Select({ className, children, ...props }: SelectHTMLAttributes<HTMLSelectElement>) {
   return (
     <select
@@ -363,6 +449,13 @@ export function Select({ className, children, ...props }: SelectHTMLAttributes<H
   );
 }
 
+/**
+ * Làm gì: Ô nhập văn bản nhiều dòng (textarea) chuẩn hóa với viền, màu nền surface, placeholder và focus ring đồng bộ design system.
+ * Được gọi ở: src/routes/account.tsx, src/routes/coach.student.$id.tsx, src/routes/desk.member.$id.tsx, src/client/components/class-detail.tsx, src/client/components/coach-training.tsx.
+ * @param props Thuộc tính HTML của thẻ textarea (className, rows, value, onChange, placeholder, maxLength...).
+ * @returns Phần tử JSX <textarea> với kiểu dáng giao diện đồng nhất.
+ * @throws Không có
+ */
 export function Textarea({ className, ...props }: TextareaHTMLAttributes<HTMLTextAreaElement>) {
   return (
     <textarea
@@ -375,10 +468,24 @@ export function Textarea({ className, ...props }: TextareaHTMLAttributes<HTMLTex
   );
 }
 
+/**
+ * Làm gì: Nhãn phụ (kicker label) chữ nhỏ (text-2xs), màu muted dùng làm tiêu đề nhóm cho các ô input hoặc trường dữ liệu.
+ * Được gọi ở: src/client/components/ui/index.tsx (trong component Field), src/routes/account.tsx.
+ * @param props Thuộc tính HTML của thẻ span (className, children...).
+ * @returns Phần tử JSX <span> mang định dạng kicker text.
+ * @throws Không có
+ */
 export function Label({ className, ...props }: HTMLAttributes<HTMLSpanElement>) {
   return <span className={cn("kicker text-2xs text-muted", className)} {...props} />;
 }
 
+/**
+ * Làm gì: Thẻ chứa nội dung (Card) với nền surface, bo góc lớn, viền mỏng và bóng mờ nhẹ; hỗ trợ hiệu ứng nổi lên khi hover nếu bật interactive.
+ * Được gọi ở: src/routes/account.tsx, src/routes/desk.index.tsx, src/routes/app.classes.tsx, src/routes/manager.audit.tsx và hầu hết các trang giao diện.
+ * @param props Thuộc tính thẻ div kèm tùy chọn interactive (boolean: bật hiệu ứng hover nhấc nhẹ thẻ và tăng bóng đổ).
+ * @returns Phần tử JSX <div> dạng thẻ chứa nội dung.
+ * @throws Không có
+ */
 export function Card({
   className,
   interactive = false,
@@ -397,11 +504,19 @@ export function Card({
   );
 }
 
+/**
+ * Làm gì: Huy hiệu (badge) bo tròn hình viên thuốc hiển thị trạng thái, số lượng hoặc tag phân loại với 5 tông màu ngữ nghĩa.
+ * Được gọi ở: src/client/components/ui/index.tsx (trong StatusBadge), src/routes/account.tsx, src/routes/app.classes.tsx, src/routes/app.pass.tsx, src/routes/app.plans.tsx, src/routes/app.points.tsx.
+ * @param props Thuộc tính thẻ span kèm tông màu tone ("ink" | "accent" | "hold" | "muted" | "danger", mặc định "ink").
+ * @returns Phần tử JSX <span> định dạng huy hiệu với màu nền và màu chữ tương ứng với tone.
+ * @throws Không có
+ */
 export function Badge({
   tone = "ink",
   className,
   ...props
 }: HTMLAttributes<HTMLSpanElement> & { tone?: "ink" | "accent" | "hold" | "muted" | "danger" }) {
+  // Ánh xạ từng tông màu (tone) sang các class Tailwind tương ứng của màu nền và màu chữ
   const map = {
     ink: "bg-fg text-bg",
     accent: "bg-accent/12 text-accent-2",
@@ -421,6 +536,13 @@ export function Badge({
   );
 }
 
+/**
+ * Làm gì: Huy hiệu hiển thị trạng thái chuẩn hóa, tự động ánh xạ mã trạng thái sang màu sắc (statusTone) và nhãn văn bản đã dịch (statusLabel).
+ * Được gọi ở: src/routes/app.book.tsx, src/routes/app.index.tsx, src/routes/coach.classes.tsx, src/routes/coach.index.tsx, src/routes/desk.member.$id.tsx, src/routes/manager.classes.tsx.
+ * @param props Đối tượng thuộc tính: status (mã trạng thái như "confirmed", "scheduled", "cancelled"...), className (lớp CSS bổ sung).
+ * @returns Phần tử JSX Badge chứa nhãn trạng thái và màu sắc phù hợp ngữ nghĩa.
+ * @throws Không có
+ */
 export function StatusBadge({ status, className }: { status: string; className?: string }) {
   return (
     <Badge tone={statusTone(status)} className={className}>
@@ -429,6 +551,13 @@ export function StatusBadge({ status, className }: { status: string; className?:
   );
 }
 
+/**
+ * Làm gì: Khung bao bọc trường nhập liệu form gồm nhãn phía trên (Label), điều khiển nhập liệu (children) và dòng mô tả hoặc thông báo lỗi (hint) phía dưới.
+ * Được gọi ở: src/routes/account.tsx, src/routes/app.pass.tsx, src/routes/app.points.tsx, src/routes/coach.attendance.tsx, src/client/components/menu-settings.tsx.
+ * @param props Đối tượng thuộc tính: label (tiêu đề trường), children (control nhập liệu), hint (thông báo lỗi/hướng dẫn), tone ("danger" cho lỗi đỏ hoặc "muted" cho gợi ý xám).
+ * @returns Phần tử JSX <label> xếp chồng theo chiều dọc (grid) gồm nhãn, control và hint.
+ * @throws Không có
+ */
 export function Field({
   label,
   children,
@@ -473,6 +602,13 @@ export function Check({
   );
 }
 
+/**
+ * Làm gì: Khung xương (Skeleton) hiển thị trạng thái chờ tải dữ liệu với hiệu ứng ánh sáng quét động (shimmer animation) trên nền màu gỗ nhạt (bg-wood).
+ * Được gọi ở: src/routes/account.tsx, src/routes/alerts.tsx, src/routes/app.book.tsx, src/routes/desk.member.$id.tsx và các màn hình chờ tải khác.
+ * @param props Đối tượng thuộc tính: className (các class Tailwind tùy biến kích thước như h-24, w-full...).
+ * @returns Phần tử JSX <div> chứa lớp hiệu ứng shimmer quét ngang.
+ * @throws Không có
+ */
 export function Skeleton({ className }: { className?: string }) {
   return (
     <div className={cn("relative overflow-hidden rounded-[var(--radius-md)] bg-wood", className)}>
@@ -519,6 +655,13 @@ export function LoadError({
   );
 }
 
+/**
+ * Làm gì: Bộ chọn phân đoạn (segmented control / tabs) dạng nút bấm ngang, sử dụng framer-motion tạo hiệu ứng viên thuốc trượt mượt mà giữa các lựa chọn (tự tắt chuyển động nếu bật prefers-reduced-motion).
+ * Được gọi ở: src/routes/account.tsx, src/routes/app.book.tsx, src/routes/app.classes.tsx, src/routes/desk.courts.tsx, src/routes/desk.gate.tsx, src/routes/desk.payments.tsx, src/routes/manager.attendance.tsx.
+ * @param props Đối tượng thuộc tính: value (giá trị đang chọn), onChange (callback khi chọn tab mới), options (danh sách lựa chọn gồm value và label).
+ * @returns Phần tử JSX <div> chứa thanh trượt các nút phân đoạn có thể cuộn ngang trên màn hình hẹp.
+ * @throws Không có
+ */
 export function Seg({
   value,
   onChange,
@@ -528,8 +671,10 @@ export function Seg({
   onChange: (v: string) => void;
   options: { value: string; label: string }[];
 }) {
+  // Bước 1: Khởi tạo ID duy nhất cho nhóm tab (phục vụ layoutId animation) và kiểm tra tùy chọn giảm chuyển động của hệ thống
   const group = useId();
   const reduced = useReducedMotion();
+  // Bước 2: Render danh sách nút phân đoạn; dùng motion.span làm thanh trượt hiệu ứng pill chuyển động giữa các tab
   return (
     // One line, always: on a narrow phone the segments scroll sideways instead of wrapping into a
     // second row that reads as a different control.
@@ -620,6 +765,18 @@ export function FilterChip({
  * `onPageSizeChange` adds the rows-per-page picker (pair it with `usePageState`, which remembers
  * the choice per list). A list that shrinks under the current page moves back to its last page.
  */
+/**
+ * Làm gì: Điều hướng phân trang (Pagination) cho danh sách dữ liệu, hỗ trợ chuyển trang, nhảy đến trang đầu/cuối, hiển thị phạm vi bản ghi và tùy chọn thay đổi số dòng mỗi trang (pageSize).
+ * Được gọi ở: Các trang danh sách dữ liệu như src/routes/manager.members.tsx, src/routes/manager.audit.tsx, src/routes/desk.payments.tsx, src/routes/account.tsx.
+ * @param offset Vị trí bắt đầu của bản ghi trên trang hiện tại (0-indexed).
+ * @param total Tổng số bản ghi trong danh sách.
+ * @param pageSize Số lượng bản ghi hiển thị trên mỗi trang.
+ * @param onChange Callback được gọi khi chuyển trang, nhận vào offset mới.
+ * @param onPageSizeChange Callback tùy chọn khi người dùng đổi số lượng dòng hiển thị trên mỗi trang.
+ * @param pageSizes Mảng các kích thước trang cho phép chọn (mặc định PAGE_SIZES).
+ * @param label Nhãn aria-label hỗ trợ tiếp cận (mặc định "Pages").
+ * @returns JSX.Element thanh điều hướng phân trang hoặc null nếu không có bản ghi (total <= 0).
+ */
 export function Pagination({
   offset,
   total,
@@ -637,20 +794,26 @@ export function Pagination({
   pageSizes?: readonly number[];
   label?: string;
 }) {
+  // Bước 1: Kiểm tra offset có vượt ngoài tổng số bản ghi hay không (xảy ra khi dữ liệu bị xóa bớt ở trang cuối).
   const outOfRange = total > 0 && offset >= total;
+  // Tự động điều chỉnh offset về trang cuối cùng hợp lệ nếu offset hiện tại vượt giới hạn.
   useEffect(() => {
     if (outOfRange) onChange(lastPageOffset(total, pageSize));
   }, [outOfRange, total, pageSize, onChange]);
 
+  // Bước 2: Ẩn hoàn toàn thanh phân trang nếu không có dữ liệu nào (total <= 0).
   if (total <= 0) return null;
+  // Bước 3: Tính toán số trang hiện tại (1-indexed), tổng số trang, và khoảng bản ghi (from - to) đang hiển thị.
   const page = Math.floor(Math.min(offset, total - 1) / pageSize) + 1;
   const pages = Math.max(1, Math.ceil(total / pageSize));
   const from = (page - 1) * pageSize + 1;
   const to = Math.min(page * pageSize, total);
+  // Hàm chuyển trang an toàn: kẹp số trang trong khoảng [1, pages] trước khi tính offset mới.
   const go = (p: number) => onChange((Math.min(Math.max(p, 1), pages) - 1) * pageSize);
   // The picker only earns its place once there is more than the smallest page to show.
   const picker = onPageSizeChange && total > Math.min(...pageSizes);
 
+  // Bước 4: Render thanh điều hướng gồm phạm vi bản ghi, bộ chọn số dòng/trang và các nút chuyển trang.
   return (
     <nav aria-label={label ?? t("Pages")} className="mt-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-3 text-sm text-muted">
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
@@ -708,6 +871,16 @@ export function Pagination({
   );
 }
 
+/**
+ * Làm gì: Nút bấm chuyển trang đơn lẻ trong Pagination, hiển thị số trang hoặc icon điều hướng (First, Prev, Next, Last) với kiểu dáng nhất quán.
+ * Được gọi ở: src/client/components/ui/index.tsx (trong component Pagination).
+ * @param label Nhãn aria-label hỗ trợ tiếp cận khi nút chỉ hiển thị icon.
+ * @param current Đánh dấu đây là trang hiện tại đang xem (active), sẽ làm nổi bật nút và vô hiệu hóa click.
+ * @param disabled Vô hiệu hóa nút khi không thể chuyển trang tiếp (ví dụ đang ở trang đầu hoặc trang cuối).
+ * @param onClick Callback kích hoạt khi bấm nút.
+ * @param children Nội dung hiển thị bên trong nút (số trang hoặc icon mũi tên).
+ * @returns JSX.Element nút bấm chuyển trang.
+ */
 function PageButton({
   label,
   current = false,
@@ -740,6 +913,16 @@ function PageButton({
   );
 }
 
+/**
+ * Làm gì: Hiển thị hộp thoại Modal dạng popup gắn trực tiếp vào document.body qua React Portal, hỗ trợ hiệu ứng xuất hiện mềm mại, khóa cuộn trang nền và quản lý tiêu điểm phím (focus trap, phím Escape).
+ * Được gọi ở: Toàn bộ ứng dụng khi cần form popup/hộp thoại xác nhận, ví dụ: src/routes/desk.courts.tsx, src/routes/manager.plans.tsx, src/routes/app.book.tsx.
+ * @param open Cờ điều khiển trạng thái mở (true) hoặc đóng (false) của modal.
+ * @param onClose Callback được gọi để đóng modal khi click ra ngoài backdrop hoặc bấm phím Escape.
+ * @param title Tiêu đề của modal hiển thị ở thẻ h2 (tự động dịch qua hàm t()).
+ * @param children Nội dung chính bên trong thân modal.
+ * @param footer Các nút thao tác ở chân modal (ví dụ: nút Hủy, Xác nhận).
+ * @returns ReactPortal gắn modal vào document.body, hoặc null khi render trên server (SSR).
+ */
 export function Modal({
   open,
   onClose,
@@ -753,15 +936,18 @@ export function Modal({
   children: ReactNode;
   footer?: ReactNode;
 }) {
+  // Bước 1: Theo dõi trạng thái gắn kết (mounted) trên client để tránh lỗi render portal phía server (SSR).
   // Portals need a document, which the server render does not have.
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
+  // Bước 2: Khởi tạo ref và ID cho tiêu đề hộp thoại, kích hoạt hook useDialog để bẫy tiêu điểm phím (focus trap) và xử lý phím Escape.
   const panel = useRef<HTMLDivElement>(null);
   const titleId = useId();
   // Focus in, Tab kept inside, Escape to close, focus handed back to the opener.
   useDialog(open, panel, onClose);
 
+  // Bước 3: Khóa cuộn trang của document.body khi modal đang mở, khôi phục lại khi đóng modal.
   // The page behind it stops scrolling while it is open.
   useEffect(() => {
     if (!open) return;
@@ -786,6 +972,7 @@ export function Modal({
    */
   const body = mounted ? document.body : null;
 
+  // Bước 4: Dựng giao diện hộp thoại với lớp nền mờ (backdrop blur) và khung nội dung có hoạt họa bung mở (framer-motion).
   const dialog = (
     <AnimatePresence>
       {open ? (
@@ -825,6 +1012,7 @@ export function Modal({
     </AnimatePresence>
   );
 
+  // Bước 5: Đưa toàn bộ cấu trúc modal ra ngoài gắn vào document.body thông qua createPortal.
   return body ? createPortal(dialog, body) : null;
 }
 
@@ -844,6 +1032,18 @@ export type Trend = {
   good: boolean | null;
 };
 
+/**
+ * Làm gì: Thẻ hiển thị chỉ số thống kê (KPI stat card) gồm nhãn, con số nổi bật, biểu tượng, ghi chú giải thích và xu hướng biến động (trend) so với kỳ trước.
+ * Được gọi ở: Các trang tổng quan và báo cáo như src/routes/manager.index.tsx, src/routes/manager.members.tsx, src/routes/coach.earnings.tsx, src/routes/desk.courts.tsx.
+ * @param label Tên chỉ số thống kê (ví dụ "Doanh thu hôm nay", "Số lượt đặt sân").
+ * @param value Giá trị số liệu nổi bật hiển thị cỡ chữ lớn (chuỗi, số hoặc ReactNode).
+ * @param hint Dòng thông tin phụ hoặc gợi ý hiển thị dưới số liệu khi không có trend.
+ * @param trend Đối tượng Trend thể hiện tỷ lệ % thay đổi, nhãn và trạng thái tốt/xấu.
+ * @param icon Biểu tượng LucideIcon minh họa cho chỉ số ở góc phải.
+ * @param note Ghi chú chi tiết định nghĩa ý nghĩa của con số, ngăn cách bằng đường kẻ mờ.
+ * @param glass Bật hiệu ứng kính mờ (frosted glass) cho thẻ thống kê quan trọng trên nền tối.
+ * @returns JSX.Element thẻ thống kê Card.
+ */
 export function Stat({
   label,
   value,
@@ -863,8 +1063,10 @@ export function Stat({
   /** Frosted card for headline figures that sit over the page's background effects. */
   glass?: boolean;
 }) {
+  // Bước 1: Xác định biểu tượng mũi tên dựa trên xu hướng: Minus nếu không đổi, ArrowUpRight nếu tăng, ArrowDownRight nếu giảm.
   const Arrow =
     trend?.pct == null || trend.pct === 0 ? Minus : trend.pct > 0 ? ArrowUpRight : ArrowDownRight;
+  // Bước 2: Render thẻ Card với thông tin chỉ số, màu sắc xu hướng (xanh nếu tốt, đỏ nếu xấu) và hiệu ứng hover.
   return (
     <Card
       className={cn(
@@ -910,7 +1112,9 @@ export function Stat({
  * let the person ask for more. Says how many are hidden so nobody wonders if the list ended.
  */
 export function ShowMore({ shown, total, step, onMore }: { shown: number; total: number; step: number; onMore: () => void }) {
+  // Bước 1: Ẩn nút nếu toàn bộ danh sách đã được hiển thị đầy đủ.
   if (shown >= total) return null;
+  // Bước 2: Tính số mục còn lại chưa hiển thị và render nút "Xem thêm" kèm số lượng.
   const left = total - shown;
   return (
     <div className="mt-4 flex flex-col items-center gap-1">

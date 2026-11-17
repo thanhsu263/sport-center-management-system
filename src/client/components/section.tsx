@@ -1,3 +1,8 @@
+/**
+ * File: src/client/components/section.tsx
+ * Vai trò: Định nghĩa các component hiển thị tiêu đề chuẩn hóa (SectionTitle, CardTitle) và từ điển metadata (icon, hint) cho toàn bộ ứng dụng Arena 3.
+ * Vị trí trong app: Được dùng rộng rãi ở các trang giao diện client (app, desk, coach, manager) để hiển thị tiêu đề phân đoạn và thẻ thông tin nhất quán, tự động tra cứu icon và hỗ trợ đa ngôn ngữ i18n.
+ */
 import {
   Bell,
   BookOpenCheck,
@@ -64,11 +69,30 @@ const META: Record<string, { icon: LucideIcon; hint?: string }> = {
 
 /** META is keyed by the English title; a caller that already translated it still finds its entry. */
 function metaFor(text: string) {
+  // Bước 1: Tra cứu trực tiếp theo khóa tiếng Anh nếu text truyền vào chưa qua dịch
   if (META[text]) return META[text];
+  // Bước 2: Dự phòng trường hợp caller đã gọi hàm dịch t(text), duyệt tìm key tiếng Anh tương ứng trong từ điển META
   const en = Object.keys(META).find((k) => t(k) === text);
   return en ? META[en] : undefined;
 }
 
+/**
+ * Làm gì: Component React hiển thị tiêu đề cho một phân đoạn (section) trong trang, kèm icon đại diện và dòng mô tả phụ (hint). Tự động tra cứu icon và mô tả mặc định từ bảng META theo tên tiêu đề hoặc cho phép tùy biến qua props.
+ * Được gọi ở: Hầu hết các trang và component giao diện của Arena 3:
+ * - src/routes/app.index.tsx, src/routes/app.train.tsx, src/routes/app.points.tsx
+ * - src/routes/desk.index.tsx, src/routes/desk.gate.tsx, src/routes/desk.gear.tsx, src/routes/desk.payments.tsx
+ * - src/routes/coach.earnings.tsx, src/routes/coach.student.$id.tsx
+ * - src/routes/manager.audit.tsx, src/routes/manager.prices.tsx, src/routes/manager.settings.tsx
+ * - src/client/components/coach-training.tsx, src/client/components/menu-settings.tsx, src/client/components/report-panels.tsx
+ * @param props Đối tượng thuộc tính cấu hình phân đoạn:
+ *   - text: Tiêu đề phân đoạn (chuỗi tiếng Anh hoặc đã dịch qua t()), dùng hiển thị và tra cứu trong META
+ *   - className: Lớp CSS tùy biến (Tailwind) cho container bên ngoài
+ *   - icon: Biểu tượng LucideIcon tùy chọn, ghi đè icon mặc định tìm thấy từ META
+ *   - hint: Dòng mô tả ngắn tùy chọn, ghi đè câu mô tả mặc định từ META
+ *   - id: Mã định danh HTML id gắn vào thẻ h2 để làm neo liên kết hoặc phục vụ accessibility
+ * @returns Phần tử JSX biểu diễn tiêu đề phân đoạn gồm icon, thẻ h2 và dòng mô tả phụ nếu có
+ * @throws Không có
+ */
 export function SectionTitle({
   text,
   className,
@@ -82,9 +106,12 @@ export function SectionTitle({
   icon?: LucideIcon;
   hint?: string;
 }) {
+  // Bước 1: Tra cứu icon và hint mặc định từ từ điển META theo tiêu đề section
   const meta = metaFor(text);
+  // Bước 2: Xác định icon và hint hiển thị, ưu tiên giá trị props truyền riêng trước khi dùng giá trị mặc định từ META
   const Icon = icon ?? meta?.icon;
   const line = hint ?? meta?.hint;
+  // Bước 3: Render khối tiêu đề section gồm icon nền nhạt (accent), thẻ h2 tiêu đề và dòng mô tả phụ (muted)
   return (
     <div className={cn("flex items-center gap-3 font-display text-2xl", className)}>
       {Icon ? (
@@ -117,6 +144,7 @@ export function CardTitle({
   hint?: string;
   className?: string;
 }) {
+  // Render tiêu đề card gồm icon kích thước nhỏ (size-4), tên thẻ và dòng mô tả phụ
   return (
     <div className={cn("flex items-start gap-2.5", className)}>
       <span
