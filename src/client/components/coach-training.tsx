@@ -28,6 +28,9 @@ type Msg = (e: unknown) => string;
  */
 const say: Msg = (e) => (e instanceof Error ? e.message : t("Something went wrong"));
 
+/** Bản nháp giáo án AI cho một buổi trong khóa, chờ HLV duyệt. */
+type CourseDraft = { session_id: string; start_at: string; end_at: string; title: string; ai: boolean; payload: PlanPayload };
+
 export type TrainingSession = {
   id: string;
   class_id: string;
@@ -366,6 +369,9 @@ export function PlanPanel({ session, f5 }: { session: TrainingSession; f5: boole
   const [busy, setBusy] = useState(false);
   const [aiPrompt, setAiPrompt] = useState("");
   const [suggesting, setSuggesting] = useState(false);
+  // Gợi ý cho cả khóa: mỗi buổi sắp tới chưa có giáo án nhận một bản nháp để HLV duyệt
+  const [course, setCourse] = useState<CourseDraft[] | null>(null);
+  const [courseBusy, setCourseBusy] = useState<string | null>(null);
   // The plan being changed. Its payload is carried so goal / sport / level survive an edit.
   const [editing, setEditing] = useState<PlanRow | null>(null);
   const [templateId, setTemplateId] = useState("");
@@ -416,6 +422,7 @@ export function PlanPanel({ session, f5 }: { session: TrainingSession; f5: boole
         sport: session.sport,
         level: session.level,
         goal: focus,
+        class_id: session.class_id,
         prompt: aiPrompt.trim() || undefined,
       });
       // The suggestion writes its length into the title ("Net shots 10′"); the minutes box already says it.
@@ -430,6 +437,69 @@ export function PlanPanel({ session, f5 }: { session: TrainingSession; f5: boole
     } finally {
       setSuggesting(false);
     }
+  }
+
+  /**
+   * Làm gì: Nhờ AI gợi ý giáo án cho mọi buổi sắp tới chưa có giáo án của lớp (dựa trên hồ sơ học viên), hiện ra để HLV duyệt từng buổi.
+   * Được gọi ở: coach-training.tsx (PlanPanel: nút "Suggest for all sessions").
+   */
+  async function suggestCourse() {
+    setSuggesting(true);
+    try {
+      const r = await apiPost<{ sessions: CourseDraft[]; ai: boolean }>("/training-plans/suggest", {
+        mode: "course",
+        sport: session.sport,
+        level: session.level,
+        goal: focus,
+        class_id: session.class_id,
+        prompt: aiPrompt.trim() || undefined,
+      });
+      if (!r.sessions.length) {
+        toast.info(t("Every upcoming session already has a plan."));
+        setCourse(null);
+        return;
+      }
+      setCourse(r.sessions);
+      if (!r.ai) toast.warning(t("The AI is not reachable, so these are the standard drills for this level."));
+      else toast.success(t("Drafts ready for {n} sessions. Review each one below.", { n: r.sessions.length }));
+    } catch (e) {
+      toast.error(say(e));
+    } finally {
+      setSuggesting(false);
+    }
+  }
+
+  /**
+   * Làm gì: Lưu một bản nháp của khóa thành giáo án cho đúng buổi đó (nháp hoặc công bố), rồi bỏ khỏi danh sách duyệt.
+   */
+  async function approveDraft(d: CourseDraft, published: boolean) {
+    setCourseBusy(d.session_id);
+    try {
+      const r = await apiPost<{ warnings?: PlanWarning[] }>("/training-plans", {
+        class_id: session.class_id,
+        session_id: d.session_id,
+        title: d.title,
+        published,
+        source: "ai",
+        payload: { ...d.payload, goal: d.title || d.payload.goal },
+      });
+      warn(r.warnings);
+      setCourse((l) => (l ?? []).filter((x) => x.session_id !== d.session_id));
+      toast.success(published ? t("Plan published to the class") : t("Draft saved"));
+      plansRead.reload();
+    } catch (e) {
+      toast.error(say(e));
+    } finally {
+      setCourseBusy(null);
+    }
+  }
+
+  /** Bỏ một buổi khỏi danh sách duyệt mà không lưu gì. */
+  const skipDraft = (d: CourseDraft) => setCourse((l) => (l ?? []).filter((x) => x.session_id !== d.session_id));
+
+  /** Lưu tất cả bản nháp còn lại thành nháp (chưa công bố). */
+  async function approveAll() {
+    for (const d of course ?? []) await approveDraft(d, false);
   }
 
   /**
@@ -662,7 +732,7 @@ export function PlanPanel({ session, f5 }: { session: TrainingSession; f5: boole
               <Input maxLength={120} placeholder={t("Footwork and net play")} value={title} onChange={(e) => setTitle(e.target.value)} />
             </Field>
             {f5 ? (
-              <div className="grid grid-cols-[1fr_auto] items-end gap-2">
+              <div className="grid items-end gap-2">
                 <Field label={t("Focus")}>
                   <Select value={focus} onChange={(e) => setFocus(e.target.value)}>
                     <option value="core technique">{t("Core technique")}</option>
@@ -670,12 +740,20 @@ export function PlanPanel({ session, f5 }: { session: TrainingSession; f5: boole
                     <option value="match play">{t("Match play")}</option>
                   </Select>
                 </Field>
-                <Button variant="outline" disabled={suggesting} onClick={() => void suggest()}>
-                  {suggesting ? t("Thinking…") : t("Suggest")}
-                </Button>
               </div>
             ) : null}
           </div>
+          {f5 ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <Button variant="outline" disabled={suggesting} onClick={() => void suggest()}>
+                {suggesting ? t("Thinking…") : t("Suggest for this session")}
+              </Button>
+              <Button variant="outline" disabled={suggesting || !!editing} onClick={() => void suggestCourse()}>
+                {suggesting ? t("Thinking…") : t("Suggest for all sessions")}
+              </Button>
+              <span className="text-xs text-muted">{t("Uses your students' levels, goals, results and health notes. Names are not sent.")}</span>
+            </div>
+          ) : null}
           {f5 ? (
             <Field label={t("Tell the AI what you want (optional)")}>
               <textarea
@@ -689,6 +767,53 @@ export function PlanPanel({ session, f5 }: { session: TrainingSession; f5: boole
                 }}
               />
             </Field>
+          ) : null}
+
+          {course?.length ? (
+            <div className="grid gap-2 rounded-md border border-accent/40 p-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-sm font-medium">
+                  {t("Course drafts to review ({n})", { n: course.length })}
+                </p>
+                <div className="flex gap-2">
+                  <Button size="sm" variant="outline" disabled={!!courseBusy} onClick={() => void approveAll()}>
+                    {t("Save all as drafts")}
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => setCourse(null)}>
+                    {t("Discard all")}
+                  </Button>
+                </div>
+              </div>
+              {course.map((d) => (
+                <details key={d.session_id} className="rounded-md border border-line p-3">
+                  <summary className="cursor-pointer text-sm">
+                    <span className="font-medium">{formatDate(d.start_at)} · {hhmm(d.start_at)}</span>
+                    {d.title ? ` · ${d.title}` : ""} · {blocksLabel(d.payload.blocks?.length ?? 0)}
+                    {d.ai ? null : <Badge className="ml-2">{t("Standard drills")}</Badge>}
+                  </summary>
+                  <ol className="mt-2 grid gap-1 text-sm">
+                    {(d.payload.blocks ?? []).map((bl, i) => (
+                      <li key={i}>
+                        <span className="text-muted">{i + 1}.</span> {bl.title} · {bl.minutes}′
+                        {bl.phase ? ` · ${bl.phase}` : ""}{bl.intensity ? ` · ${bl.intensity}` : ""}
+                        {bl.description ? <p className="text-xs text-muted">{bl.description}</p> : null}
+                      </li>
+                    ))}
+                  </ol>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <Button size="sm" disabled={courseBusy === d.session_id} onClick={() => void approveDraft(d, true)}>
+                      {t("Approve and publish")}
+                    </Button>
+                    <Button size="sm" variant="outline" disabled={courseBusy === d.session_id} onClick={() => void approveDraft(d, false)}>
+                      {t("Save draft")}
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => skipDraft(d)}>
+                      {t("Skip")}
+                    </Button>
+                  </div>
+                </details>
+              ))}
+            </div>
           ) : null}
 
           {templates.length && !editing ? (
