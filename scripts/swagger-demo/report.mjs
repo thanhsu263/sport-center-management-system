@@ -1,0 +1,18 @@
+import fs from "node:fs";
+import { fileURLToPath } from "node:url";
+const { results } = JSON.parse(fs.readFileSync(process.env.OUT ? process.env.OUT + "/swresults.json" : new URL("./swresults.json", import.meta.url), "utf8"));
+const clean = (t) => t.replace(/("(?:token|temp_password|password|access_token|refresh_token|qr|checkin_token|otp)"\s*:\s*")[^"]*"/gi, '$1***"').replace(/\+84\d{9}/g, "+84*********").replace(/\b0\d{9}\b/g, (m) => m.slice(0, 3) + "*******").replace(/[\w.+-]+@[\w-]+(\.[\w-]+)+/g, "***@***").replace(/eyJ[\w.\-\s]+/g, "***");
+for (const r of results) { r.text = clean(r.text.replace(/^Error: response status is \d+\s*/, "").replace(/Response headers[\s\S]*$/, "").replace(/^Response body\s*Download\s*/, "").trim()); }
+const routes = JSON.parse(fs.readFileSync(new URL("./routes.json", import.meta.url), "utf8"));
+const desc = Object.fromEntries(routes.map((r) => [r.method + " " + r.path, r.desc]));
+const OUT = process.env.OUT ?? fileURLToPath(new URL("../../docs/testing/swagger-evidence/all-api", import.meta.url));
+const cls = (s) => /^2/.test(s) ? "2xx" : /^4/.test(s) ? "4xx" : s === "SSE" ? "SSE" : "other";
+const count = {}; for (const r of results) count[cls(r.status)] = (count[cls(r.status)] || 0) + 1;
+const byCode = {}; for (const r of results) byCode[r.status] = (byCode[r.status] || 0) + 1;
+const esc = (s) => String(s).replace(/\|/g, "\\|").replace(/\s+/g, " ");
+const msg = (r) => { try { const j = JSON.parse(r.text); if (j.code && j.message) return `${j.code}${j.br ? " " + j.br : ""}: ${j.message}`; } catch {} return r.text.length > 90 ? r.text.slice(0, 90) + "…" : r.text; };
+let md = `# Arena3: chạy toàn bộ API qua Swagger UI\n\nNgày chạy: ${new Date().toISOString().slice(0, 10)}. Máy chủ dev cục bộ \`http://127.0.0.1:8080\`, PGLite trong bộ nhớ, dữ liệu seed mới (khởi động lại server trước khi chạy). Spec: \`public/swagger/openapi.json\` (${routes.length} thao tác, sinh từ \`src/server/controllers/router.ts\`).\n\nMỗi API được mở trong Swagger UI, bấm **Try it out → Execute** với token của vai trò ghi ở cột "Vai trò", rồi chụp nguyên khối kết quả. Ảnh nằm cùng thư mục này, tên ảnh có số thứ tự, method, đường dẫn và mã HTTP.\n\n## Tổng hợp\n\n| Nhóm | Số API |\n|---|---|\n` + Object.entries(count).map(([k, v]) => `| ${k} | ${v} |`).join("\n") + `\n| **Tổng** | **${results.length}** |\n\nTheo mã: ` + Object.entries(byCode).sort().map(([k, v]) => `${k} × ${v}`).join(", ") + `.\n\nCác mã 4xx là phản hồi đúng thiết kế khi dữ liệu seed ở trạng thái không cho phép thao tác (ví dụ BR-19 gói tập hết hạn trước khi lớp kết thúc, BR-28 giữ chỗ đã hết hạn, BR-30 mã QR sai, 409 booking không ở trạng thái chờ, 401 đăng nhập sai mật khẩu, 403 không được xoá thanh toán). Mã lỗi theo hợp đồng \`{code, message, field?, br?}\`. Không có lỗi 5xx.\n\nGiới hạn: \`GET /live\` là luồng SSE nên không chờ kết quả. Các API cần file (ảnh đại diện, ảnh trang chủ) được gọi không kèm file nên trả 400/422. Đăng nhập Google, OTP và payOS chỉ thử nhánh lỗi; không có thanh toán thật. Số điện thoại, email, token và mật khẩu tạm trong ảnh và bảng đã được che.\n\n## Chi tiết\n\n| # | Method | Đường dẫn | Mô tả | Vai trò | HTTP | Phản hồi | Ảnh |\n|---|---|---|---|---|---|---|---|\n`;
+for (const r of results) { const [m, p] = r.key.split(" "); md += `| ${r.i} | ${m} | \`${p.replace(/\{p\d\}/g, "{id}")}\` | ${esc(desc[r.key] || "")} | ${r.role} | ${r.status} | ${esc(msg(r))} | [ảnh](${encodeURI(r.shot)}) |\n`; }
+fs.writeFileSync(OUT + "/RESULTS.md", md);
+fs.writeFileSync(OUT + "/results.json", JSON.stringify(results, null, 1));
+console.log(count, byCode);

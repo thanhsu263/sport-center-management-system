@@ -1,0 +1,1682 @@
+[
+ {
+  "i": 1,
+  "key": "POST /shifts/open",
+  "role": "receptionist",
+  "status": "201",
+  "text": "{\"shift\":{\"id\":\"2d79bedb-e7af-4ec4-90f8-311f7c278b6b\",\"receptionist_id\":\"00000000-0000-0000-0000-000000000002\",\"opened_at\":\"2026-11-17T12:29:40.622Z\",\"closed_at\":null,\"cash_declared_vnd\":null}}",
+  "shot": "001-POST-shifts-open-201.png"
+ },
+ {
+  "i": 2,
+  "key": "POST /training-plans/suggest",
+  "role": "coach",
+  "status": "200",
+  "text": "{\"payload\":{\"sport\":\"badminton\",\"level\":\"beginner\",\"goal\":\"core technique\",\"source\":\"ai\",\"generated_on\":\"2026-11-17\",\"blocks\":[{\"order\":1,\"title\":\"Dynamic Warm-up & Joint Mobility\",\"minutes\":10,\"phase",
+  "shot": "002-POST-training-plans-suggest-200.png"
+ },
+ {
+  "i": 3,
+  "key": "GET /live",
+  "role": "public",
+  "status": "SSE",
+  "text": "Event stream stays open; not executed.",
+  "shot": "003-GET-live-SSE.png"
+ },
+ {
+  "i": 4,
+  "key": "GET /rtc",
+  "role": "member",
+  "status": "403",
+  "text": "{\"code\":\"FORBIDDEN\",\"message\":\"Peer ID mismatch.\"}",
+  "shot": "004-GET-rtc-403.png"
+ },
+ {
+  "i": 5,
+  "key": "POST /rtc",
+  "role": "member",
+  "status": "403",
+  "text": "{\"code\":\"FORBIDDEN\",\"message\":\"Sender ID mismatch.\"}",
+  "shot": "005-POST-rtc-403.png"
+ },
+ {
+  "i": 6,
+  "key": "GET /conversations/contacts",
+  "role": "manager",
+  "status": "200",
+  "text": "{\"items\":[{\"id\":\"00000000-0000-0000-0000-000000000015\",\"full_name\":\"Lê Văn Phúc\",\"role\":\"receptionist\",\"member_code\":null,\"avatar_url\":null},{\"id\":\"00000000-0000-0000-0000-000000000002\",\"full_name\":\"T",
+  "shot": "006-GET-conversations-contacts-200.png"
+ },
+ {
+  "i": 7,
+  "key": "GET /conversations",
+  "role": "manager",
+  "status": "200",
+  "text": "{\"items\":[],\"conversations\":[]}",
+  "shot": "007-GET-conversations-200.png"
+ },
+ {
+  "i": 8,
+  "key": "POST /conversations",
+  "role": "manager",
+  "status": "201",
+  "text": "{\"conversation\":{\"id\":\"3bc2032c-758b-4e15-8028-dce0929ccef4\",\"member_id\":\"00000000-0000-0000-0000-000000000107\",\"staff_id\":\"00000000-0000-0000-0000-000000000001\",\"created_at\":\"2026-11-17T12:29:55.350Z",
+  "shot": "008-POST-conversations-201.png"
+ },
+ {
+  "i": 9,
+  "key": "GET /conversations/{p1}/messages",
+  "role": "manager",
+  "status": "200",
+  "text": "{\"items\":[],\"has_more\":false}",
+  "shot": "009-GET-conversations-id-messages-200.png"
+ },
+ {
+  "i": 10,
+  "key": "POST /conversations/{p1}/messages",
+  "role": "manager",
+  "status": "201",
+  "text": "{\"message\":{\"id\":\"2cbfdb5b-16d6-4807-8779-daa64f6c712f\",\"conversation_id\":\"3bc2032c-758b-4e15-8028-dce0929ccef4\",\"sender_id\":\"00000000-0000-0000-0000-000000000001\",\"body\":\"Xin chào, sân 3 tối nay còn",
+  "shot": "010-POST-conversations-id-messages-201.png"
+ },
+ {
+  "i": 11,
+  "key": "POST /conversations/{p1}/read",
+  "role": "manager",
+  "status": "200",
+  "text": "{\"ok\":true}",
+  "shot": "011-POST-conversations-id-read-200.png"
+ },
+ {
+  "i": 12,
+  "key": "GET /health",
+  "role": "public",
+  "status": "200",
+  "text": "{\"ok\":true}",
+  "shot": "012-GET-health-200.png"
+ },
+ {
+  "i": 13,
+  "key": "POST /auth/register",
+  "role": "public",
+  "status": "202",
+  "text": "{\"challenge_id\":\"d3d1d8e1-d526-41b4-817c-c70e3ab45735\",\"otp\":\"***\",\"staging\":true,\"sent_to\":\"de**********@example.test\",\"message\":\"OTP (demo environment) — enter it to verify.\"}",
+  "shot": "013-POST-auth-register-202.png"
+ },
+ {
+  "i": 14,
+  "key": "POST /auth/otp/verify",
+  "role": "public",
+  "status": "422",
+  "text": "{\"code\":\"VALIDATION\",\"message\":\"That OTP is not correct.\",\"field\":\"otp\"}",
+  "shot": "014-POST-auth-otp-verify-422.png"
+ },
+ {
+  "i": 15,
+  "key": "POST /auth/login",
+  "role": "public",
+  "status": "401",
+  "text": "{\"code\":\"UNAUTHENTICATED\",\"message\":\"Wrong login or password.\"}",
+  "shot": "015-POST-auth-login-401.png"
+ },
+ {
+  "i": 16,
+  "key": "GET /auth/google",
+  "role": "public",
+  "status": "200",
+  "text": "{\"client_id\":\"595641257253-c6mjqo6jk859g83s2t7fkr2k275qc784.apps.googleusercontent.com\"}",
+  "shot": "016-GET-auth-google-200.png"
+ },
+ {
+  "i": 17,
+  "key": "POST /auth/google",
+  "role": "public",
+  "status": "401",
+  "text": "{\"code\":\"UNAUTHENTICATED\",\"message\":\"Google could not confirm who you are. Please try again.\"}",
+  "shot": "017-POST-auth-google-401.png"
+ },
+ {
+  "i": 18,
+  "key": "GET /payments/online/sequence",
+  "role": "public",
+  "status": "200",
+  "text": "{\"provider\":\"payos\",\"last_order_code\":990529062106,\"updated_at\":\"2026-11-17 19:29:06.292+07\",\"note\":\"Seeded from integration testing 27-28 Sep 2026. Highest code known spent at payOS before the alloca",
+  "shot": "018-GET-payments-online-sequence-200.png"
+ },
+ {
+  "i": 19,
+  "key": "POST /payments/online/webhook",
+  "role": "public",
+  "status": "200",
+  "text": "{\"received\":true}",
+  "shot": "019-POST-payments-online-webhook-200.png"
+ },
+ {
+  "i": 20,
+  "key": "POST /auth/password/forgot",
+  "role": "public",
+  "status": "202",
+  "text": "{\"challenge_id\":\"23d8548c-b406-4dfd-9efc-efc4e38e259f\",\"sent_to\":null}",
+  "shot": "020-POST-auth-password-forgot-202.png"
+ },
+ {
+  "i": 21,
+  "key": "GET /plans",
+  "role": "public",
+  "status": "200",
+  "text": "{\"items\":[{\"id\":\"20000000-0000-0000-0000-000000000051\",\"name\":\"1 month\",\"duration_months\":1,\"duration_days\":30,\"price_vnd\":500000,\"is_on_sale\":true},{\"id\":\"20000000-0000-0000-0000-000000000052\",\"name\"",
+  "shot": "021-GET-plans-200.png"
+ },
+ {
+  "i": 22,
+  "key": "GET /courts",
+  "role": "public",
+  "status": "200",
+  "text": "{\"items\":[{\"id\":\"10000000-0000-0000-0000-000000000011\",\"court_code\":\"BC-01\",\"sport\":\"volleyball\",\"status\":\"ready\",\"display_name\":null,\"sort_order\":null,\"retired_at\":null},{\"id\":\"10000000-0000-0000-000",
+  "shot": "022-GET-courts-200.png"
+ },
+ {
+  "i": 23,
+  "key": "GET /classes",
+  "role": "public",
+  "status": "200",
+  "text": "{\"items\":[{\"id\":\"60000000-0000-0000-0000-000000000001\",\"sport\":\"badminton\",\"level\":\"intermediate\",\"capacity\":12,\"enrolled_count\":10,\"rrule\":\"FREQ=WEEKLY;BYDAY=MO,WE,FR;BYHOUR=18\",\"duration_min\":60,\"st",
+  "shot": "023-GET-classes-200.png"
+ },
+ {
+  "i": 24,
+  "key": "GET /price-rules",
+  "role": "public",
+  "status": "200",
+  "text": "{\"items\":[{\"id\":\"f7c4f3d2-a242-44cb-86e3-dba7c3d00e68\",\"sport\":\"badminton\",\"court_id\":null,\"day_kind\":\"holiday\",\"start_local\":\"06:00:00\",\"end_local\":\"08:00:00\",\"price_vnd\":80000,\"is_peak\":false},{\"id\"",
+  "shot": "024-GET-price-rules-200.png"
+ },
+ {
+  "i": 25,
+  "key": "GET /site-assets",
+  "role": "public",
+  "status": "200",
+  "text": "{\"items\":[{\"slot\":\"auth.login.image\",\"kind\":\"image\",\"url\":\"/media/library/facility/facility-arena-grandstand-hall.jpg\",\"alt_en\":\"Front desk\",\"alt_vi\":\"Quầy lễ tân\",\"enabled\":true,\"width\":null,\"height\"",
+  "shot": "025-GET-site-assets-200.png"
+ },
+ {
+  "i": 26,
+  "key": "GET /site-assets/{p1}/file",
+  "role": "public",
+  "status": "200",
+  "text": "Response body",
+  "shot": "026-GET-site-assets-id-file-200.png"
+ },
+ {
+  "i": 27,
+  "key": "GET /media/credits",
+  "role": "public",
+  "status": "200",
+  "text": "{\"items\":[{\"id\":\"lib-badminton-badminton-court-blue-walls\",\"path\":\"library/badminton/badminton-court-blue-walls.jpg\",\"kind\":\"image\",\"category\":\"badminton\",\"tags\":[\"badminton\",\"indoor\",\"court\",\"hall\"],",
+  "shot": "027-GET-media-credits-200.png"
+ },
+ {
+  "i": 28,
+  "key": "GET /sports",
+  "role": "public",
+  "status": "200",
+  "text": "{\"items\":[{\"code\":\"badminton\",\"name_en\":\"Badminton\",\"name_vi\":\"Cầu lông\",\"court_prefix\":\"CL\",\"color_key\":\"leaf\",\"glyph_key\":\"badminton\",\"is_scope_all\":false,\"max_players\":4,\"slot_duration_min\":60,\"sor",
+  "shot": "028-GET-sports-200.png"
+ },
+ {
+  "i": 29,
+  "key": "GET /coaches/certifications",
+  "role": "public",
+  "status": "200",
+  "text": "{\"items\":[]}",
+  "shot": "029-GET-coaches-certifications-200.png"
+ },
+ {
+  "i": 30,
+  "key": "GET /certificates/{p1}",
+  "role": "public",
+  "status": "404",
+  "text": "{\"code\":\"NOT_FOUND\",\"message\":\"No certificate has that code.\"}",
+  "shot": "030-GET-certificates-id-404.png"
+ },
+ {
+  "i": 31,
+  "key": "GET /me",
+  "role": "member",
+  "status": "200",
+  "text": "{\"user\":{\"id\":\"00000000-0000-0000-0000-000000000107\",\"member_code\":\"A3-2026-0007\",\"full_name\":\"Bùi Gia Bảo\",\"phone\":\"…\",\"email\":\"…\",\"role\":\"member\",\"status\":\"active\",\"date_of_birth\":\"2012-01-22\",\"heal",
+  "shot": "031-GET-me-200.png"
+ },
+ {
+  "i": 32,
+  "key": "GET /me/profile",
+  "role": "member",
+  "status": "200",
+  "text": "{\"guardian\":{\"name\":\"Bùi Văn Thành\",\"phone\":\"…\"},\"pii_consent_at\":\"2026-11-17T12:29:05.769Z\",\"coach\":null,\"other_sessions\":0}",
+  "shot": "032-GET-me-profile-200.png"
+ },
+ {
+  "i": 33,
+  "key": "GET /me/certificates",
+  "role": "member",
+  "status": "200",
+  "text": "{\"share\":0.8,\"items\":[{\"enrollment_id\":\"e3e53d6f-89eb-44eb-abb4-64ae3aba5428\",\"class_id\":\"30000000-0000-0000-0000-000000000011\",\"sport\":\"basketball\",\"level\":\"intermediate\",\"coach_name\":\"Phạm Đức Anh\",",
+  "shot": "033-GET-me-certificates-200.png"
+ },
+ {
+  "i": 34,
+  "key": "POST /me/certificates/{p2}",
+  "role": "member",
+  "status": "404",
+  "text": "{\"code\":\"NOT_FOUND\",\"message\":\"No such class.\"}",
+  "shot": "034-POST-me-certificates-id-404.png"
+ },
+ {
+  "i": 35,
+  "key": "GET /coaches/{p1}/certifications",
+  "role": "coach",
+  "status": "200",
+  "text": "{\"items\":[]}",
+  "shot": "035-GET-coaches-id-certifications-200.png"
+ },
+ {
+  "i": 36,
+  "key": "POST /coaches/{p1}/certifications",
+  "role": "manager",
+  "status": "201",
+  "text": "{\"id\":\"672e3fcb-ae15-4afe-8d4c-1e60ce2d82be\",\"coach_id\":\"00000000-0000-0000-0000-000000000014\",\"name\":\"BWF Level 1 Coach\",\"issuer\":\"BWF\",\"issued_on\":\"2025-06-01\",\"expires_on\":\"2028-06-01\"}",
+  "shot": "036-POST-coaches-id-certifications-201.png"
+ },
+ {
+  "i": 37,
+  "key": "DELETE /certifications/{p1}",
+  "role": "manager",
+  "status": "200",
+  "text": "{\"ok\":true}",
+  "shot": "037-DELETE-certifications-id-200.png"
+ },
+ {
+  "i": 38,
+  "key": "GET /me/bookings",
+  "role": "member",
+  "status": "200",
+  "text": "{\"window_hours\":2,\"cancel_tiers\":[],\"class_sessions\":[{\"id\":\"90c716c4-d9f0-4cdd-9c26-1abf02c5af30\",\"class_id\":\"30000000-0000-0000-0000-000000000011\",\"start_at\":\"2026-11-17T12:00:00.000Z\",\"end_at\":\"202",
+  "shot": "038-GET-me-bookings-200.png"
+ },
+ {
+  "i": 39,
+  "key": "GET /me/attendance",
+  "role": "member",
+  "status": "200",
+  "text": "{\"items\":[{\"session_id\":\"90c716c4-d9f0-4cdd-9c26-1abf02c5af30\",\"start_at\":\"2026-11-17T12:00:00.000Z\",\"end_at\":\"2026-11-17T13:00:00.000Z\",\"sport\":\"basketball\",\"level\":\"intermediate\",\"court_code\":\"BR-02",
+  "shot": "039-GET-me-attendance-200.png"
+ },
+ {
+  "i": 40,
+  "key": "PATCH /me",
+  "role": "member",
+  "status": "200",
+  "text": "{\"user\":{\"id\":\"00000000-0000-0000-0000-000000000107\",\"member_code\":\"A3-2026-0007\",\"full_name\":\"Bùi Gia Bảo\",\"phone\":\"…\",\"email\":\"…\",\"role\":\"member\",\"status\":\"active\",\"date_of_birth\":\"2012-01-22\",\"heal",
+  "shot": "040-PATCH-me-200.png"
+ },
+ {
+  "i": 41,
+  "key": "GET /me/google",
+  "role": "member",
+  "status": "200",
+  "text": "{\"client_id\":\"595641257253-c6mjqo6jk859g83s2t7fkr2k275qc784.apps.googleusercontent.com\",\"google_email\":null}",
+  "shot": "041-GET-me-google-200.png"
+ },
+ {
+  "i": 42,
+  "key": "POST /me/google",
+  "role": "member",
+  "status": "422",
+  "text": "{\"code\":\"VALIDATION\",\"message\":\"The Google sign-in did not return a token.\"}",
+  "shot": "042-POST-me-google-422.png"
+ },
+ {
+  "i": 43,
+  "key": "DELETE /me/google",
+  "role": "member",
+  "status": "200",
+  "text": "{\"google_email\":null}",
+  "shot": "043-DELETE-me-google-200.png"
+ },
+ {
+  "i": 44,
+  "key": "PUT /me/avatar",
+  "role": "member",
+  "status": "400",
+  "text": "{\"code\":\"VALIDATION\",\"message\":\"Choose a photo to upload.\",\"field\":\"file\"}",
+  "shot": "044-PUT-me-avatar-400.png"
+ },
+ {
+  "i": 45,
+  "key": "DELETE /me/avatar",
+  "role": "member",
+  "status": "200",
+  "text": "{\"user\":{\"id\":\"00000000-0000-0000-0000-000000000107\",\"member_code\":\"A3-2026-0007\",\"full_name\":\"Bùi Gia Bảo\",\"phone\":\"…\",\"email\":\"…\",\"role\":\"member\",\"status\":\"active\",\"date_of_birth\":\"2012-01-22\",\"heal",
+  "shot": "045-DELETE-me-avatar-200.png"
+ },
+ {
+  "i": 46,
+  "key": "GET /users/{p1}/avatar",
+  "role": "manager",
+  "status": "404",
+  "text": "{\"code\":\"NOT_FOUND\",\"message\":\"Not found.\"}",
+  "shot": "046-GET-users-id-avatar-404.png"
+ },
+ {
+  "i": 47,
+  "key": "GET /me/notifications",
+  "role": "member",
+  "status": "200",
+  "text": "{\"items\":[{\"id\":\"43922f05-4175-48ad-9c0e-e50ea0e07f88\",\"template\":\"chat_message\",\"payload\":{\"preview\":\"Xin chào, sân 3 tối nay còn trống không?\",\"sender_id\":\"00000000-0000-0000-0000-000000000001\",\"mes",
+  "shot": "047-GET-me-notifications-200.png"
+ },
+ {
+  "i": 48,
+  "key": "POST /me/notifications/read",
+  "role": "member",
+  "status": "200",
+  "text": "{\"marked\":12}",
+  "shot": "048-POST-me-notifications-read-200.png"
+ },
+ {
+  "i": 49,
+  "key": "GET /occupancy/detail",
+  "role": "manager",
+  "status": "400",
+  "text": "{\"code\":\"VALIDATION\",\"message\":\"ref must be an id.\",\"field\":\"ref\"}",
+  "shot": "049-GET-occupancy-detail-400.png"
+ },
+ {
+  "i": 50,
+  "key": "GET /availability",
+  "role": "manager",
+  "status": "200",
+  "text": "{\"from\":\"2026-11-17\",\"sport\":null,\"days\":[{\"date\":\"2026-11-17\",\"free\":7,\"total\":272,\"bookable\":true},{\"date\":\"2026-11-18\",\"free\":85,\"total\":272,\"bookable\":true},{\"date\":\"2026-11-19\",\"free\":91,\"total\":",
+  "shot": "050-GET-availability-200.png"
+ },
+ {
+  "i": 51,
+  "key": "GET /occupancy",
+  "role": "manager",
+  "status": "200",
+  "text": "{\"date\":\"2026-11-17\",\"courts\":[{\"id\":\"10000000-0000-0000-0000-000000000011\",\"court_code\":\"BC-01\",\"sport\":\"volleyball\",\"status\":\"ready\",\"display_name\":null,\"sort_order\":null},{\"id\":\"10000000-0000-0000-",
+  "shot": "051-GET-occupancy-200.png"
+ },
+ {
+  "i": 52,
+  "key": "PATCH /courts/{p1}",
+  "role": "manager",
+  "status": "200",
+  "text": "{\"court\":{\"id\":\"10000000-0000-0000-0000-000000000011\",\"court_code\":\"BC-01\",\"sport\":\"volleyball\",\"status\":\"ready\",\"display_name\":null,\"sort_order\":null,\"retired_at\":null},\"upcoming\":0}",
+  "shot": "052-PATCH-courts-id-200.png"
+ },
+ {
+  "i": 53,
+  "key": "GET /staff",
+  "role": "manager",
+  "status": "200",
+  "text": "{\"items\":[{\"id\":\"00000000-0000-0000-0000-000000000001\",\"full_name\":\"Phạm Quốc Bảo\",\"phone\":\"…\",\"email\":\"…\",\"role\":\"manager\",\"status\":\"active\",\"must_change_password\":false,\"avatar_version\":null,\"create",
+  "shot": "053-GET-staff-200.png"
+ },
+ {
+  "i": 54,
+  "key": "POST /staff",
+  "role": "manager",
+  "status": "201",
+  "text": "{\"staff\":{\"id\":\"1e194565-15af-490a-a51f-1e9e6b281844\",\"full_name\":\"Coach Demo Swagger\",\"phone\":\"…\",\"email\":\"…\",\"role\":\"coach\",\"status\":\"active\",\"must_change_password\":true,\"avatar_version\":null,\"creat",
+  "shot": "054-POST-staff-201.png"
+ },
+ {
+  "i": 55,
+  "key": "PATCH /staff/{p1}",
+  "role": "manager",
+  "status": "200",
+  "text": "{\"staff\":{\"id\":\"00000000-0000-0000-0000-000000000014\",\"full_name\":\"Lê Quốc Việt\",\"phone\":\"…\",\"email\":\"…\",\"role\":\"coach\",\"status\":\"active\",\"must_change_password\":true,\"avatar_version\":null,\"created_at\"",
+  "shot": "055-PATCH-staff-id-200.png"
+ },
+ {
+  "i": 56,
+  "key": "POST /staff/{p1}/reset-password",
+  "role": "manager",
+  "status": "200",
+  "text": "{\"staff\":{\"id\":\"00000000-0000-0000-0000-000000000014\",\"full_name\":\"Lê Quốc Việt\",\"phone\":\"…\",\"email\":\"…\",\"role\":\"coach\",\"status\":\"active\",\"must_change_password\":true,\"avatar_version\":null,\"created_at\"",
+  "shot": "056-POST-staff-id-reset-password-200.png"
+ },
+ {
+  "i": 57,
+  "key": "POST /staff/{p1}/revoke-sessions",
+  "role": "manager",
+  "status": "200",
+  "text": "{\"revoked\":0,\"staff\":{\"id\":\"00000000-0000-0000-0000-000000000014\",\"full_name\":\"Lê Quốc Việt\",\"phone\":\"…\",\"email\":\"…\",\"role\":\"coach\",\"status\":\"active\",\"must_change_password\":true,\"avatar_version\":null,",
+  "shot": "057-POST-staff-id-revoke-sessions-200.png"
+ },
+ {
+  "i": 58,
+  "key": "GET /directory/members",
+  "role": "manager",
+  "status": "200",
+  "text": "{\"total\":51,\"limit\":25,\"offset\":0,\"items\":[{\"id\":\"00000000-0000-0000-0000-000000000107\",\"member_code\":\"A3-2026-0007\",\"full_name\":\"Bùi Gia Bảo\",\"phone\":\"…\",\"status\":\"active\",\"created_at\":\"2026-11-17T12",
+  "shot": "058-GET-directory-members-200.png"
+ },
+ {
+  "i": 59,
+  "key": "GET /members",
+  "role": "coach",
+  "status": "200",
+  "text": "{\"items\":[]}",
+  "shot": "059-GET-members-200.png"
+ },
+ {
+  "i": 60,
+  "key": "POST /members",
+  "role": "receptionist",
+  "status": "201",
+  "text": "{\"user\":{\"id\":\"f55e37f5-b8ce-47c8-b3c5-0a425cd93dbe\",\"member_code\":\"A3-2026-0051\",\"full_name\":\"Hội viên Demo\",\"phone\":\"…\",\"email\":null,\"role\":\"member\",\"status\":\"active\",\"date_of_birth\":\"1998-03-03\",\"h",
+  "shot": "060-POST-members-201.png"
+ },
+ {
+  "i": 61,
+  "key": "GET /members/{p1}",
+  "role": "coach",
+  "status": "200",
+  "text": "{\"user\":{\"id\":\"00000000-0000-0000-0000-000000000107\",\"member_code\":\"A3-2026-0007\",\"full_name\":\"Bùi Gia Bảo\",\"phone\":\"…\",\"email\":\"…\",\"role\":\"member\",\"status\":\"active\",\"date_of_birth\":\"2012-01-22\",\"heal",
+  "shot": "061-GET-members-id-200.png"
+ },
+ {
+  "i": 62,
+  "key": "POST /members/{p1}/reset-password",
+  "role": "receptionist",
+  "status": "200",
+  "text": "{\"temp_password\":\"***\",\"full_name\":\"Bui Minh Khanh\",\"phone\":\"…\",\"sessions_revoked\":0}",
+  "shot": "062-POST-members-id-reset-password-200.png"
+ },
+ {
+  "i": 63,
+  "key": "PATCH /members/{p1}",
+  "role": "receptionist",
+  "status": "200",
+  "text": "{\"ok\":true,\"changed\":[]}",
+  "shot": "063-PATCH-members-id-200.png"
+ },
+ {
+  "i": 64,
+  "key": "POST /plans",
+  "role": "manager",
+  "status": "201",
+  "text": "{\"id\":\"62441697-a467-4564-975b-30e54cde52aa\",\"name\":\"Gói Demo 2 tháng\",\"duration_days\":60,\"session_quota\":null,\"court_hours\":0,\"court_discount_pct\":0,\"price_vnd\":900000,\"is_on_sale\":false,\"carry_over_",
+  "shot": "064-POST-plans-201.png"
+ },
+ {
+  "i": 65,
+  "key": "GET /plans/{p1}",
+  "role": "manager",
+  "status": "200",
+  "text": "{\"plan\":{\"id\":\"20000000-0000-0000-0000-000000000051\",\"name\":\"1 month\",\"duration_months\":1,\"duration_days\":30,\"price_vnd\":500000,\"is_on_sale\":true},\"holders\":{\"active\":43,\"pending\":0,\"frozen\":0,\"ever\":",
+  "shot": "065-GET-plans-id-200.png"
+ },
+ {
+  "i": 66,
+  "key": "PATCH /plans/{p1}",
+  "role": "manager",
+  "status": "200",
+  "text": "{\"id\":\"20000000-0000-0000-0000-000000000051\",\"name\":\"1 month\",\"duration_days\":30,\"session_quota\":null,\"court_hours\":0,\"court_discount_pct\":0,\"price_vnd\":500000,\"is_on_sale\":true,\"carry_over_hours\":fal",
+  "shot": "066-PATCH-plans-id-200.png"
+ },
+ {
+  "i": 67,
+  "key": "POST /subscriptions",
+  "role": "receptionist",
+  "status": "201",
+  "text": "{\"subscription\":{\"id\":\"e0ef8847-2550-48b9-98b5-b13bff3e32bd\",\"user_id\":\"00000000-0000-0000-0000-000000000138\",\"plan_id\":\"20000000-0000-0000-0000-000000000051\",\"start_on\":\"2027-01-19\",\"end_on\":\"2027-02",
+  "shot": "067-POST-subscriptions-201.png"
+ },
+ {
+  "i": 68,
+  "key": "POST /bookings",
+  "role": "member",
+  "status": "422",
+  "text": "{\"code\":\"VALIDATION\",\"message\":\"Idempotency-Key is required.\"}",
+  "shot": "068-POST-bookings-422.png"
+ },
+ {
+  "i": 69,
+  "key": "POST /bookings/{p1}/confirm",
+  "role": "member",
+  "status": "422",
+  "text": "{\"code\":\"VALIDATION\",\"message\":\"Idempotency-Key is required.\"}",
+  "shot": "069-POST-bookings-id-confirm-422.png"
+ },
+ {
+  "i": 70,
+  "key": "POST /bookings/{p1}/transfer-confirm",
+  "role": "receptionist",
+  "status": "409",
+  "text": "{\"code\":\"CONFLICT_STATE\",\"message\":\"No transfer was requested for this booking.\"}",
+  "shot": "070-POST-bookings-id-transfer-confirm-409.png"
+ },
+ {
+  "i": 71,
+  "key": "POST /bookings/{p1}/transfer-reject",
+  "role": "receptionist",
+  "status": "409",
+  "text": "{\"code\":\"CONFLICT_STATE\",\"message\":\"No transfer was requested for this booking.\"}",
+  "shot": "071-POST-bookings-id-transfer-reject-409.png"
+ },
+ {
+  "i": 72,
+  "key": "POST /bookings/{p1}/cancel",
+  "role": "receptionist",
+  "status": "200",
+  "text": "{\"refund\":null,\"refundable\":false,\"quote\":{\"hours_left\":0.5,\"refund_pct\":0,\"paid_vnd\":140000,\"refund_vnd\":0,\"fee_vnd\":140000,\"waived\":false}}",
+  "shot": "072-POST-bookings-id-cancel-200.png"
+ },
+ {
+  "i": 73,
+  "key": "GET /bookings/{p1}/cancel-quote",
+  "role": "receptionist",
+  "status": "409",
+  "text": "{\"code\":\"CONFLICT_STATE\",\"message\":\"A booking in this state cannot be cancelled.\"}",
+  "shot": "073-GET-bookings-id-cancel-quote-409.png"
+ },
+ {
+  "i": 74,
+  "key": "POST /bookings/{p1}/collect-balance",
+  "role": "receptionist",
+  "status": "409",
+  "text": "{\"code\":\"CONFLICT_STATE\",\"message\":\"Only a confirmed booking has a balance to collect.\"}",
+  "shot": "074-POST-bookings-id-collect-balance-409.png"
+ },
+ {
+  "i": 75,
+  "key": "POST /bookings/{p1}/reschedule",
+  "role": "member",
+  "status": "409",
+  "text": "{\"code\":\"CONFLICT_STATE\",\"message\":\"Only a confirmed booking that has not started can be moved.\"}",
+  "shot": "075-POST-bookings-id-reschedule-409.png"
+ },
+ {
+  "i": 76,
+  "key": "POST /bookings/{p1}/check-in",
+  "role": "receptionist",
+  "status": "409",
+  "text": "{\"code\":\"CONFLICT_STATE\",\"message\":\"Only confirmed bookings can be checked in.\"}",
+  "shot": "076-POST-bookings-id-check-in-409.png"
+ },
+ {
+  "i": 77,
+  "key": "GET /bookings/{p1}",
+  "role": "receptionist",
+  "status": "200",
+  "text": "{\"id\":\"dbbb998a-0be8-415e-acac-80d0e9ad591b\",\"code\":\"CRT-20261117-U0210\",\"court_id\":\"10000000-0000-0000-0000-000000000012\",\"user_id\":\"00000000-0000-0000-0000-000000000107\",\"guest_name\":null,\"guest_pho",
+  "shot": "077-GET-bookings-id-200.png"
+ },
+ {
+  "i": 78,
+  "key": "POST /walk-in",
+  "role": "receptionist",
+  "status": "422",
+  "text": "{\"code\":\"VALIDATION\",\"message\":\"Idempotency-Key is required.\"}",
+  "shot": "078-POST-walk-in-422.png"
+ },
+ {
+  "i": 79,
+  "key": "GET /shifts/current",
+  "role": "receptionist",
+  "status": "200",
+  "text": "{\"shift\":{\"id\":\"2d79bedb-e7af-4ec4-90f8-311f7c278b6b\",\"receptionist_id\":\"00000000-0000-0000-0000-000000000002\",\"opened_at\":\"2026-11-17T12:29:40.622Z\",\"closed_at\":null,\"cash_declared_vnd\":null},\"totals",
+  "shot": "079-GET-shifts-current-200.png"
+ },
+ {
+  "i": 80,
+  "key": "POST /classes",
+  "role": "manager",
+  "status": "201",
+  "text": "{\"id\":\"79e37ebb-5085-40fb-8e54-04f81b8a0a3c\",\"sport\":\"badminton\",\"level\":\"beginner\",\"coach_id\":\"00000000-0000-0000-0000-000000000011\",\"assistant_id\":null,\"court_id\":\"10000000-0000-0000-0000-000*******",
+  "shot": "080-POST-classes-201.png"
+ },
+ {
+  "i": 81,
+  "key": "POST /classes/{p1}/publish",
+  "role": "manager",
+  "status": "200",
+  "text": "{\"sessions\":[],\"skipped\":[]}",
+  "shot": "081-POST-classes-id-publish-200.png"
+ },
+ {
+  "i": 82,
+  "key": "POST /classes/{p1}/enroll",
+  "role": "manager",
+  "status": "422",
+  "text": "{\"code\":\"BR_VIOLATION\",\"message\":\"The membership must end after this class ends (2027-03-17). Buy or extend a plan first.\",\"br\":\"BR-19\",\"class_end\":\"2027-03-17\",\"current_end\":null}",
+  "shot": "082-POST-classes-id-enroll-422.png"
+ },
+ {
+  "i": 83,
+  "key": "GET /classes/{p1}/quote",
+  "role": "manager",
+  "status": "200",
+  "text": "{\"tuition_vnd\":800000,\"promo\":null,\"total_vnd\":800000,\"eligible\":false,\"current_end\":null,\"class_end\":\"2027-03-17\",\"suggested_plan\":{\"id\":\"20000000-0000-0000-0000-000000000053\",\"name\":\"6 months\",\"pric",
+  "shot": "083-GET-classes-id-quote-200.png"
+ },
+ {
+  "i": 84,
+  "key": "GET /classes/{p1}",
+  "role": "manager",
+  "status": "200",
+  "text": "{\"class\":{\"id\":\"30000000-0000-0000-0000-000000000010\",\"sport\":\"badminton\",\"level\":\"beginner\",\"status\":\"open\",\"capacity\":16,\"enrolled_count\":14,\"min_enrolled\":null,\"rrule\":\"FREQ=WEEKLY;BYDAY=SA;BYHOUR=",
+  "shot": "084-GET-classes-id-200.png"
+ },
+ {
+  "i": 85,
+  "key": "GET /classes/{p1}/roster",
+  "role": "manager",
+  "status": "200",
+  "text": "{\"items\":[{\"id\":\"00000000-0000-0000-0000-000000000148\",\"full_name\":\"Bui Van Giang\",\"member_code\":\"A3-2026-0048\",\"health_notes\":null,\"status\":\"confirmed\",\"enrollment_id\":\"471684f1-f171-4b92-8616-f578a0",
+  "shot": "085-GET-classes-id-roster-200.png"
+ },
+ {
+  "i": 86,
+  "key": "PATCH /classes/{p1}",
+  "role": "manager",
+  "status": "200",
+  "text": "{\"ok\":true,\"class\":{\"id\":\"30000000-0000-0000-0000-000000000010\",\"capacity\":16,\"level\":\"beginner\",\"status\":\"open\",\"min_enrolled\":null,\"end_on\":\"2027-03-17\",\"members_carried\":0}}",
+  "shot": "086-PATCH-classes-id-200.png"
+ },
+ {
+  "i": 87,
+  "key": "POST /classes/{p1}/coach",
+  "role": "manager",
+  "status": "400",
+  "text": "{\"code\":\"VALIDATION\",\"message\":\"That coach already teaches this class.\",\"field\":\"coach_id\"}",
+  "shot": "087-POST-classes-id-coach-400.png"
+ },
+ {
+  "i": 88,
+  "key": "POST /sessions/{p1}/cancel",
+  "role": "manager",
+  "status": "200",
+  "text": "{\"ok\":true,\"notified\":10,\"refunded\":0,\"refunded_vnd\":0}",
+  "shot": "088-POST-sessions-id-cancel-200.png"
+ },
+ {
+  "i": 89,
+  "key": "POST /sessions/{p1}/reschedule",
+  "role": "manager",
+  "status": "409",
+  "text": "{\"code\":\"CONFLICT_STATE\",\"message\":\"Only a scheduled session can be moved.\"}",
+  "shot": "089-POST-sessions-id-reschedule-409.png"
+ },
+ {
+  "i": 90,
+  "key": "GET /coach/schedule",
+  "role": "coach",
+  "status": "200",
+  "text": "{\"items\":[{\"id\":\"2a6cf165-e0e4-414a-9a83-3210b1ab5bb7\",\"start_at\":\"2026-11-18T11:00:00.000Z\",\"end_at\":\"2026-11-18T12:00:00.000Z\",\"status\":\"cancelled\",\"level\":\"beginner\",\"sport\":\"badminton\",\"class_id\":",
+  "shot": "090-GET-coach-schedule-200.png"
+ },
+ {
+  "i": 91,
+  "key": "GET /coach/classes",
+  "role": "coach",
+  "status": "200",
+  "text": "{\"total\":5,\"items\":[{\"id\":\"30000000-0000-0000-0000-000000000010\",\"sport\":\"badminton\",\"level\":\"beginner\",\"capacity\":16,\"enrolled_count\":14,\"rrule\":\"FREQ=WEEKLY;BYDAY=SA;BYHOUR=10\",\"duration_min\":60,\"st",
+  "shot": "091-GET-coach-classes-200.png"
+ },
+ {
+  "i": 92,
+  "key": "POST /enrollments/{p1}/transfer",
+  "role": "member",
+  "status": "422",
+  "text": "{\"code\":\"BR_VIOLATION\",\"message\":\"This seat hold has expired.\",\"br\":\"BR-28\"}",
+  "shot": "092-POST-enrollments-id-transfer-422.png"
+ },
+ {
+  "i": 93,
+  "key": "DELETE /enrollments/{p1}",
+  "role": "manager",
+  "status": "200",
+  "text": "{\"ok\":true}",
+  "shot": "093-DELETE-enrollments-id-200.png"
+ },
+ {
+  "i": 94,
+  "key": "GET /payments/pending",
+  "role": "receptionist",
+  "status": "200",
+  "text": "{\"awaiting\":[],\"orders\":[{\"id\":\"e0ef8847-2550-48b9-98b5-b13bff3e32bd\",\"ordered_on\":\"2027-01-19\",\"end_on\":\"2027-02-19\",\"user_id\":\"00000000-0000-0000-0000-000000000138\",\"full_name\":\"Bui Minh Khanh\",\"pho",
+  "shot": "094-GET-payments-pending-200.png"
+ },
+ {
+  "i": 95,
+  "key": "POST /payments/online",
+  "role": "receptionist",
+  "status": "409",
+  "text": "{\"code\":\"CONFLICT_STATE\",\"message\":\"That booking is not waiting for payment.\"}",
+  "shot": "095-POST-payments-online-409.png"
+ },
+ {
+  "i": 96,
+  "key": "POST /payments/online/{p2}/verify",
+  "role": "receptionist",
+  "status": "404",
+  "text": "{\"code\":\"NOT_FOUND\",\"message\":\"Not found.\"}",
+  "shot": "096-POST-payments-online-id-verify-404.png"
+ },
+ {
+  "i": 97,
+  "key": "POST /payments",
+  "role": "receptionist",
+  "status": "422",
+  "text": "{\"code\":\"VALIDATION\",\"message\":\"Idempotency-Key is required.\"}",
+  "shot": "097-POST-payments-422.png"
+ },
+ {
+  "i": 98,
+  "key": "POST /payments/{p1}/refund",
+  "role": "receptionist",
+  "status": "201",
+  "text": "{\"payment\":{\"id\":\"d320770d-614c-4ca5-b865-a87cbaa79b70\",\"code\":\"PAY-20261117-0001\",\"user_id\":\"00000000-0000-0000-0000-000000000150\",\"shift_id\":\"2d79bedb-e7af-4ec4-90f8-311f7c278b6b\",\"method\":\"cash\",\"a",
+  "shot": "098-POST-payments-id-refund-201.png"
+ },
+ {
+  "i": 99,
+  "key": "POST /payments/{p1}/approve-refund",
+  "role": "manager",
+  "status": "409",
+  "text": "{\"code\":\"CONFLICT_STATE\",\"message\":\"That refund is no longer waiting for a decision.\"}",
+  "shot": "099-POST-payments-id-approve-refund-409.png"
+ },
+ {
+  "i": 100,
+  "key": "POST /payments/{p1}/pay-out-refund",
+  "role": "receptionist",
+  "status": "409",
+  "text": "{\"code\":\"CONFLICT_STATE\",\"message\":\"That refund is no longer waiting to be paid out.\"}",
+  "shot": "100-POST-payments-id-pay-out-refund-409.png"
+ },
+ {
+  "i": 101,
+  "key": "POST /payments/{p1}/reject-refund",
+  "role": "manager",
+  "status": "409",
+  "text": "{\"code\":\"CONFLICT_STATE\",\"message\":\"That refund is no longer waiting for a decision.\"}",
+  "shot": "101-POST-payments-id-reject-refund-409.png"
+ },
+ {
+  "i": 102,
+  "key": "POST /series/preview",
+  "role": "manager",
+  "status": "200",
+  "text": "{\"court_code\":\"BC-01\",\"customer\":{\"name\":\"Đội Demo\",\"phone\":\"…\",\"is_member\":false},\"weekday\":3,\"discount_pct\":10,\"min_weeks\":4,\"lines\":[{\"date\":\"2026-12-02\",\"start_at\":\"2026-12-02T00:00:00.000Z\",\"end_",
+  "shot": "102-POST-series-preview-200.png"
+ },
+ {
+  "i": 103,
+  "key": "POST /series",
+  "role": "manager",
+  "status": "201",
+  "text": "{\"series_id\":\"719b72dd-9f99-4350-a447-7115413a1f3b\",\"code\":\"SER-20261117-0001\",\"booked\":4,\"skipped\":[],\"total_vnd\":900000,\"payment_id\":\"f681d1cb-f1b2-4dd6-a4f0-c92b0e7b63e5\",\"invoice_id\":\"74dec5f8-f30",
+  "shot": "103-POST-series-201.png"
+ },
+ {
+  "i": 104,
+  "key": "GET /series",
+  "role": "manager",
+  "status": "200",
+  "text": "{\"items\":[{\"id\":\"719b72dd-9f99-4350-a447-7115413a1f3b\",\"code\":\"SER-20261117-0001\",\"weekday\":3,\"start_local\":\"07:00:00\",\"weeks\":4,\"starts_on\":\"2026-12-02\",\"discount_pct\":10,\"status\":\"active\",\"court_cod",
+  "shot": "104-GET-series-200.png"
+ },
+ {
+  "i": 105,
+  "key": "POST /series/{p1}/cancel",
+  "role": "manager",
+  "status": "404",
+  "text": "{\"code\":\"NOT_FOUND\",\"message\":\"Not found.\"}",
+  "shot": "105-POST-series-id-cancel-404.png"
+ },
+ {
+  "i": 106,
+  "key": "GET /me/points",
+  "role": "member",
+  "status": "200",
+  "text": "{\"points\":425,\"earned\":425,\"spend_vnd\":4250000,\"tier\":\"silver\",\"next_tier\":{\"key\":\"gold\",\"need\":175},\"earn_vnd\":10000,\"redeem_vnd\":100,\"min_redeem\":50,\"history\":[],\"history_total\":0,\"limit\":30,\"offset",
+  "shot": "106-GET-me-points-200.png"
+ },
+ {
+  "i": 107,
+  "key": "POST /me/points/redeem",
+  "role": "member",
+  "status": "201",
+  "text": "{\"code\":\"DIEM202611170001\",\"value_vnd\":10000,\"points_left\":325}",
+  "shot": "107-POST-me-points-redeem-201.png"
+ },
+ {
+  "i": 108,
+  "key": "GET /members/{p1}/points",
+  "role": "receptionist",
+  "status": "200",
+  "text": "{\"points\":325,\"earned\":425,\"spend_vnd\":4250000,\"tier\":\"silver\",\"next_tier\":{\"key\":\"gold\",\"need\":175},\"earn_vnd\":10000,\"redeem_vnd\":100,\"min_redeem\":50}",
+  "shot": "108-GET-members-id-points-200.png"
+ },
+ {
+  "i": 109,
+  "key": "POST /members/{p1}/points",
+  "role": "manager",
+  "status": "200",
+  "text": "{\"points\":375,\"earned\":425,\"spend_vnd\":4250000,\"tier\":\"silver\",\"next_tier\":{\"key\":\"gold\",\"need\":175},\"earn_vnd\":10000,\"redeem_vnd\":100,\"min_redeem\":50}",
+  "shot": "109-POST-members-id-points-200.png"
+ },
+ {
+  "i": 110,
+  "key": "GET /commission",
+  "role": "manager",
+  "status": "200",
+  "text": "{\"period\":\"2026-11\",\"current\":\"2026-11\",\"items\":[{\"coach_id\":\"1e194565-15af-490a-a51f-1e9e6b281844\",\"coach_name\":\"Coach Demo Swagger\",\"per_session_vnd\":150000,\"per_student_vnd\":10000,\"sessions\":0,\"stu",
+  "shot": "110-GET-commission-200.png"
+ },
+ {
+  "i": 111,
+  "key": "POST /commission/close",
+  "role": "manager",
+  "status": "200",
+  "text": "{\"period\":\"2026-10\",\"closed\":5}",
+  "shot": "111-POST-commission-close-200.png"
+ },
+ {
+  "i": 112,
+  "key": "PATCH /commission/rates/{p2}",
+  "role": "manager",
+  "status": "200",
+  "text": "{\"ok\":true}",
+  "shot": "112-PATCH-commission-rates-id-200.png"
+ },
+ {
+  "i": 113,
+  "key": "POST /commission/pay/{p2}",
+  "role": "manager",
+  "status": "200",
+  "text": "{\"ok\":true}",
+  "shot": "113-POST-commission-pay-id-200.png"
+ },
+ {
+  "i": 114,
+  "key": "GET /me/earnings",
+  "role": "coach",
+  "status": "200",
+  "text": "{\"period\":\"2026-11\",\"current\":\"2026-11\",\"summary\":{\"coach_id\":\"00000000-0000-0000-0000-000000000011\",\"coach_name\":\"Nguyễn Minh Khoa\",\"per_session_vnd\":150000,\"per_student_vnd\":10000,\"sessions\":18,\"stu",
+  "shot": "114-GET-me-earnings-200.png"
+ },
+ {
+  "i": 115,
+  "key": "GET /work-orders",
+  "role": "manager",
+  "status": "200",
+  "text": "{\"items\":[{\"id\":\"ea935a62-b36b-425d-8e19-5a44d1088e4b\",\"code\":\"WO-SEED-002\",\"court_id\":\"10000000-0000-0000-0000-000000000016\",\"court_code\":\"BC-02\",\"title\":\"Đèn khu B chớp tắt\",\"description\":\"seed-0024",
+  "shot": "115-GET-work-orders-200.png"
+ },
+ {
+  "i": 116,
+  "key": "POST /work-orders",
+  "role": "manager",
+  "status": "201",
+  "text": "{\"id\":\"bd28088b-bcea-45ab-aa22-3fae8adc39d2\",\"code\":\"WO-20261117-0001\"}",
+  "shot": "116-POST-work-orders-201.png"
+ },
+ {
+  "i": 117,
+  "key": "PATCH /work-orders/{p1}",
+  "role": "manager",
+  "status": "200",
+  "text": "{\"ok\":true}",
+  "shot": "117-PATCH-work-orders-id-200.png"
+ },
+ {
+  "i": 118,
+  "key": "GET /invoices/export-list",
+  "role": "manager",
+  "status": "200",
+  "text": "{\"from\":\"2026-11-01\",\"to\":\"2026-11-17\",\"items\":[{\"id\":\"74dec5f8-f30a-43a8-8e6a-374568a2664e\",\"code\":\"INV-20261117-0001\",\"issued_at\":\"2026-11-17 19:32:36.97+07\",\"buyer_name\":\"Đội Demo\",\"buyer_tax_code\"",
+  "shot": "118-GET-invoices-export-list-200.png"
+ },
+ {
+  "i": 119,
+  "key": "GET /invoices/export",
+  "role": "manager",
+  "status": "200",
+  "text": "file",
+  "shot": "119-GET-invoices-export-200.png"
+ },
+ {
+  "i": 120,
+  "key": "GET /invoices/{p1}.xml",
+  "role": "manager",
+  "status": "404",
+  "text": "{\"code\":\"NOT_FOUND\",\"message\":\"Not found.\"}",
+  "shot": "120-GET-invoices-id-xml-404.png"
+ },
+ {
+  "i": 121,
+  "key": "GET /invoices",
+  "role": "manager",
+  "status": "200",
+  "text": "{\"items\":[],\"total\":0,\"limit\":30,\"offset\":0}",
+  "shot": "121-GET-invoices-200.png"
+ },
+ {
+  "i": 122,
+  "key": "GET /invoices/{p1}.pdf",
+  "role": "manager",
+  "status": "404",
+  "text": "{\"code\":\"NOT_FOUND\",\"message\":\"Not found.\"}",
+  "shot": "122-GET-invoices-id-pdf-404.png"
+ },
+ {
+  "i": 123,
+  "key": "GET /reports/attendance",
+  "role": "manager",
+  "status": "200",
+  "text": "{\"from\":\"2026-10-19\",\"to\":\"2026-11-17\",\"totals\":{\"present\":440,\"late\":92,\"absent\":156,\"excused\":56,\"rate_pct\":77.3},\"students\":[{\"user_id\":\"00000000-0000-0000-0000-000000000138\",\"full_name\":\"Bui Minh",
+  "shot": "123-GET-reports-attendance-200.png"
+ },
+ {
+  "i": 124,
+  "key": "GET /at-risk",
+  "role": "manager",
+  "status": "200",
+  "text": "{\"items\":[{\"user_id\":\"00000000-0000-0000-0000-000000000112\",\"full_name\":\"Le Van Giang\",\"member_code\":\"A3-2026-0012\",\"phone\":\"…\",\"avatar_url\":null,\"reasons\":[{\"kind\":\"streak\",\"message\":\"Absent 7 sessio",
+  "shot": "124-GET-at-risk-200.png"
+ },
+ {
+  "i": 125,
+  "key": "POST /contacts",
+  "role": "manager",
+  "status": "201",
+  "text": "{\"id\":\"18f3f97a-e248-43db-bbc1-e48a4d60dcf0\",\"user_id\":\"00000000-0000-0000-0000-000000000138\",\"reason\":\"idle\",\"channel\":\"phone\",\"outcome\":\"reached\",\"note\":\"Đã gọi nhắc quay lại tập\",\"created_by\":\"0000",
+  "shot": "125-POST-contacts-201.png"
+ },
+ {
+  "i": 126,
+  "key": "GET /members/{p1}/contacts",
+  "role": "coach",
+  "status": "200",
+  "text": "{\"items\":[{\"id\":\"7d90bb4d-ac6d-46a8-8b8f-c12cd31935fa\",\"reason\":\"idle\",\"channel\":\"phone\",\"outcome\":\"promised\",\"note\":\"Said they will come on Saturday. (seed-0023)\",\"created_at\":\"2026-11-11T12:29:06.34",
+  "shot": "126-GET-members-id-contacts-200.png"
+ },
+ {
+  "i": 127,
+  "key": "GET /reports/{p1}/export",
+  "role": "manager",
+  "status": "200",
+  "text": "file",
+  "shot": "127-GET-reports-id-export-200.png"
+ },
+ {
+  "i": 128,
+  "key": "GET /reports/revenue",
+  "role": "manager",
+  "status": "200",
+  "text": "{\"from\":\"2026-11-17\",\"to\":\"2026-11-17\",\"totals\":{\"revenue_vnd\":93970000,\"gross_vnd\":93970000,\"refund_vnd\":0,\"quota_hours\":2},\"by_source\":{\"booking\":91470000,\"subscription\":2500000},\"refunds_by_source\"",
+  "shot": "128-GET-reports-revenue-200.png"
+ },
+ {
+  "i": 129,
+  "key": "GET /reports/capacity",
+  "role": "manager",
+  "status": "200",
+  "text": "{\"from\":\"2026-11-11\",\"to\":\"2026-11-17\",\"sport\":null,\"days_total\":7,\"open_hour\":6,\"close_hour\":22,\"totals\":{\"sold_min\":12870,\"open_min\":114240,\"pct\":11.3},\"by_sport\":[{\"sport\":\"volleyball\",\"sold_min\":1",
+  "shot": "129-GET-reports-capacity-200.png"
+ },
+ {
+  "i": 130,
+  "key": "GET /reports/members",
+  "role": "manager",
+  "status": "200",
+  "text": "{\"from\":\"2026-11-11\",\"to\":\"2026-11-17\",\"sport\":null,\"members\":{\"new\":14,\"active\":51},\"trend\":[{\"month\":\"2025-12\",\"new_members\":0,\"classes_joined\":0},{\"month\":\"2026-01\",\"new_members\":0,\"classes_joined\"",
+  "shot": "130-GET-reports-members-200.png"
+ },
+ {
+  "i": 131,
+  "key": "GET /reports/occupancy",
+  "role": "manager",
+  "status": "200",
+  "text": "{\"date\":\"2026-11-17\",\"items\":[{\"court_id\":\"10000000-0000-0000-0000-000000000011\",\"court_code\":\"BC-01\",\"minutes\":420,\"pct\":43.8},{\"court_id\":\"10000000-0000-0000-0000-000000000016\",\"court_code\":\"BC-02\",",
+  "shot": "131-GET-reports-occupancy-200.png"
+ },
+ {
+  "i": 132,
+  "key": "GET /settings",
+  "role": "manager",
+  "status": "200",
+  "text": "{\"id\":1,\"timezone\":\"Asia/Ho_Chi_Minh\",\"currency\":\"VND\",\"open_time\":\"06:00:00\",\"close_time\":\"22:00:00\",\"slot_minutes\":60,\"hold_minutes\":5,\"book_ahead_days\":7,\"max_slots_per_day\":2,\"cancel_court_hours\":",
+  "shot": "132-GET-settings-200.png"
+ },
+ {
+  "i": 133,
+  "key": "PATCH /settings",
+  "role": "manager",
+  "status": "200",
+  "text": "{\"id\":1,\"timezone\":\"Asia/Ho_Chi_Minh\",\"currency\":\"VND\",\"open_time\":\"06:00:00\",\"close_time\":\"22:00:00\",\"slot_minutes\":60,\"hold_minutes\":5,\"book_ahead_days\":7,\"max_slots_per_day\":2,\"cancel_court_hours\":",
+  "shot": "133-PATCH-settings-200.png"
+ },
+ {
+  "i": 134,
+  "key": "PUT /price-rules",
+  "role": "manager",
+  "status": "200",
+  "text": "{\"items\":[{\"id\":\"aa99a0c1-3503-4f9a-a5a5-b15f8bbae2bf\",\"sport\":\"badminton\",\"court_id\":null,\"day_kind\":\"holiday\",\"start_local\":\"06:00:00\",\"end_local\":\"08:00:00\",\"price_vnd\":80000,\"is_peak\":false},{\"id\"",
+  "shot": "134-PUT-price-rules-200.png"
+ },
+ {
+  "i": 135,
+  "key": "GET /audit",
+  "role": "manager",
+  "status": "200",
+  "text": "{\"items\":[{\"id\":94,\"at\":\"2026-11-17T12:33:29.437Z\",\"actor_id\":\"00000000-0000-0000-0000-000000000001\",\"actor_name\":\"Phạm Quốc Bảo\",\"actor_role\":\"manager\",\"action\":\"replace_prices\",\"entity\":\"price_rules",
+  "shot": "135-GET-audit-200.png"
+ },
+ {
+  "i": 136,
+  "key": "POST /subscriptions/{p1}/freeze",
+  "role": "manager",
+  "status": "422",
+  "text": "{\"code\":\"BR_VIOLATION\",\"message\":\"Only an active plan can be frozen.\",\"br\":\"BR-14\"}",
+  "shot": "136-POST-subscriptions-id-freeze-422.png"
+ },
+ {
+  "i": 137,
+  "key": "POST /subscriptions/{p1}/unfreeze",
+  "role": "manager",
+  "status": "409",
+  "text": "{\"code\":\"CONFLICT_STATE\",\"message\":\"That plan is not frozen.\"}",
+  "shot": "137-POST-subscriptions-id-unfreeze-409.png"
+ },
+ {
+  "i": 138,
+  "key": "POST /subscriptions/{p1}/decline",
+  "role": "manager",
+  "status": "200",
+  "text": "{\"ok\":true}",
+  "shot": "138-POST-subscriptions-id-decline-200.png"
+ },
+ {
+  "i": 139,
+  "key": "POST /waitlist/{p1}/accept",
+  "role": "member",
+  "status": "404",
+  "text": "{\"code\":\"NOT_FOUND\",\"message\":\"Not found.\"}",
+  "shot": "139-POST-waitlist-id-accept-404.png"
+ },
+ {
+  "i": 140,
+  "key": "GET /equipment",
+  "role": "manager",
+  "status": "200",
+  "text": "{\"items\":[{\"id\":\"40000000-0000-0000-0000-000000000001\",\"sku\":\"CL-RKT\",\"name\":\"Badminton racket\",\"sport\":\"badminton\",\"stock\":24,\"rent_vnd\":30000},{\"id\":\"40000000-0000-0000-0000-000000000003\",\"sku\":\"BR-",
+  "shot": "140-GET-equipment-200.png"
+ },
+ {
+  "i": 141,
+  "key": "POST /equipment",
+  "role": "manager",
+  "status": "201",
+  "text": "{\"ok\":true,\"item\":{\"id\":\"1d6cb06e-9f8b-454a-83f9-f4c2e6d8735a\",\"sku\":\"RKT-DEMO\",\"name\":\"Vợt demo\",\"sport\":\"badminton\",\"stock\":5,\"rent_vnd\":30000}}",
+  "shot": "141-POST-equipment-201.png"
+ },
+ {
+  "i": 142,
+  "key": "GET /equipment/loans",
+  "role": "manager",
+  "status": "200",
+  "text": "{\"items\":[{\"id\":\"28f36731-1e0a-4cbc-af5e-959567921545\",\"item_id\":\"40000000-0000-0000-0000-000000000002\",\"booking_id\":null,\"phone\":\"…\",\"qty\":2,\"status\":\"out\",\"due_at\":\"2026-11-17T10:29:06.348Z\",\"return",
+  "shot": "142-GET-equipment-loans-200.png"
+ },
+ {
+  "i": 143,
+  "key": "POST /equipment/loans",
+  "role": "manager",
+  "status": "201",
+  "text": "{\"loan\":{\"id\":\"0d6f91fa-7fdb-491e-9825-dd4aa4633677\",\"item_id\":\"40000000-0000-0000-0000-000000000001\",\"booking_id\":null,\"phone\":\"…\",\"qty\":1,\"status\":\"out\",\"due_at\":\"2026-11-17T15:33:44.185Z\",\"returned",
+  "shot": "143-POST-equipment-loans-201.png"
+ },
+ {
+  "i": 144,
+  "key": "POST /equipment/loans/{p2}/return",
+  "role": "manager",
+  "status": "200",
+  "text": "{\"ok\":true}",
+  "shot": "144-POST-equipment-loans-id-return-200.png"
+ },
+ {
+  "i": 145,
+  "key": "GET /sessions/{p1}/attendance",
+  "role": "coach",
+  "status": "200",
+  "text": "{\"session\":{\"id\":\"2a6cf165-e0e4-414a-9a83-3210b1ab5bb7\",\"class_id\":\"30000000-0000-0000-0000-000000000001\",\"status\":\"cancelled\",\"start_at\":\"2026-11-18T11:00:00.000Z\",\"end_at\":\"2026-11-18T12:00:00.000Z\"",
+  "shot": "145-GET-sessions-id-attendance-200.png"
+ },
+ {
+  "i": 146,
+  "key": "POST /sessions/{p1}/attendance",
+  "role": "coach",
+  "status": "409",
+  "text": "{\"code\":\"CONFLICT_STATE\",\"message\":\"That session was cancelled.\"}",
+  "shot": "146-POST-sessions-id-attendance-409.png"
+ },
+ {
+  "i": 147,
+  "key": "GET /training-plans",
+  "role": "coach",
+  "status": "200",
+  "text": "{\"items\":[]}",
+  "shot": "147-GET-training-plans-200.png"
+ },
+ {
+  "i": 148,
+  "key": "POST /training-plans",
+  "role": "coach",
+  "status": "201",
+  "text": "{\"id\":\"b30bfa60-bc36-4913-a897-9fd5f3f3e245\",\"scope\":\"class\",\"class_id\":\"30000000-0000-0000-0000-000000000010\",\"user_id\":null,\"source\":\"coach\",\"published\":false,\"payload\":{\"goal\":\"core technique\",\"not",
+  "shot": "148-POST-training-plans-201.png"
+ },
+ {
+  "i": 149,
+  "key": "GET /training-plans/templates",
+  "role": "coach",
+  "status": "200",
+  "text": "{\"items\":[]}",
+  "shot": "149-GET-training-plans-templates-200.png"
+ },
+ {
+  "i": 150,
+  "key": "POST /training-plans/from-template",
+  "role": "coach",
+  "status": "404",
+  "text": "{\"code\":\"NOT_FOUND\",\"message\":\"That template does not exist.\"}",
+  "shot": "150-POST-training-plans-from-template-404.png"
+ },
+ {
+  "i": 151,
+  "key": "POST /training-plans/{p1}/save-template",
+  "role": "coach",
+  "status": "201",
+  "text": "{\"id\":\"61600d19-3df8-470b-8020-6f13a2569478\",\"scope\":\"template\",\"class_id\":null,\"user_id\":null,\"source\":\"coach\",\"published\":false,\"payload\":{\"goal\":\"core technique\",\"note\":\"A coach reviews this before",
+  "shot": "151-POST-training-plans-id-save-template-201.png"
+ },
+ {
+  "i": 152,
+  "key": "GET /training-plans/{p1}/versions",
+  "role": "coach",
+  "status": "200",
+  "text": "{\"items\":[]}",
+  "shot": "152-GET-training-plans-id-versions-200.png"
+ },
+ {
+  "i": 153,
+  "key": "PATCH /training-plans/{p1}",
+  "role": "coach",
+  "status": "200",
+  "text": "{\"id\":\"b30bfa60-bc36-4913-a897-9fd5f3f3e245\",\"scope\":\"class\",\"class_id\":\"30000000-0000-0000-0000-000000000010\",\"user_id\":null,\"source\":\"coach\",\"published\":false,\"payload\":{\"goal\":\"core technique\",\"not",
+  "shot": "153-PATCH-training-plans-id-200.png"
+ },
+ {
+  "i": 154,
+  "key": "POST /classes/{p1}/plans/duplicate-week",
+  "role": "manager",
+  "status": "200",
+  "text": "{\"copied\":0,\"skipped\":[]}",
+  "shot": "154-POST-classes-id-plans-duplicate-week-200.png"
+ },
+ {
+  "i": 155,
+  "key": "GET /sessions/{p1}/results",
+  "role": "coach",
+  "status": "200",
+  "text": "{\"session\":{\"id\":\"2a6cf165-e0e4-414a-9a83-3210b1ab5bb7\",\"class_id\":\"30000000-0000-0000-0000-000000000001\",\"status\":\"cancelled\"},\"items\":[{\"user_id\":\"00000000-0000-0000-0000-000000000107\",\"full_name\":\"",
+  "shot": "155-GET-sessions-id-results-200.png"
+ },
+ {
+  "i": 156,
+  "key": "PUT /sessions/{p1}/results",
+  "role": "coach",
+  "status": "409",
+  "text": "{\"code\":\"CONFLICT_STATE\",\"message\":\"That session was cancelled.\"}",
+  "shot": "156-PUT-sessions-id-results-409.png"
+ },
+ {
+  "i": 157,
+  "key": "GET /students/{p1}/profile",
+  "role": "manager",
+  "status": "200",
+  "text": "{\"student\":{\"id\":\"00000000-0000-0000-0000-000000000138\",\"full_name\":\"Bui Minh Khanh\",\"member_code\":\"A3-2026-0038\",\"date_of_birth\":\"1993-10-18\",\"health_notes\":null},\"goal\":\"compete\",\"levels\":[{\"sport\":",
+  "shot": "157-GET-students-id-profile-200.png"
+ },
+ {
+  "i": 158,
+  "key": "PUT /students/{p1}/level",
+  "role": "manager",
+  "status": "200",
+  "text": "{\"sport\":\"badminton\",\"level\":\"intermediate\"}",
+  "shot": "158-PUT-students-id-level-200.png"
+ },
+ {
+  "i": 159,
+  "key": "POST /students/{p1}/notes",
+  "role": "manager",
+  "status": "201",
+  "text": "{\"id\":\"6cc39403-7d8e-415e-a735-653d5ac5e096\",\"body\":\"Tiến bộ footwork\",\"created_at\":\"2026-11-17T12:34:11.338Z\"}",
+  "shot": "159-POST-students-id-notes-201.png"
+ },
+ {
+  "i": 160,
+  "key": "POST /students/{p1}/reviews",
+  "role": "manager",
+  "status": "201",
+  "text": "{\"id\":\"54c1ab6c-50de-4b56-8706-07be95692132\",\"created_at\":\"2026-11-17T12:34:13.123Z\"}",
+  "shot": "160-POST-students-id-reviews-201.png"
+ },
+ {
+  "i": 161,
+  "key": "GET /homework",
+  "role": "coach",
+  "status": "200",
+  "text": "{\"items\":[{\"id\":\"3edd1e90-73f1-4eae-a510-106492a41522\",\"title\":\"Core plank routine\",\"body\":\"Do this twice before the next session. (seed-0023)\",\"checklist\":[\"Warm up 5 minutes\",\"Main set\",\"Cool down a",
+  "shot": "161-GET-homework-200.png"
+ },
+ {
+  "i": 162,
+  "key": "POST /homework",
+  "role": "coach",
+  "status": "201",
+  "text": "{\"id\":\"aca5ed36-0243-47dd-8438-1367aafb6a7f\",\"recipients\":14}",
+  "shot": "162-POST-homework-201.png"
+ },
+ {
+  "i": 163,
+  "key": "GET /me/training",
+  "role": "member",
+  "status": "200",
+  "text": "{\"goal\":\"fun\",\"levels\":[{\"sport\":\"badminton\",\"level\":\"intermediate\",\"updated_at\":\"2026-11-17T12:29:06.348Z\"}],\"next_sessions\":[{\"id\":\"e82f8b19-edf3-4e2b-b309-8ec440d65295\",\"class_id\":\"30000000-0000-00",
+  "shot": "163-GET-me-training-200.png"
+ },
+ {
+  "i": 164,
+  "key": "PUT /me/training-goal",
+  "role": "member",
+  "status": "200",
+  "text": "{\"goal\":\"compete\"}",
+  "shot": "164-PUT-me-training-goal-200.png"
+ },
+ {
+  "i": 165,
+  "key": "GET /me/homework",
+  "role": "member",
+  "status": "200",
+  "text": "{\"items\":[{\"id\":\"98150a53-a82c-4828-b1b8-1968ee757eee\",\"title\":\"Footwork ladder x3\",\"body\":\"Do this twice before the next session. (seed-0023)\",\"checklist\":[\"Warm up 5 minutes\",\"Main set\",\"Cool down a",
+  "shot": "165-GET-me-homework-200.png"
+ },
+ {
+  "i": 166,
+  "key": "PUT /me/homework/{p2}",
+  "role": "member",
+  "status": "200",
+  "text": "{\"done_items\":[],\"completed\":false}",
+  "shot": "166-PUT-me-homework-id-200.png"
+ },
+ {
+  "i": 167,
+  "key": "POST /desk/gate-checkin",
+  "role": "receptionist",
+  "status": "200",
+  "text": "{\"member\":{\"id\":\"00000000-0000-0000-0000-000000000107\",\"full_name\":\"Bùi Gia Bảo\",\"member_code\":\"A3-2026-0007\"},\"allowed\":false,\"needs_override\":true,\"duplicate\":false,\"checked_in_at\":null,\"warnings\":[",
+  "shot": "167-POST-desk-gate-checkin-200.png"
+ },
+ {
+  "i": 168,
+  "key": "POST /desk/scan",
+  "role": "receptionist",
+  "status": "422",
+  "text": "{\"code\":\"BR_VIOLATION\",\"message\":\"That code is not valid.\",\"br\":\"BR-30\",\"field\":\"token\"}",
+  "shot": "168-POST-desk-scan-422.png"
+ },
+ {
+  "i": 169,
+  "key": "GET /desk/checkin-qr",
+  "role": "receptionist",
+  "status": "200",
+  "text": "{\"enabled\":true,\"token\":\"***\",\"expires_at\":\"2026-11-17T12:35:00.000Z\",\"ttl_seconds\":30}",
+  "shot": "169-GET-desk-checkin-qr-200.png"
+ },
+ {
+  "i": 170,
+  "key": "GET /desk/gate-checkins",
+  "role": "receptionist",
+  "status": "200",
+  "text": "{\"items\":[],\"total\":0,\"limit\":100,\"offset\":0}",
+  "shot": "170-GET-desk-gate-checkins-200.png"
+ },
+ {
+  "i": 171,
+  "key": "GET /me/checkin-token",
+  "role": "member",
+  "status": "200",
+  "text": "{\"token\":\"***\",\"expires_at\":\"2026-11-17T12:35:33.000Z\",\"ttl_seconds\":60,\"member_code\":\"A3-2026-0007\",\"full_name\":\"Bùi Gia Bảo\"}",
+  "shot": "171-GET-me-checkin-token-200.png"
+ },
+ {
+  "i": 172,
+  "key": "GET /me/bookings/{p2}/checkin-token",
+  "role": "member",
+  "status": "409",
+  "text": "{\"code\":\"CONFLICT_STATE\",\"message\":\"Only a confirmed booking has a check-in code.\"}",
+  "shot": "172-GET-me-bookings-id-checkin-token-409.png"
+ },
+ {
+  "i": 173,
+  "key": "POST /me/self-checkin",
+  "role": "member",
+  "status": "422",
+  "text": "{\"code\":\"BR_VIOLATION\",\"message\":\"That code is not valid.\",\"br\":\"BR-30\",\"field\":\"token\"}",
+  "shot": "173-POST-me-self-checkin-422.png"
+ },
+ {
+  "i": 174,
+  "key": "GET /promotions",
+  "role": "manager",
+  "status": "200",
+  "text": "{\"items\":[{\"id\":\"876edc78-ebc8-4791-b6bd-a6ed895f0cf8\",\"code\":\"DIEM202611170001\",\"name\":\"Đổi 100 điểm\",\"kind\":\"amount\",\"value\":10000,\"max_discount_vnd\":null,\"min_order_vnd\":0,\"starts_at\":\"2026-11-17T1",
+  "shot": "174-GET-promotions-200.png"
+ },
+ {
+  "i": 175,
+  "key": "POST /promotions/validate",
+  "role": "manager",
+  "status": "422",
+  "text": "{\"code\":\"BR_VIOLATION\",\"message\":\"That code is not valid.\",\"br\":\"BR-40\",\"field\":\"promo_code\",\"promo_code\":\"TET2026\"}",
+  "shot": "175-POST-promotions-validate-422.png"
+ },
+ {
+  "i": 176,
+  "key": "POST /promotions",
+  "role": "manager",
+  "status": "400",
+  "text": "{\"code\":\"VALIDATION\",\"message\":\"Pick plans, courts or classes.\",\"field\":\"applies_to\"}",
+  "shot": "176-POST-promotions-400.png"
+ },
+ {
+  "i": 177,
+  "key": "PATCH /promotions/{p1}",
+  "role": "manager",
+  "status": "200",
+  "text": "{\"promo\":{\"id\":\"a4ef68ac-46a2-4b0a-91d4-1e0420402b9e\",\"code\":\"TET2026\",\"name\":\"Tet campaign (paused)\",\"kind\":\"percent\",\"value\":20,\"max_discount_vnd\":100000,\"min_order_vnd\":0,\"starts_at\":\"2027-01-16T12",
+  "shot": "177-PATCH-promotions-id-200.png"
+ },
+ {
+  "i": 178,
+  "key": "GET /promotions/{p1}/redemptions",
+  "role": "manager",
+  "status": "200",
+  "text": "{\"items\":[]}",
+  "shot": "178-GET-promotions-id-redemptions-200.png"
+ },
+ {
+  "i": 179,
+  "key": "POST /assistant",
+  "role": "member",
+  "status": "200",
+  "text": "{\"reply\":\"Lê Long Sport mở cửa từ 06:00 đến 22:00 ICT mỗi ngày.\",\"source\":\"gemini\"}",
+  "shot": "179-POST-assistant-200.png"
+ },
+ {
+  "i": 180,
+  "key": "GET /tickets/mine",
+  "role": "member",
+  "status": "200",
+  "text": "{\"items\":[],\"total\":0,\"limit\":50,\"offset\":0}",
+  "shot": "180-GET-tickets-mine-200.png"
+ },
+ {
+  "i": 181,
+  "key": "GET /tickets",
+  "role": "manager",
+  "status": "200",
+  "text": "{\"items\":[{\"id\":\"0328642b-c283-432d-9914-83a621595d28\",\"body\":\"The shower on the ground floor has no hot water.\",\"status\":\"open\",\"created_at\":\"2026-11-13T13:29:06.348Z\",\"reply\":null,\"replied_at\":null,",
+  "shot": "181-GET-tickets-200.png"
+ },
+ {
+  "i": 182,
+  "key": "POST /tickets",
+  "role": "member",
+  "status": "201",
+  "text": "{\"id\":\"7d8a289b-92a8-47c1-b028-e0492a0a4166\",\"user_id\":\"00000000-0000-0000-0000-000000000107\",\"body\":\"Đèn sân 2 nhấp nháy\",\"status\":\"open\",\"created_at\":\"2026-11-17T12:34:52.586Z\",\"reply\":null,\"replied",
+  "shot": "182-POST-tickets-201.png"
+ },
+ {
+  "i": 183,
+  "key": "POST /tickets/{p1}/reply",
+  "role": "manager",
+  "status": "200",
+  "text": "{\"ticket\":{\"id\":\"7d8a289b-92a8-47c1-b028-e0492a0a4166\",\"user_id\":\"00000000-0000-0000-0000-000000000107\",\"body\":\"Đèn sân 2 nhấp nháy\",\"status\":\"closed\",\"created_at\":\"2026-11-17T12:34:52.586Z\",\"reply\":\"",
+  "shot": "183-POST-tickets-id-reply-200.png"
+ },
+ {
+  "i": 184,
+  "key": "POST /tickets/{p1}/close",
+  "role": "manager",
+  "status": "200",
+  "text": "{\"ok\":true}",
+  "shot": "184-POST-tickets-id-close-200.png"
+ },
+ {
+  "i": 185,
+  "key": "GET /bank-transfer",
+  "role": "manager",
+  "status": "200",
+  "text": "{\"configured\":false}",
+  "shot": "185-GET-bank-transfer-200.png"
+ },
+ {
+  "i": 186,
+  "key": "GET /flags",
+  "role": "manager",
+  "status": "200",
+  "text": "{\"venue\":{\"open_time\":\"06:00:00\",\"close_time\":\"22:00:00\",\"hold_minutes\":5},\"flags\":{\"F4\":true,\"F5\":true,\"F6\":true,\"DEMO_FILL\":true},\"ui\":{\"nav\":{\"member\":[{\"to\":\"/app\",\"dock\":true},{\"to\":\"/app/book\",\"",
+  "shot": "186-GET-flags-200.png"
+ },
+ {
+  "i": 187,
+  "key": "PATCH /flags",
+  "role": "manager",
+  "status": "200",
+  "text": "{\"venue\":{\"open_time\":\"06:00:00\",\"close_time\":\"22:00:00\",\"hold_minutes\":5},\"flags\":{\"F4\":true,\"F5\":true,\"F6\":true,\"DEMO_FILL\":true},\"ui\":{\"nav\":{\"member\":[{\"to\":\"/app\",\"dock\":true},{\"to\":\"/app/book\",\"",
+  "shot": "187-PATCH-flags-200.png"
+ },
+ {
+  "i": 188,
+  "key": "DELETE /payments",
+  "role": "member",
+  "status": "403",
+  "text": "{\"code\":\"FORBIDDEN\",\"message\":\"Payments cannot be deleted — issue a refund instead.\"}",
+  "shot": "188-DELETE-payments-403.png"
+ },
+ {
+  "i": 189,
+  "key": "GET /manager/site-assets/library",
+  "role": "manager",
+  "status": "200",
+  "text": "{\"items\":[{\"id\":\"lib-coach-avatar-01\",\"path\":\"library/coach/avatar-01.jpg\",\"kind\":\"image\",\"category\":\"coach\",\"tags\":[\"coach\",\"avatar\"],\"width\":600,\"height\":400,\"alt_en\":\"Coach avatar candidate: tennis",
+  "shot": "189-GET-manager-site-assets-library-200.png"
+ },
+ {
+  "i": 190,
+  "key": "GET /manager/site-assets",
+  "role": "manager",
+  "status": "200",
+  "text": "{\"items\":[{\"slot\":\"auth.login.image\",\"kind\":\"image\",\"url\":\"/media/library/facility/facility-arena-grandstand-hall.jpg\",\"default_path\":\"/media/library/facility/facility-arena-grandstand-hall.jpg\",\"alt_",
+  "shot": "190-GET-manager-site-assets-200.png"
+ },
+ {
+  "i": 191,
+  "key": "POST /manager/site-assets/upload",
+  "role": "manager",
+  "status": "422",
+  "text": "{\"code\":\"VALIDATION\",\"message\":\"Image file or media_path is required\",\"field\":\"file\"}",
+  "shot": "191-POST-manager-site-assets-upload-422.png"
+ },
+ {
+  "i": 192,
+  "key": "PUT /manager/site-assets/{p2}",
+  "role": "manager",
+  "status": "422",
+  "text": "{\"code\":\"VALIDATION\",\"message\":\"Image file or media_path is required\",\"field\":\"file\"}",
+  "shot": "192-PUT-manager-site-assets-id-422.png"
+ },
+ {
+  "i": 193,
+  "key": "PATCH /manager/site-assets/{p2}",
+  "role": "manager",
+  "status": "200",
+  "text": "{\"ok\":true,\"version\":2}",
+  "shot": "193-PATCH-manager-site-assets-id-200.png"
+ },
+ {
+  "i": 194,
+  "key": "POST /manager/site-assets/{p2}/revert",
+  "role": "manager",
+  "status": "400",
+  "text": "{\"code\":\"VALIDATION\",\"message\":\"No history to revert to\",\"field\":\"slot\"}",
+  "shot": "194-POST-manager-site-assets-id-revert-400.png"
+ },
+ {
+  "i": 195,
+  "key": "POST /manager/site-assets/{p2}/reset",
+  "role": "manager",
+  "status": "200",
+  "text": "{\"ok\":true,\"version\":3}",
+  "shot": "195-POST-manager-site-assets-id-reset-200.png"
+ },
+ {
+  "i": 196,
+  "key": "GET /manager/courts",
+  "role": "manager",
+  "status": "200",
+  "text": "{\"items\":[{\"id\":\"10000000-0000-0000-0000-000000000011\",\"court_code\":\"BC-01\",\"sport\":\"volleyball\",\"status\":\"ready\",\"display_name\":null,\"sort_order\":null,\"retired_at\":null,\"upcoming_bookings\":72,\"active",
+  "shot": "196-GET-manager-courts-200.png"
+ },
+ {
+  "i": 197,
+  "key": "POST /manager/courts",
+  "role": "manager",
+  "status": "201",
+  "text": "{\"court\":{\"id\":\"7e17bc72-fe10-4053-8364-d1a26fad6f82\",\"court_code\":\"DM-01\",\"sport\":\"badminton\",\"status\":\"ready\",\"display_name\":\"Sân Demo\",\"sort_order\":null,\"retired_at\":null}}",
+  "shot": "197-POST-manager-courts-201.png"
+ },
+ {
+  "i": 198,
+  "key": "PATCH /manager/courts/{p2}",
+  "role": "manager",
+  "status": "200",
+  "text": "{\"court\":{\"id\":\"10000000-0000-0000-0000-000000000011\",\"court_code\":\"BC-01\",\"sport\":\"volleyball\",\"status\":\"maintenance\",\"display_name\":null,\"sort_order\":null,\"retired_at\":null},\"upcoming\":74}",
+  "shot": "198-PATCH-manager-courts-id-200.png"
+ },
+ {
+  "i": 199,
+  "key": "POST /manager/courts/{p2}/retire",
+  "role": "manager",
+  "status": "409",
+  "text": "{\"code\":\"CONFLICT_STATE\",\"message\":\"Cannot retire court with upcoming bookings or sessions.\",\"affected\":[{\"kind\":\"booking\",\"start_at\":\"2026-11-17T13:00:00.000Z\",\"end_at\":\"2026-11-17T14:00:00.000Z\",\"de",
+  "shot": "199-POST-manager-courts-id-retire-409.png"
+ },
+ {
+  "i": 200,
+  "key": "POST /manager/courts/{p2}/restore",
+  "role": "manager",
+  "status": "422",
+  "text": "{\"code\":\"VALIDATION\",\"message\":\"Court is not retired.\"}",
+  "shot": "200-POST-manager-courts-id-restore-422.png"
+ },
+ {
+  "i": 201,
+  "key": "GET /manager/sports",
+  "role": "manager",
+  "status": "200",
+  "text": "{\"items\":[{\"code\":\"all\",\"name_en\":\"All sports\",\"name_vi\":\"Tất cả bộ môn\",\"court_prefix\":null,\"color_key\":\"slate\",\"glyph_key\":\"generic\",\"is_scope_all\":true,\"max_players\":4,\"slot_duration_min\":60,\"sort_",
+  "shot": "201-GET-manager-sports-200.png"
+ },
+ {
+  "i": 202,
+  "key": "POST /manager/sports",
+  "role": "manager",
+  "status": "201",
+  "text": "{\"ok\":true,\"sport\":{\"code\":\"pickleball\",\"name_en\":\"Pickleball\",\"name_vi\":\"Pickleball\",\"court_prefix\":\"PK\",\"color_key\":\"leaf\",\"glyph_key\":\"generic\",\"is_scope_all\":false,\"max_players\":4,\"slot_duration_m",
+  "shot": "202-POST-manager-sports-201.png"
+ },
+ {
+  "i": 203,
+  "key": "PATCH /manager/sports/{p2}",
+  "role": "manager",
+  "status": "200",
+  "text": "{\"ok\":true,\"sport\":{\"code\":\"pickleball\",\"name_en\":\"Pickleball\",\"name_vi\":\"Bóng Pickleball\",\"court_prefix\":\"PK\",\"color_key\":\"leaf\",\"glyph_key\":\"generic\",\"is_scope_all\":false,\"max_players\":4,\"slot_durat",
+  "shot": "203-PATCH-manager-sports-id-200.png"
+ },
+ {
+  "i": 204,
+  "key": "POST /manager/sports/{p2}/retire",
+  "role": "manager",
+  "status": "200",
+  "text": "{\"ok\":true,\"sport\":{\"code\":\"pickleball\",\"name_en\":\"Pickleball\",\"name_vi\":\"Bóng Pickleball\",\"court_prefix\":\"PK\",\"color_key\":\"leaf\",\"glyph_key\":\"generic\",\"is_scope_all\":false,\"max_players\":4,\"slot_durat",
+  "shot": "204-POST-manager-sports-id-retire-200.png"
+ },
+ {
+  "i": 205,
+  "key": "POST /manager/sports/{p2}/restore",
+  "role": "manager",
+  "status": "200",
+  "text": "{\"ok\":true,\"sport\":{\"code\":\"pickleball\",\"name_en\":\"Pickleball\",\"name_vi\":\"Bóng Pickleball\",\"court_prefix\":\"PK\",\"color_key\":\"leaf\",\"glyph_key\":\"generic\",\"is_scope_all\":false,\"max_players\":4,\"slot_durat",
+  "shot": "205-POST-manager-sports-id-restore-200.png"
+ },
+ {
+  "i": 206,
+  "key": "DELETE /manager/sports/{p2}",
+  "role": "manager",
+  "status": "200",
+  "text": "{\"ok\":true,\"deleted\":\"pickleball\"}",
+  "shot": "206-DELETE-manager-sports-id-200.png"
+ },
+ {
+  "i": 207,
+  "key": "POST /auth/logout",
+  "role": "member2",
+  "status": "204",
+  "text": "",
+  "shot": "207-POST-auth-logout-204.png"
+ },
+ {
+  "i": 208,
+  "key": "POST /me/password",
+  "role": "member",
+  "status": "422",
+  "text": "{\"code\":\"VALIDATION\",\"message\":\"That is not your current password.\",\"field\":\"current_password\"}",
+  "shot": "208-POST-me-password-422.png"
+ },
+ {
+  "i": 209,
+  "key": "POST /me/sessions/sign-out-others",
+  "role": "member",
+  "status": "200",
+  "text": "{\"signed_out\":0}",
+  "shot": "209-POST-me-sessions-sign-out-others-200.png"
+ },
+ {
+  "i": 210,
+  "key": "POST /shifts/{p1}/close",
+  "role": "receptionist",
+  "status": "200",
+  "text": "{\"ok\":true,\"cash_declared_vnd\":0,\"cash_system_vnd\":0}",
+  "shot": "210-POST-shifts-id-close-200.png"
+ }
+]
