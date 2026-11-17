@@ -1,3 +1,8 @@
+/**
+ * Tuyến đường (route) giao diện danh sách lớp học thể thao (/app/classes) dành cho hội viên.
+ * Vai trò trong ứng dụng: Cho phép hội viên tra cứu, lọc lịch học theo môn, HLV, ca tập; xem chi tiết lớp;
+ * nhận suất từ danh sách chờ (waitlist); giữ chỗ (hold), thanh toán học phí và quản lý trạng thái tham gia.
+ */
 import { createFileRoute } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { Cover, MediaCaption, sportPhoto } from "@/client/components/media";
@@ -16,14 +21,31 @@ import { HighlightBadge } from "@/client/lib/use-live";
 import { useMemberClasses, type Cl } from "@/client/lib/pages/app.classes";
 
 
+/**
+ * Làm gì: Định nghĩa route cho trang danh sách lớp học của hội viên (/app/classes), xác thực query param sport từ URL.
+ * Được gọi ở: TanStack Router tại URL `/app/classes`.
+ * @returns Route object quản lý trang `/app/classes`.
+ */
 export const Route = createFileRoute("/app/classes")({
+  /**
+   * Làm gì: Xác thực và chuẩn hóa query param sport từ URL, loại bỏ khoảng trắng thừa hoặc trả về undefined nếu rỗng.
+   * Được gọi ở: TanStack Router khi xử lý search params cho route `/app/classes`.
+   * @param s Record chứa các query params thô từ URL.
+   * @returns Object chứa thuộc tính sport đã chuẩn hóa hoặc undefined.
+   */
   validateSearch: (s: Record<string, unknown>): { sport?: string } => ({
     sport: typeof s.sport === "string" && s.sport.trim() ? s.sport.trim() : undefined,
   }),
   component: Page,
 });
 
+/**
+ * Làm gì: Component trang chính hiển thị danh sách lớp học thể thao cho hội viên, hỗ trợ tìm kiếm/lọc, nhận suất chờ, giữ chỗ và đăng ký học.
+ * Được gọi ở: Thuộc tính component của Route tại URL `/app/classes`.
+ * @returns JSX Element giao diện trang lớp học hội viên bọc trong Shell role="member".
+ */
 function Page() {
+  // Bước 1: Khởi tạo dữ liệu lớp học, trạng thái đăng ký cá nhân, thông báo waitlist và các hàm xử lý từ hook useMemberClasses.
   const {
     items, mine, offers, failure, sport, setSport, load, sports, setLimit, detail, setDetail,
     coach, setCoach, day, setDay, part, setPart, coachNames, matching, shown, byClass, leaving,
@@ -31,6 +53,7 @@ function Page() {
     leaveBusy, seatBusy, askTransfer, releaseSeat, leave,
   } = useMemberClasses(Route.useSearch);
 
+  // Bước 2: Render giao diện hội viên gồm banner thống kê, thông báo mở suất từ waitlist, bộ lọc tìm kiếm và danh sách thẻ lớp học.
   return (
     <Shell role="member">
       <PageHero
@@ -74,6 +97,7 @@ function Page() {
               <Button
                 size="sm"
                 onClick={async () => {
+                  // Chấp nhận suất học từ waitlist: nếu thành công sẽ ghi danh ngay (confirmed) hoặc chuyển sang giữ chỗ (hold) chờ thanh toán.
                   try {
                     const r = await apiPost<{ status?: string }>(`/waitlist/${o.id}/accept`);
                     toast.success(
@@ -146,11 +170,13 @@ function Page() {
       ) : (
         <Stagger className="grid gap-3 md:grid-cols-2" gap={0.07}>
           {shown.map((c) => {
+            // Tính toán trạng thái sĩ số đầy (full) và tỷ lệ phần trăm lấp đầy (pct) để hiển thị thanh tiến độ trực quan.
             const full = c.enrolled_count >= c.capacity;
             const pct = Math.min(100, Math.round((c.enrolled_count / Math.max(1, c.capacity)) * 100));
             // The minimum only flags the class (it still runs); the bar marks how far it is from that number.
             const short = c.min_enrolled ? Math.max(0, c.min_enrolled - c.enrolled_count) : 0;
             const minPct = c.min_enrolled ? Math.min(100, (c.min_enrolled / Math.max(1, c.capacity)) * 100) : null;
+            // Lấy thông tin đăng ký của hội viên cho lớp này và kiểm tra xem có suất đang giữ chỗ (holding) còn hạn hay không.
             const enr = byClass[c.id];
             const mineHere = c.my_enrollment;
             const holding = mineHere?.status === "hold" && !!mineHere.hold_until ? mineHere : null;
@@ -277,6 +303,7 @@ function Page() {
                     </div>
                   ) : enr?.status === "confirmed" ? (
                     (() => {
+                      // Kiểm tra thời hạn được phép rời lớp: nếu đã qua mốc leave_until (sát giờ bắt đầu buổi học) thì khóa nút, yêu cầu hội viên liên hệ quầy lễ tân.
                       const locked = !!enr.leave_until && Date.now() >= new Date(enr.leave_until).getTime();
                       return (
                         <div className="grid gap-2">
@@ -321,6 +348,7 @@ function Page() {
                             variant={full ? "outline" : "primary"}
                             disabled={c.price_vnd == null || enrolBusy}
                             onClick={() => {
+                              // Đặt lại mã ưu đãi và xử lý đăng ký: nếu lớp đã đầy thì ghi danh vào danh sách chờ (waitlist), ngược lại lấy báo giá học phí để mở modal đăng ký.
                               setEnrolCode("");
                               void (full ? enrol(c) : openQuote(c));
                             }}
@@ -460,12 +488,30 @@ function Page() {
   );
 }
 
+/**
+ * Làm gì: Modal hiển thị toàn bộ thông tin chi tiết của một lớp học thể thao (mô tả, HLV, sân tập, lịch học, số chỗ còn lại, thời gian khóa học, học phí, đối tượng phù hợp, giáo trình từng buổi và dụng cụ cần mang).
+ * Được gọi ở: src/routes/app.classes.tsx (component Page, khi người dùng nhấn nút "Class details" trên thẻ lớp học).
+ * @param props Đối tượng props của component:
+ *   - cls: Thông tin lớp học được chọn (đối tượng Cl), hoặc null nếu modal đang đóng.
+ *   - onClose: Callback đóng modal khi bấm nút Đóng hoặc click ra ngoài.
+ * @returns JSX Element chứa Modal chi tiết lớp học hoặc null nếu không có lớp nào được chọn.
+ */
 /** Everything a member needs to decide on a class before enrolling: what it is, who it suits, what each session covers. */
 function ClassDetailModal({ cls, onClose }: { cls: Cl | null; onClose: () => void }) {
+  // Bước 1: Chuẩn bị dữ liệu hiển thị: giáo trình (syllabus), hàm định dạng ngày tháng và số chỗ còn trống.
   const c = cls;
+  // Tách nội dung giáo trình theo từng dòng, loại bỏ khoảng trắng và dòng trống để hiển thị danh sách bài học có đánh số thứ tự.
   const lines = (c?.syllabus ?? "").split("\n").map((l) => l.trim()).filter(Boolean);
+  /**
+   * Làm gì: Định dạng chuỗi ngày (YYYY-MM-DD) sang định dạng ngày tháng hiển thị theo ngôn ngữ hiện tại của người dùng (vi-VN hoặc en-GB).
+   * Được gọi ở: Nội bộ component ClassDetailModal (dòng 508 khi hiển thị ngày bắt đầu và kết thúc khóa học).
+   * @param d Chuỗi ngày định dạng YYYY-MM-DD (hoặc undefined).
+   * @returns Chuỗi ngày tháng đã định dạng (ví dụ: "15 thg 11, 2026") hoặc chuỗi rỗng nếu d không tồn tại.
+   */
   const dateFmt = (d?: string) => (d ? new Date(`${d}T00:00:00`).toLocaleDateString(locale() === "vi" ? "vi-VN" : "en-GB", { day: "numeric", month: "short", year: "numeric" }) : "");
+  // Tính số chỗ còn trống (không để âm nếu số người ghi danh vượt quá sức chứa) để hiển thị trạng thái còn chỗ hoặc đã đầy.
   const seats = c ? Math.max(0, c.capacity - c.enrolled_count) : 0;
+  // Bước 2: Render giao diện modal chi tiết gồm mô tả lớp học, thông số chính (HLV, sân, thời gian, số chỗ, ngày học, học phí), đối tượng phù hợp, giáo trình và đồ cần mang.
   return (
     <Modal
       open={!!c}
