@@ -1128,7 +1128,7 @@ describe("training suggestions publish without manual edits", () => {
           }), coach);
           // Xác nhận cờ ai phản ánh đúng chế độ (true khi AI thành công, false khi fallback về mẫu do lỗi kết nối hoặc JSON hỏng)
           assert.equal(suggestion.body.ai, mode === "ai");
-          const { payload } = suggestion.body;
+          const payload = suggestion.body.payload!;
           // Bước 4: Xác thực các block bài tập đã được chuẩn hóa (pha đầu là warm-up, pha cuối là cool-down, giới hạn độ dài ký tự)
           assert.equal(payload.blocks[0].phase, "warm-up");
           assert.equal(payload.blocks.at(-1)!.phase, "cool-down");
