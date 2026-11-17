@@ -1,19 +1,34 @@
+/**
+ * File: scripts/tests/test-desk-flows.mjs
+ * Vai trò: Bộ kịch bản kiểm thử E2E (Playwright) tự động cho phân hệ Bàn lễ tân (Front Desk / Receptionist - S14 đến S22).
+ * Mục đích: Kiểm tra tự động các màn hình nghiệp vụ lễ tân (mở/đóng ca, tìm kiếm hội viên, check-in cổng, sơ đồ sân, hàng đợi thanh toán, thuê dụng cụ và hồ sơ hội viên) trong hệ thống quản lý trung tâm thể thao Arena 3.
+ */
 import {
   BASE,
   createRolePage,
   TestCollector,
 } from "./test-helper.mjs";
 
+/**
+ * Làm gì: Chạy toàn bộ các ca kiểm thử E2E tương tác cho phân hệ Bàn lễ tân (Front Desk - S14 đến S22), xác thực giao diện và các hành vi nghiệp vụ của Lễ tân.
+ * Được gọi ở: scripts/tests/run-all-interactive-tests.mjs trong hàm runAllInteractiveTests
+ * - Tham số browser: Đối tượng Browser của Playwright dùng để khởi tạo ngữ cảnh và trang kiểm thử
+ * @returns {Promise<Object>} Báo cáo tổng hợp kết quả kiểm thử (suiteName, total, passed, failed, results) từ TestCollector
+ * @throws {Error} Ném ra lỗi nếu khởi tạo phiên đăng nhập lễ tân hoặc kết nối trình duyệt thất bại
+ */
 export async function runDeskFlowTests(browser) {
+  // Bước 1: Khởi tạo bộ thu thập kết quả kiểm thử và tạo phiên làm việc với vai trò lễ tân (receptionist), tự động lưu token và thông tin người dùng vào localStorage.
   const collector = new TestCollector("Section 3: Front Desk / Receptionist (S14–S22)");
   const { context, page, session } = await createRolePage(browser, "receptionist");
 
   try {
+    // Bước 2: Kiểm thử màn hình Trang chủ Bàn lễ tân (S14: /desk) gồm kiểm tra ca làm việc, ô tìm kiếm nhanh và wizard tạo hội viên.
     // ==========================================
     // S14: DESK HOME (/desk)
     // ==========================================
     console.log("\n--- Testing S14: Desk Home (/desk) ---");
     await page.goto(`${BASE}/desk`, { waitUntil: "networkidle" });
+    // Chờ 1 giây để giao diện trang chủ lễ tân tải hoàn tất dữ liệu trạng thái ca và ổn định các component.
     await page.waitForTimeout(1000);
 
     // 1. Shift Open/Close Toggle Button
@@ -26,6 +41,7 @@ export async function runDeskFlowTests(browser) {
         page,
       },
       async () => {
+        // Xác minh giao diện hiển thị ít nhất một trong hai: nút hành động đổi trạng thái ca (Mở/Đóng ca) hoặc huy hiệu báo ca đang mở.
         const shiftBtn = page.locator('button:has-text("Open shift"), button:has-text("Mở ca"), button:has-text("Close shift"), button:has-text("Đóng ca")').first();
         const shiftBadge = page.locator('text=/Shift open|Ca mở/i').first();
         const hasBtn = await shiftBtn.isVisible();
@@ -48,6 +64,7 @@ export async function runDeskFlowTests(browser) {
       async () => {
         const searchInput = page.locator('input[placeholder*="Search"], input[placeholder*="Tìm"], input[placeholder*="09"]').first();
         if (!(await searchInput.isVisible())) throw new Error("Member search input not visible on /desk");
+        // Nhập tên hội viên và chờ 1.2 giây để kích hoạt cơ chế tìm kiếm (debounce) hiển thị danh sách kết quả.
         await searchInput.fill("Nam");
         await page.waitForTimeout(1200);
         // Verify results or empty message rendered
@@ -69,6 +86,7 @@ export async function runDeskFlowTests(browser) {
       },
       async () => {
         const wizBtn = page.locator('button:has-text("New member"), button:has-text("Hội viên mới"), button:has-text("Đăng ký hội viên")').first();
+        // Nếu có nút đăng ký hội viên mới, bấm mở wizard và kiểm tra modal Step 1 hiển thị hợp lệ rồi đóng lại.
         if (await wizBtn.isVisible()) {
           await wizBtn.click();
           await page.waitForTimeout(600);
@@ -80,11 +98,13 @@ export async function runDeskFlowTests(browser) {
       }
     );
 
+    // Bước 3: Kiểm thử màn hình Check-in Cổng kiểm soát (S15: /desk/gate).
     // ==========================================
     // S15: GATE CHECK-IN (/desk/gate)
     // ==========================================
     console.log("\n--- Testing S15: Gate Check-in (/desk/gate) ---");
     await page.goto(`${BASE}/desk/gate`, { waitUntil: "networkidle" });
+    // Chờ 1 giây để trang quét cổng sẵn sàng nhận sự kiện quét mã hoặc nhập số điện thoại.
     await page.waitForTimeout(1000);
 
     // 4. Phone Input & Check-in Verification
@@ -97,6 +117,7 @@ export async function runDeskFlowTests(browser) {
         page,
       },
       async () => {
+        // Chuyển sang chế độ nhập số điện thoại thủ công khi hội viên không có mã QR, nhập số mẫu và gửi check-in.
         // Switch to manual mode
         const manualModeBtn = page.locator('button:has-text("Without a code"), button:has-text("Không có mã")').first();
         if (await manualModeBtn.isVisible()) {
@@ -110,6 +131,7 @@ export async function runDeskFlowTests(browser) {
         if (!(await checkinBtn.isVisible())) throw new Error("Check-in submit button not found");
         await checkinBtn.click();
         await page.waitForTimeout(1500);
+        // Chờ 1.5 giây để backend xử lý và kiểm tra huy hiệu trạng thái (cho phép vào cổng hoặc cảnh báo gói tập).
         // Expect result badge: Allowed / Check-in granted or Override dialog
         const resultBadge = page.locator('text=/Allowed|Được vào|Checked in|Đã vào|Override|Cảnh báo/i').first();
         if (!(await resultBadge.isVisible())) {
@@ -118,6 +140,7 @@ export async function runDeskFlowTests(browser) {
       }
     );
 
+    // Bước 4: Kiểm thử màn hình Sơ đồ sân thể thao (S16: /desk/courts).
     // ==========================================
     // S16: COURT MAP (/desk/courts)
     // ==========================================
@@ -135,6 +158,7 @@ export async function runDeskFlowTests(browser) {
         page,
       },
       async () => {
+        // Tìm các khung giờ còn trống trên lưới sơ đồ sân và nhấn vào một ô để kiểm tra modal đặt sân vãng lai (walk-in).
         const gridCells = page.locator('button[class*="slot"], button:has-text("Trống"), button:has-text("Free")');
         const count = await gridCells.count();
         if (count > 0) {
@@ -150,6 +174,7 @@ export async function runDeskFlowTests(browser) {
       }
     );
 
+    // Bước 5: Kiểm thử màn hình Quản lý thu phí & Thanh toán (S18: /desk/payments).
     // ==========================================
     // S18: BILLING & PAYMENTS (/desk/payments)
     // ==========================================
@@ -167,6 +192,7 @@ export async function runDeskFlowTests(browser) {
         page,
       },
       async () => {
+        // Chuyển đổi qua lại giữa các tab hàng đợi thanh toán để xác nhận tính năng lọc đơn (chuyển khoản, chờ tiền mặt, hoàn tiền).
         const tabs = page.locator('button[role="tab"], [class*="Seg"] button');
         const count = await tabs.count();
         if (count >= 2) {
@@ -178,6 +204,7 @@ export async function runDeskFlowTests(browser) {
       }
     );
 
+    // Bước 6: Kiểm thử màn hình Thuê dụng cụ tập luyện (S20: /desk/gear).
     // ==========================================
     // S20: GEAR RENTAL (/desk/gear)
     // ==========================================
@@ -195,6 +222,7 @@ export async function runDeskFlowTests(browser) {
         page,
       },
       async () => {
+        // Kiểm tra quy tắc nghiệp vụ: khi chọn tab 'Khách vãng lai', ô số điện thoại phải trống (phòng ngừa lỗi regression B-12 gán cứng số mẫu).
         const guestTab = page.locator('button[role="tab"]:has-text("Guest"), button[role="tab"]:has-text("Khách")').first();
         if (await guestTab.isVisible()) {
           await guestTab.click();
@@ -211,11 +239,13 @@ export async function runDeskFlowTests(browser) {
       }
     );
 
+    // Bước 7: Kiểm thử màn hình Chi tiết hồ sơ hội viên (S21: /desk/member/$id).
     // ==========================================
     // S21: MEMBER PROFILE (/desk/member/$id)
     // ==========================================
     console.log("\n--- Testing S21: Member Profile (/desk/member/$id) ---");
     // Use demo member Nam (0901230101)
+    // Truy vấn API để lấy ID thực tế của hội viên mẫu theo số điện thoại; nếu không có kết quả thì dùng ID mặc định 'mem_demo'.
     const memRes = await fetch(`${BASE}/v1/members?q=0901230101`, {
       headers: { authorization: `Bearer ${session.token}` },
     }).then((r) => r.json()).catch(() => null);
@@ -234,6 +264,7 @@ export async function runDeskFlowTests(browser) {
         page,
       },
       async () => {
+        // Nhấn nút 'Sửa hồ sơ' để kiểm tra modal chỉnh sửa thông tin hội viên có hiển thị đúng hay không rồi đóng lại.
         const editBtn = page.locator('button:has-text("Edit profile"), button:has-text("Sửa hồ sơ"), button:has-text("Sửa")').first();
         if (await editBtn.isVisible()) {
           await editBtn.click();
@@ -258,6 +289,7 @@ export async function runDeskFlowTests(browser) {
         page,
       },
       async () => {
+        // Nhấn nút 'Đặt lại mật khẩu' để xác nhận modal hộp thoại cảnh báo hiển thị trước khi cấp lại mật khẩu cho hội viên.
         const resetBtn = page.locator('button:has-text("Reset password"), button:has-text("Đặt lại mật khẩu")').first();
         if (await resetBtn.isVisible()) {
           await resetBtn.click();
@@ -269,9 +301,11 @@ export async function runDeskFlowTests(browser) {
         }
       }
     );
+  // Bước 8: Dọn dẹp tài nguyên - luôn đóng browser context kể cả khi kiểm thử thành công hay gặp lỗi.
   } finally {
     await context.close();
   }
 
+  // Bước 9: Trả về báo cáo tổng kết chi tiết tất cả các ca kiểm thử thuộc Section 3 cho kịch bản chạy chính.
   return collector.summary();
 }
