@@ -1,3 +1,13 @@
+/**
+ * File: src/routes/forgot.tsx
+ * Vai trò: Định nghĩa route và giao diện trang Quên mật khẩu (/forgot) cho hội viên trong hệ thống Arena 3.
+ * Vị trí trong app:
+ * - URL: /forgot, được liên kết từ trang Đăng nhập (/login) khi người dùng bấm "Quên mật khẩu".
+ * - Luồng hoạt động gồm 2 bước:
+ *   + Bước 1: Nhập số điện thoại kèm Captcha để yêu cầu mã OTP gửi về email đã đăng ký.
+ *   + Bước 2: Nhập mã OTP và thiết lập mật khẩu mới (gửi xác thực qua API /auth/otp/verify).
+ * - Đảm bảo an toàn thông tin: không tiết lộ tài khoản có tồn tại hay không và che bớt địa chỉ email nhận mã.
+ */
 import { Captcha, useCaptcha } from "@/client/components/captcha";
 import { OtpInput, OtpResend } from "@/client/components/otp-input";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
@@ -28,10 +38,22 @@ import { t, tServer } from "@/client/lib/i18n";
  *    to open and not enough to hand a stranger an address.
  */
 
+/**
+ * Làm gì: Khai báo route /forgot trong hệ thống TanStack Router, liên kết URL /forgot với component Forgot.
+ * Được gọi ở: TanStack Router (src/routeTree.gen.ts, URL: /forgot); hội viên bấm liên kết từ src/routes/login.tsx.
+ * @returns Đối tượng Route cấu hình cho đường dẫn /forgot.
+ */
 export const Route = createFileRoute("/forgot")({ component: Forgot });
 
 /** Puts a styled node where a translated sentence has its single placeholder. */
 const SLOT = "";
+/**
+ * Làm gì: Chèn một React node vào vị trí ký tự phân tách SLOT (" ") trong chuỗi văn bản đã dịch.
+ * Được gọi ở: src/routes/forgot.tsx (trong component Forgot, hiển thị email che sentTo và mã demoOtp).
+ * @param text Chuỗi văn bản đã dịch có chứa ký tự phân tách SLOT.
+ * @param node ReactNode cần chèn vào vị trí giữa hai phần văn bản (thẻ span hiển thị email hoặc mã OTP).
+ * @returns Đoạn JSX Fragment chứa phần văn bản đầu, React node được tạo kiểu và phần văn bản cuối.
+ */
 const slot = (text: string, node: ReactNode) => {
   const [a, b] = text.split(SLOT);
   return (
@@ -43,10 +65,16 @@ const slot = (text: string, node: ReactNode) => {
   );
 };
 
+/**
+ * Làm gì: Component giao diện chính của trang Quên mật khẩu (/forgot), quản lý form 2 bước và xử lý logic khôi phục mật khẩu.
+ * Được gọi ở: src/routes/forgot.tsx (gán vào Route tại route /forgot).
+ * @returns Khung giao diện (JSX) trang Quên mật khẩu gồm Card, form chuyển bước mượt mà và các thông báo phản hồi.
+ */
 function Forgot() {
   const navigate = useNavigate();
   const captcha = useCaptcha();
   const [resendAt, setResendAt] = useState(0);
+  // Quản lý trạng thái form: bước hiện tại ('phone' hoặc 'reset'), thông tin SĐT, mã OTP và mật khẩu mới.
   const [step, setStep] = useState<"phone" | "reset">("phone");
   const [phone, setPhone] = useState("");
   const [sentTo, setSentTo] = useState<string | null>(null);
@@ -61,59 +89,92 @@ function Forgot() {
   // person reads twice.
   const [error, setError] = useState<{ message: string; field: string | null } | null>(null);
   /** For an input: marked invalid, and tied to the message, when the last attempt faulted it. */
+  /**
+   * Làm gì: Trả về thuộc tính trợ năng (aria-invalid, aria-describedby) cho input khi trường đó bị đánh dấu lỗi từ server.
+   * Được gọi ở: src/routes/forgot.tsx (trong component Forgot, gắn vào các trường Input phone, password, confirm).
+   * @param name Tên trường nhập liệu cần kiểm tra lỗi ('phone' | 'password' | 'confirm').
+   * @returns Object chứa thuộc tính aria nếu trường bị lỗi, hoặc object rỗng khi hợp lệ.
+   */
   const faulted = (name: string) =>
     error?.field === name ? ({ "aria-invalid": true, "aria-describedby": "forgot-error" } as const) : {};
 
+  // Kiểm tra mật khẩu nhập lại: chỉ báo lỗi mismatch khi người dùng đã bắt đầu gõ vào ô confirm.
   const mismatch = confirm.length > 0 && confirm !== password;
+  // Kiểm tra quy tắc mật khẩu (BR-02): tối thiểu 8 ký tự, phải bao gồm cả chữ cái và chữ số.
   const tooWeak =
     password.length > 0 && !(password.length >= 8 && /[A-Za-z]/.test(password) && /\d/.test(password));
 
+  /**
+   * Làm gì: Gửi yêu cầu cấp mã OTP khôi phục mật khẩu qua API /auth/password/forgot kèm số điện thoại và token Captcha.
+   * Được gọi ở: src/routes/forgot.tsx (sự kiện onSubmit của form bước 1 và callback onResend của component OtpResend ở bước 2).
+   * @param e Sự kiện FormEvent khi submit form (tùy chọn, không truyền khi bấm gửi lại mã).
+   * @returns Promise<void> cập nhật state sang bước 'reset' nếu thành công, hoặc lưu thông báo lỗi nếu thất bại.
+   */
   async function requestCode(e?: FormEvent) {
+    // Bước 1: Ngăn hành vi submit form mặc định, xóa lỗi cũ và bật trạng thái bận (busy).
     e?.preventDefault();
     setError(null);
     setBusy(true);
     try {
+      // Bước 2: Gọi API POST /auth/password/forgot gửi số điện thoại và token Captcha để yêu cầu mã OTP.
       const res = await apiPost<{ sent_to?: string | null; otp?: string }>("/auth/password/forgot", {
         phone, captcha_token: captcha.token, website: captcha.website,
       });
+      // Bước 3: Lưu email đã che (sent_to), mã OTP demo (nếu có) và chuyển giao diện sang bước 'reset'.
       setSentTo(res.sent_to ?? null);
       setDemoOtp(res.otp ?? null);
       setStep("reset");
       setOtp("");
+      // Đặt thời gian đếm ngược 60 giây trước khi cho phép gửi lại mã OTP (rate limiting phía client).
       setResendAt(Date.now() + 60_000);
     } catch (err) {
+      // Bước 4: Xử lý lỗi trả về từ API; ưu tiên thông báo được dịch từ server (tServer) và đánh dấu trường lỗi.
       setError({
         message: err instanceof Error ? tServer(err.message) : t("Could not send a code"),
         field: err instanceof ApiClientError ? (err.body.field ?? null) : null,
       });
     } finally {
+      // Bước 5: Luôn reset Captcha để làm mới token cho lần gửi tiếp theo và tắt trạng thái busy.
       captcha.reset();
       setBusy(false);
     }
   }
 
+  /**
+   * Làm gì: Xác thực mã OTP và cập nhật mật khẩu mới cho tài khoản hội viên qua API /auth/otp/verify.
+   * Được gọi ở: src/routes/forgot.tsx (sự kiện onSubmit của form bước 2 'reset').
+   * @param e Sự kiện FormEvent khi người dùng gửi form đặt lại mật khẩu.
+   * @returns Promise<void> điều hướng về /login nếu thành công, hoặc hiển thị lỗi nếu OTP sai / không hợp lệ.
+   */
   async function reset(e: FormEvent) {
+    // Bước 1: Ngăn submit mặc định và xóa thông báo lỗi trước đó.
     e.preventDefault();
     setError(null);
+    // Bước 2: Kiểm tra xác nhận mật khẩu ở client; nếu không khớp thì gán lỗi cho trường 'confirm' và dừng sớm.
     if (password !== confirm) {
       setError({ message: t("The two passwords do not match."), field: "confirm" });
       return;
     }
+    // Bước 3: Bật trạng thái bận (busy) và gọi API /auth/otp/verify để xác thực OTP và đổi mật khẩu mới.
     setBusy(true);
     try {
       await apiPost("/auth/otp/verify", { phone, otp, purpose: "reset", password });
+      // Bước 4: Đổi mật khẩu thành công: hiển thị thông báo toast và điều hướng hội viên sang trang đăng nhập (/login).
       toast.success(t("Password changed. Sign in with the new one."));
       void navigate({ to: "/login" });
     } catch (err) {
+      // Bước 5: Bắt lỗi nếu mã OTP sai, hết hạn hoặc mật khẩu không thỏa mãn quy tắc nghiệp vụ của server.
       setError({
         message: err instanceof Error ? tServer(err.message) : t("That code is not right"),
         field: err instanceof ApiClientError ? (err.body.field ?? null) : null,
       });
     } finally {
+      // Bước 6: Tắt trạng thái bận khi hoàn tất request (dù thành công hay thất bại).
       setBusy(false);
     }
   }
 
+  // Bước 7: Render giao diện: Card trung tâm chứa form 2 bước có hiệu ứng trượt (motion), nút đổi ngôn ngữ và liên kết đăng nhập.
   return (
     <main id="main-content" tabIndex={-1} className="mx-auto grid min-h-dvh max-w-md place-items-center px-4">
       <Card className="relative w-full p-6">

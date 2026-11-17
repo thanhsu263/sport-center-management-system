@@ -1,3 +1,8 @@
+/**
+ * File: src/routes/manager.audit.tsx
+ * Vai trò: Trang nhật ký kiểm toán (Audit Log) dành cho người quản lý (Manager).
+ * Vị trí trong app: Khai báo route "/manager/audit", hiển thị lịch sử thay đổi hệ thống theo thứ tự mới nhất trước; hỗ trợ lọc theo hành động, nhân sự, đối tượng, ngày tháng, từ khóa, xem chi tiết thay đổi (diff before/after) và ẩn dòng cục bộ.
+ */
 import { createFileRoute } from "@tanstack/react-router";
 import { SectionTitle } from "@/client/components/section";
 import { Shell } from "@/client/components/shell";
@@ -10,17 +15,29 @@ import { locale, t, tk } from "@/client/lib/i18n";
 import { useManagerAudit, selectCls, detail, changesOf, actionLabel, entityLabel, toneFor, when } from "@/client/lib/pages/manager.audit";
 
 
+/**
+ * Làm gì: Định nghĩa route TanStack Router cho trang kiểm toán của quản lý ("/manager/audit") và gắn component Page làm giao diện hiển thị.
+ * Được gọi ở: Hệ thống TanStack Router (được tổng hợp tự động vào src/routeTree.gen.ts); URL: /manager/audit.
+ * @returns Đối tượng cấu hình route của TanStack Router cho đường dẫn /manager/audit.
+ */
 export const Route = createFileRoute("/manager/audit")({
   component: Page,
 });
 
+/**
+ * Làm gì: Component trang chính hiển thị giao diện nhật ký kiểm toán, quản lý bộ lọc tìm kiếm, bảng danh sách hoạt động, xem chi tiết thay đổi dữ liệu và phân trang.
+ * Được gọi ở: Khai báo Route của trang (thuộc tính component của Route tại URL /manager/audit, dòng 14).
+ * @returns Khối JSX giao diện trang Audit Log được bọc trong layout Shell dành cho role manager.
+ */
 function Page() {
+  // Bước 1: Khởi tạo toàn bộ trạng thái trang (bộ lọc, phân trang, danh sách dòng ẩn, dữ liệu API) qua custom hook useManagerAudit.
   const {
     offset, setOffset, pageSize, setPageSize, reset, action, setAction, actor, setActor, entity,
     setEntity, from, setFrom, to, setTo, q, setQ, open, setOpen, raw, setRaw, hidden, showHidden,
     setShowHidden, choices, read, data, pick, hide, restoreAll, rows, hiddenHere, filtered,
   } = useManagerAudit();
 
+  // Bước 2: Render giao diện trang kiểm toán gồm thanh công cụ bộ lọc, thông báo dòng bị ẩn, danh sách thẻ hoạt động và phân trang.
   return (
     <Shell
       role="manager"
@@ -236,9 +253,19 @@ function Page() {
 }
 
 /** Field, old value, new value: only what the action changed. */
+/**
+ * Làm gì: Hiển thị danh sách các trường thay đổi giữa hai snapshot dữ liệu trước (before) và sau (after) của một bản ghi kiểm toán.
+ * Được gọi ở: Component Page trong src/routes/manager.audit.tsx (dòng 161).
+ * @param before Snapshot dữ liệu trước khi thực hiện hành động kiểm toán.
+ * @param after Snapshot dữ liệu sau khi thực hiện hành động kiểm toán.
+ * @returns Khối JSX (<dl>) biểu diễn sự khác biệt giữa hai snapshot, hoặc thông báo nếu không có thay đổi nào.
+ */
 function AuditChanges({ before, after }: { before: unknown; after: unknown }) {
+  // Bước 1: So sánh hai snapshot trước và sau để trích xuất danh sách các trường có sự thay đổi dữ liệu.
   const changes = changesOf(before, after);
+  // Nếu không phát hiện trường nào thay đổi, hiển thị thông báo không có chi tiết bổ sung.
   if (!changes.length) return <p className="text-muted">{t("No further details were recorded.")}</p>;
+  // Bước 2: Render danh sách mô tả (<dl>) hiển thị trực quan giá trị cũ bị gạch ngang và giá trị mới.
   return (
     <dl className="grid gap-1 rounded-[var(--radius-sm)] bg-wood p-2 sm:grid-cols-[minmax(8rem,auto)_1fr] sm:gap-x-4">
       {changes.map((c) => (
