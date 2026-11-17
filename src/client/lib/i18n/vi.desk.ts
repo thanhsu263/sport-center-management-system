@@ -187,6 +187,12 @@ export const desk: Record<string, string> = {
   "Take it back": "Nhận lại",
   "Nothing is out right now.": "Hiện không có gì đang cho thuê.",
   "No gear is listed yet": "Chưa có dụng cụ nào trong danh sách",
+  "Add gear": "Thêm dụng cụ",
+  "List a new item, for example for a sport you have just added.": "Thêm một dụng cụ mới, ví dụ cho môn bạn vừa tạo.",
+  "e.g. Squash racket": "VD: Vợt squash",
+  "Stock": "Tồn kho",
+  "Hire price (VND)": "Giá thuê (VND)",
+  "Gear added": "Đã thêm dụng cụ",
 
   // ── desk.index ──
   "Find a member, sell a plan, take payment — three moves.": "Tìm hội viên, bán gói tập, thu tiền, ba bước.",

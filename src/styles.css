@@ -1033,6 +1033,8 @@ html.shuttle-on [data-shuttle] { display: none; }
 :root[data-theme="light"] [class~="ring-accent/60"],
 :root[data-theme="light"] [class~="ring-accent/70"] { --tw-ring-color: rgb(95 154 28 / 0.5); }
 :root[data-theme="light"] .bg-accent .text-accent { color: var(--color-accent-fg); }
+/* An inverted chip or button on a lime card (dark fill, lime ink) keeps its lime ink: dark on dark vanishes. */
+:root[data-theme="light"] .bg-accent [class~="bg-accent-fg"].text-accent { color: var(--color-accent); }
 
 /* A quiet scrollbar for side rails: thin, no arrows, track invisible, thumb only shows on hover. */
 @utility scroll-quiet {

@@ -3,6 +3,14 @@
  * coach commission, maintenance tickets and e-invoice export.
  */
 export const ops: Record<string, string> = {
+  "Block this court?": "Đóng sân này?",
+  "{bookings} bookings will be cancelled. Refunds are collected in cash at the front desk. {sessions} class sessions need moving or cancelling by the manager and coach.": "Sẽ hủy {bookings} lượt đặt sân. Tiền hoàn được nhận bằng tiền mặt tại quầy. Quản lý và huấn luyện viên cần chuyển hoặc hủy {sessions} buổi học.",
+  "First affected start times": "Thời gian bắt đầu của các lịch bị ảnh hưởng đầu tiên",
+  "Class session": "Buổi học",
+  "Confirm court closure": "Xác nhận đóng sân",
+  "Reopen ticket": "Mở lại phiếu",
+  "Class session needs attention": "Buổi học cần xử lý",
+  "The court for the session on {when} is closed for maintenance. Move or cancel this session; it is still scheduled.": "Sân của buổi học lúc {when} đóng để bảo trì. Hãy chuyển hoặc hủy buổi học này; lịch học vẫn được giữ nguyên.",
   // ── cancel dialog
   "Cancel this booking?": "Hủy lượt đặt này?",
   "Keep it": "Giữ lại",
