@@ -1,3 +1,10 @@
+/**
+ * File: src/routes/app.train.tsx
+ * Vai trò: Route /app/train hiển thị trang tổng quan tiến độ tập luyện của hội viên (Member Training Progress).
+ * Nằm trong phân hệ luyện tập F4 (SRS v1.4 §FR-TRN), kết nối dữ liệu từ API /me/training.
+ * Cung cấp giao diện theo dõi mục tiêu, vòng hoạt động (ActivityRings), chuỗi ngày tập (WorkoutStreak),
+ * các buổi học sắp tới kèm giáo án, bài tập về nhà tương tác, nhận xét của HLV và kết quả các buổi gần nhất.
+ */
 import { createFileRoute } from "@tanstack/react-router";
 import { SectionTitle } from "@/client/components/section";
 import { sessionDay } from "@/client/components/class-detail";
@@ -15,14 +22,21 @@ import { useRead } from "@/client/lib/use-read";
 import { AddToCalendar } from "@/client/components/class-extras";
 import { CertificatesSection } from "@/client/components/member-certificates";
 
+/**
+ * Làm gì: Định nghĩa route /app/train trong TanStack Router cho trang theo dõi tiến độ luyện tập của hội viên.
+ * Được gọi ở: TanStack Router khi người dùng truy cập URL /app/train.
+ * @returns Route object cấu hình component hiển thị là Page.
+ */
 export const Route = createFileRoute("/app/train")({ component: Page });
 
+// Danh mục các mục tiêu tập luyện mà hội viên có thể lựa chọn (giảm cân, nâng cao kỹ thuật, thi đấu, giải trí).
 const GOALS: Record<string, string> = {
   weight: tk("Lose weight"),
   technique: tk("Improve technique"),
   compete: tk("Compete"),
   fun: tk("Have fun"),
 };
+// Bảng ánh xạ mã định danh chỉ số kỹ thuật buổi tập (smashes, free throws, serves in) sang nhãn hiển thị đa ngôn ngữ.
 const METRIC_LABEL: Record<string, string> = {
   smash_count: tk("Smashes"),
   freethrow_pct: tk("Free throws"),
@@ -36,6 +50,7 @@ type Plan = {
   payload: { goal?: string; blocks?: PlanBlock[]; note?: string };
 };
 
+// Kiểu dữ liệu phản hồi từ API GET /me/training chứa toàn bộ thông tin tiến độ của hội viên.
 type Progress = {
   completed_sessions: number;
   goal: string | null;
@@ -78,39 +93,75 @@ type Progress = {
   }>;
 };
 
+/**
+ * Làm gì: Trích xuất thông báo lỗi an toàn từ đối tượng error để hiển thị trên thông báo toast.
+ * Được gọi ở: Page -> setGoal (dòng 97) và tick (dòng 114).
+ * @param e Đối tượng lỗi bắt được từ khối catch (unknown).
+ * @returns Chuỗi thông báo lỗi (Error.message hoặc câu thông báo lỗi mặc định).
+ */
 const say = (e: unknown) => (e instanceof Error ? e.message : t("Something went wrong"));
 
+/**
+ * Làm gì: Component trang chính hiển thị toàn bộ bảng điều khiển luyện tập của hội viên (tiến độ, mục tiêu, lịch học, bài tập về nhà, đánh giá của HLV).
+ * Được gọi ở: Route (URL /app/train).
+ * @returns Giao diện bảng điều khiển luyện tập của hội viên được bọc trong Shell.
+ */
 function Page() {
+  // Bước 1: Tải dữ liệu tiến độ tập luyện của hội viên hiện tại từ endpoint GET /me/training.
   const { data, error, reload } = useRead<Progress>("/me/training");
   // The server's copy, with the member's ticks and goal shown here as soon as they are made.
   const [d, setD] = useState<Progress | null>(null);
+  // Bước 2: Đồng bộ dữ liệu mới từ server vào state cục bộ d mỗi khi data thay đổi.
   useEffect(() => {
     setD(data);
   }, [data]);
 
+  /**
+   * Làm gì: Cập nhật mục tiêu tập luyện cá nhân của hội viên lên server và cập nhật state cục bộ.
+   * Được gọi ở: Page -> sự kiện onChange của dropdown chọn mục tiêu Select.
+   * @param goal Mã mục tiêu được chọn (nếu là chuỗi rỗng sẽ gửi null để xóa mục tiêu).
+   * @returns Không trả về dữ liệu (Promise<void>).
+   * @throws Bắt lỗi API và hiển thị thông báo toast lỗi cho người dùng.
+   */
   async function setGoal(goal: string) {
     try {
+      // Bước 1: Gửi request cập nhật mục tiêu vào bảng training_profiles (rỗng chuyển thành null).
       await apiPut("/me/training-goal", { goal: goal || null });
+      // Bước 2: Cập nhật ngay state d tại client để dropdown hiển thị giá trị mới mà không cần đợi reload.
       setD((x) => (x ? { ...x, goal: goal || null } : x));
+      // Bước 3: Thông báo lưu mục tiêu thành công cho người dùng.
       toast.success(t("Goal saved"));
     } catch (e) {
+      // Bước 4: Xử lý lỗi nếu gọi API thất bại, hiển thị toast thông báo lỗi.
       toast.error(say(e));
     }
   }
 
+  /**
+   * Làm gì: Đánh dấu hoàn thành hoặc bỏ đánh dấu một mục checklist bài tập về nhà với cơ chế optimistic update.
+   * Được gọi ở: Page -> component Check trong danh sách checklist bài tập về nhà.
+   * @param hw Đối tượng bài tập về nhà chứa danh sách checklist và các mục đã hoàn thành.
+   * @param index Vị trí (index) của mục vừa được bấm trong checklist.
+   * @returns Không trả về dữ liệu (Promise<void>).
+   * @throws Bắt lỗi API, hiển thị toast lỗi và gọi reload() để khôi phục dữ liệu ban đầu từ server.
+   */
   async function tick(hw: Progress["homework"][number], index: number) {
+    // Bước 1: Tính toán danh sách chỉ số done_items mới (bỏ mục nếu đã có, hoặc thêm vào và sắp xếp tăng dần).
     const done = hw.done_items.includes(index)
       ? hw.done_items.filter((i) => i !== index)
       : [...hw.done_items, index].sort((a, b) => a - b);
     // Show the tick at once; the server's answer says whether it finished the homework.
     setD((x) => x && { ...x, homework: x.homework.map((h) => (h.id === hw.id ? { ...h, done_items: done } : h)) });
     try {
+      // Bước 2: Gửi danh sách các mục đã hoàn thành lên server qua endpoint PUT /me/homework/:id.
       const r = await apiPut<{ completed: boolean }>(`/me/homework/${hw.id}`, { done_items: done });
+      // Bước 3: Nếu đã hoàn thành mọi mục (r.completed === true), chúc mừng và chờ 700ms để người dùng kịp nhìn hiệu ứng trước khi ẩn bài tập.
       if (r.completed) {
         toast.success(t("Homework done. Nice work!"));
         setTimeout(() => setD((x) => x && { ...x, homework: x.homework.filter((h) => h.id !== hw.id) }), 700);
       }
     } catch (e) {
+      // Bước 4: Xử lý lỗi nếu gửi thất bại: hiển thị toast lỗi và gọi reload() để khôi phục trạng thái chuẩn từ server.
       toast.error(say(e));
       reload();
     }
@@ -175,6 +226,7 @@ function Page() {
 
           {/* Activity Ring, Streak, Milestone */}
           {(() => {
+            // Bước 1: Lấy số buổi tập đã hoàn thành và tập hợp danh sách các ngày tập vào Set (theo giờ Việt Nam en-CA dạng YYYY-MM-DD) để tra cứu O(1).
             const realDone = d.completed_sessions;
             const sessionDates = new Set(
               d.results.map((r) => {
@@ -187,18 +239,22 @@ function Page() {
                 }).format(dt);
               }),
             );
+            // Bước 2: Xác định ngày thứ Hai đầu tuần hiện tại theo chuẩn ISO (Thứ Hai = 0) để tạo mốc thời gian tuần.
             const today = todayISO();
             const [y, m, dayNum] = today.split("-").map(Number);
             const todayDt = new Date(Date.UTC(y, (m ?? 1) - 1, dayNum ?? 1));
+            // Chuyển đổi getUTCDay() (Chủ Nhật = 0) sang chuẩn ISO (Thứ Hai = 0) để tính ngày thứ Hai đầu tuần.
             const currentDayOfWeek = (todayDt.getUTCDay() + 6) % 7;
             const mondayISO = addDaysISO(today, -currentDayOfWeek);
 
+            // Bước 3: Kiểm tra 7 ngày trong tuần từ thứ Hai đến Chủ Nhật xem ngày nào có buổi tập để hiển thị lên workout streak.
             const activeDays: boolean[] = [];
             for (let i = 0; i < 7; i++) {
               const dayStr = addDaysISO(mondayISO, i);
               activeDays.push(sessionDates.has(dayStr));
             }
 
+            // Bước 4: Tính chuỗi ngày tập liên tục (streak); nếu hôm nay chưa tập thì lùi về hôm qua để tránh ngắt chuỗi trong ngày.
             let streak = 0;
             let checkDay = today;
             if (!sessionDates.has(checkDay)) {
@@ -209,6 +265,7 @@ function Page() {
               checkDay = addDaysISO(checkDay, -1);
             }
 
+            // Bước 5: Xác định cấp độ mục tiêu tiếp theo dựa trên môn thể thao đầu tiên của hội viên.
             const milestoneTarget = d.levels.length > 0 ? levelLabel(d.levels[0].level) : null;
 
             return (

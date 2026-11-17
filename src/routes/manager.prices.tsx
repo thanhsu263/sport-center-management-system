@@ -1,3 +1,8 @@
+/**
+ * Tuyến đường (route) giao diện quản lý bảng giá (/manager/prices) trong hệ thống Arena 3 dành cho vai trò quản lý (manager).
+ * Vai trò trong ứng dụng: Cho phép xem và điều chỉnh biểu giá thuê sân theo từng môn thể thao, loại ngày và khung giờ (bao gồm giờ cao điểm);
+ * đồng thời hiển thị danh sách gói hội viên đang mở bán và tỷ lệ thuế VAT áp dụng trên hóa đơn để quản lý nắm bắt toàn diện chính sách giá.
+ */
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -15,10 +20,16 @@ import { useRead } from "@/client/lib/use-read";
 import { SectionTitle } from "@/client/components/section";
 import { Banknote, ChevronDown, Percent, Ticket } from "lucide-react";
 
+/**
+ * Làm gì: Định nghĩa route cho trang quản lý bảng giá (/manager/prices) bằng TanStack Router, liên kết URL với component Page.
+ * Được gọi ở: URL `/manager/prices` (TanStack Router tự động đăng ký và nạp route theo file-based routing).
+ * @returns Đối tượng cấu hình route quản lý URL `/manager/prices`.
+ */
 export const Route = createFileRoute("/manager/prices")({
   component: Page,
 });
 
+// Cấu trúc quy tắc giá thuê sân (price_rules): môn thể thao, loại ngày, khung giờ bắt đầu/kết thúc, giá theo giờ (VND), cờ giờ cao điểm và sân áp dụng cụ thể (nếu có).
 type Rule = {
   id: string;
   sport: string;
@@ -30,6 +41,7 @@ type Rule = {
   court_id: string | null;
 };
 
+// Cấu trúc gói hội viên (plans): tên gói, giá niêm yết (VND), trạng thái mở bán, thời hạn hiệu lực (ngày/tháng) và số giờ thuê sân đi kèm.
 type Plan = {
   id: string;
   name: string;
@@ -46,7 +58,13 @@ type Plan = {
  * are read-only here — they have their own screens — so a price can only be
  * changed in one place.
  */
+/**
+ * Làm gì: Component chính của trang /manager/prices — hiển thị và quản lý bảng giá thuê sân theo môn, loại ngày và khung giờ; theo dõi gói tập đang bán và thuế VAT.
+ * Được gọi ở: Route /manager/prices (khai báo tại Route export ở dòng 18 của file này).
+ * @returns JSX Element giao diện trang quản lý giá cho vai trò manager được bọc trong Shell.
+ */
 function Page() {
+  // Bước 1: Khởi tạo dữ liệu từ server gồm danh mục môn thể thao, quy tắc giá sân (/price-rules), gói tập (/plans), thuế VAT (/settings) và danh sách sân (/courts).
   const { sports } = useSports();
   const rulesRead = useRead<{ items: Rule[] }>("/price-rules");
   const plansRead = useRead<{ items: Plan[] }>("/plans");
@@ -57,19 +75,23 @@ function Page() {
     () => Object.fromEntries((courtsRead.data?.items ?? []).map((c) => [c.id, c.court_code])) as Record<string, string>,
     [courtsRead.data],
   );
+  // Chuẩn hóa danh sách gói tập và chuyển đổi giá trị vat_rate sang kiểu số để hiển thị phần trăm trên giao diện.
   const plans = plansRead.data?.items ?? null;
   const vat = vatRead.data?.vat_rate == null ? null : Number(vatRead.data.vat_rate);
 
+  // Bước 2: Khởi tạo state edited để lưu tạm thời các mức giá mà quản lý chỉnh sửa trên form; đồng bộ từ rulesRead khi tải xong.
   // The rates the manager edits start from what the server holds; a failed read leaves nothing to edit.
   const [edited, setEdited] = useState<Rule[] | null>(null);
   useEffect(() => {
     if (rulesRead.data) setEdited(rulesRead.data.items);
   }, [rulesRead.data]);
   const items = rulesRead.error ? null : edited;
+  // Quản lý trạng thái lỗi xác thực theo chỉ số dòng (bad), nội dung thông báo lỗi (message) và cờ đang lưu (saving).
   const [bad, setBad] = useState<number | null>(null);
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
 
+  // Bước 3: Gom nhóm các quy tắc giá theo môn thể thao và sắp xếp theo thứ tự ưu tiên của danh mục sports.
   // Rows keep their index in the flat list: the save sends that list as-is.
   const groups = useMemo(() => {
     const out = new Map<string, { rule: Rule; index: number }[]>();
@@ -78,6 +100,12 @@ function Page() {
       g.push({ rule, index });
       out.set(rule.sport, g);
     });
+    /**
+     * Làm gì: Xác định thứ tự ưu tiên sắp xếp của môn thể thao theo vị trí trong danh sách sports đã cấu hình.
+     * Được gọi ở: Hàm so sánh sort() khi tạo danh sách nhóm môn thể thao groups (dòng 85).
+     * @param sport Mã môn thể thao cần xếp hạng (sport code).
+     * @returns Chỉ số index của môn thể thao trong danh mục (nếu không có sẽ xếp ở cuối cùng).
+     */
     const rank = (sport: string) => {
       const idx = sports.findIndex((s) => s.code === sport);
       return idx < 0 ? sports.length : idx;
@@ -85,8 +113,17 @@ function Page() {
     return [...out.entries()].sort((a, b) => rank(a[0]) - rank(b[0]));
   }, [items, sports]);
 
+  /**
+   * Làm gì: Cập nhật giá tiền (price_vnd) cho quy tắc giá tại vị trí index trong state local, xóa trạng thái lỗi khi người dùng chỉnh sửa.
+   * Được gọi ở: Sự kiện onChange của MoneyInput trong mỗi thẻ quy tắc giá (dòng 195).
+   * @param index Chỉ số của quy tắc giá trong danh sách items mảng phẳng.
+   * @param value Chuỗi giá trị tiền mới người dùng nhập vào ô input.
+   * @returns Không có (void).
+   */
   function edit(index: number, value: string) {
+    // Bước 1: Kiểm tra danh sách items; nếu chưa tải xong thì không xử lý.
     if (!items) return;
+    // Bước 2: Tạo bản sao mảng, cập nhật giá mới (chuỗi rỗng chuyển thành NaN để ngăn lưu dữ liệu không hợp lệ) và reset thông báo lỗi.
     const next = [...items];
     next[index] = { ...next[index], price_vnd: value === "" ? Number.NaN : Number(value) };
     setEdited(next);
@@ -94,23 +131,33 @@ function Page() {
     setMessage("");
   }
 
+  /**
+   * Làm gì: Gửi toàn bộ danh sách quy tắc giá đã chỉnh sửa lên server qua API PUT /price-rules, xử lý lỗi xác thực và làm mới dữ liệu sau khi lưu.
+   * Được gọi ở: Sự kiện onClick của nút "Save new prices" (dòng 210).
+   * @returns Promise<void> hoàn thành khi kết thúc quá trình gửi yêu cầu lên server.
+   */
   async function save() {
+    // Bước 1: Kiểm tra dữ liệu hợp lệ; bật trạng thái saving và xóa các cảnh báo lỗi trước đó.
     if (!items) return;
     setSaving(true);
     setBad(null);
     setMessage("");
+    // Bước 2: Gửi danh sách quy tắc giá lên server qua API PUT /price-rules; thông báo thành công và reload lại danh sách giá.
     try {
       await apiPut("/price-rules", { items });
       toast.success(t("Pricing saved"));
       rulesRead.reload();
+    // Bước 3: Xử lý lỗi từ API; nếu server trả về vị trí dòng bị lỗi (body.index), đánh dấu vào bad để viền đỏ ô input tương ứng.
     } catch (e) {
       if (e instanceof ApiClientError && typeof e.body.index === "number") setBad(e.body.index);
       setMessage(e instanceof Error ? tServer(e.message) : t("Something went wrong"));
+    // Bước 4: Tắt trạng thái saving để mở lại nút lưu giá dù thành công hay thất bại.
     } finally {
       setSaving(false);
     }
   }
 
+  // Bước 4: Lọc các gói tập đang mở bán và tính toán số liệu thống kê (tổng quy tắc, giờ cao điểm, giờ thấp điểm, số môn thể thao) cho StatStrip.
   const onSale = (plans ?? []).filter((p) => p.is_on_sale);
 
   const totalRules = items?.length ?? 0;
@@ -118,6 +165,7 @@ function Page() {
   const offPeakRules = totalRules - peakRules;
   const sportsCount = groups.length;
 
+  // Bước 5: Render toàn bộ giao diện quản lý giá gồm PageHero, dải thống kê StatStrip, danh sách biểu giá sân, gói hội viên và mức thuế VAT.
   return (
     <Shell role="manager">
       <PageHero
