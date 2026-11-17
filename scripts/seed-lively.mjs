@@ -19,9 +19,17 @@ import { isMainModule } from './with-app-env.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const DAY = 86400000;
+/**
+ * Làm gì: Mốc ngày bắt đầu (2026-09-01) của chuỗi dữ liệu mô phỏng; mọi giao dịch, lịch đặt sân và điểm danh đều sinh từ ngày này trở đi.
+ * Được gọi ở: scripts/seed-lively.mjs (demand, populate, verify, main); test runner (node --test).
+ */
 export const WINDOW_START = '2026-09-01';
 const VERSION = 'lively-v1';
 // Explicit list, never CASCADE: an unexpected new FK aborts the transaction.
+/**
+ * Làm gì: Danh sách 42 bảng nghiệp vụ giao dịch cần xóa sạch (TRUNCATE) và tạo lại khi chạy seed; khai báo tường minh để không dùng CASCADE.
+ * Được gọi ở: scripts/seed-lively.mjs (impact, replaceActivity); test runner (node --test).
+ */
 export const ACTIVITY = ['membership_extensions', 'class_certificates', 'coach_certifications',
   'homework_recipients', 'homework', 'training_plan_versions', 'training_plans',
   'session_results', 'session_charges', 'progress_reviews', 'coach_notes', 'member_levels',
@@ -32,44 +40,94 @@ export const ACTIVITY = ['membership_extensions', 'class_certificates', 'coach_c
   'messages', 'conversations', 'tickets', 'outbox', 'audit_logs', 'work_orders',
   'sessions_auth', 'otp_challenges', 'idempotency_keys', 'rtc_signals', 'rtc_peers'];
 
+/**
+ * Làm gì: Tạo chuỗi UUID v4 có tính tất định từ khóa định danh và VERSION bằng SHA-256, giúp dữ liệu sinh ra trùng khớp giữa các lần chạy.
+ * Được gọi ở: scripts/seed-lively.mjs (random, populate, replaceActivity); test runner (node --test).
+ * - Tham số key: Khóa định danh logic duy nhất (ví dụ: 'member:0', 'payment:1').
+ * - Trả về: Chuỗi UUID v4 chuẩn theo định dạng xxxxxxxx-xxxx-4xxx-axxx-xxxxxxxxxxxx.
+ */
 export function id(key) {
   const h = createHash('sha256').update(`${VERSION}:${key}`).digest('hex');
   return `${h.slice(0, 8)}-${h.slice(8, 12)}-4${h.slice(13, 16)}-a${h.slice(17, 20)}-${h.slice(20, 32)}`;
 }
 // Keyed draws keep a day's noise independent of iteration order and --as-of.
+/**
+ * Làm gì: Sinh số thực giả ngẫu nhiên trong khoảng [0, 1) có tính tất định từ khóa, độc lập với thứ tự vòng lặp và mốc thời gian chạy.
+ * Được gọi ở: scripts/seed-lively.mjs (demand, populate); test runner (node --test).
+ * - Tham số key: Khóa định danh seed ngẫu nhiên (ví dụ: 'noise:2026-10-10', 'slot:...').
+ * - Trả về: Số thực float trong nửa khoảng [0, 1).
+ */
 export function random(key) {
   return parseInt(createHash('sha256').update(id(key)).digest('hex').slice(0, 8), 16) / 0x100000000;
 }
 
+/**
+ * Làm gì: Tính hệ số nhu cầu thuê sân (xác suất lấp đầy) dựa theo thời gian tăng trưởng, thứ trong tuần, khung giờ và các ngày lễ thực tế.
+ * Được gọi ở: scripts/seed-lively.mjs (populate); test runner (node --test).
+ * - Tham số date: Ngày cần tính theo định dạng YYYY-MM-DD.
+ * - Tham số hour: Khung giờ trong ngày (số nguyên từ 0 đến 23).
+ * - Trả về: Hệ số nhu cầu chuẩn hóa trong khoảng (0, 0.98].
+ */
 export function demand(date, hour) {
   const age = (Date.parse(date) - Date.parse(WINDOW_START)) / DAY;
   const weekday = new Date(`${date}T12:00:00Z`).getUTCDay();
   const evening = hour >= 17;
+  // Trọng số ngày trong tuần: cuối tuần và tối thứ 6 đông nhất (1.65), đầu tuần vắng nhất (0.50 - 0.55).
   const weekly = [1.65, 0.50, 0.55, 1.08, 1, evening ? 1.65 : 1.05, 1.65][weekday];
   const hourly = evening ? 0.68 : hour <= 8 ? 0.31 : 0.14;
+  // Hệ số biến động theo sự kiện thực tế: Quốc khánh 2/9 tăng 2.8x, Phụ nữ VN 20/10 tăng 2.1x, tuần ưu đãi tăng 1.35x.
   const event = date === '2026-09-02' ? 2.8 : date === '2026-10-20' ? 2.1
     : date >= '2026-10-12' && date <= '2026-10-18' ? 1.35
     : date >= '2026-10-26' && date <= '2026-11-01' ? 0.42 : 1;
+  // Giới hạn tối đa 98% nhu cầu để luôn để trống ít nhất 2% số sân cho khách vãng lai đặt thử nghiệm.
   return Math.min(0.98, hourly * weekly * (0.72 + Math.min(age, 120) / 180)
     * (0.85 + random(`noise:${date}`) * 0.30) * event);
 }
+/**
+ * Làm gì: Loại bỏ dấu tiếng Việt và chuẩn hóa chuỗi về chữ thường không dấu, phục vụ lưu trường name_normalized để tìm kiếm nhanh.
+ * Được gọi ở: scripts/seed-lively.mjs (populate); test runner (node --test).
+ * - Tham số name: Chuỗi họ tên tiếng Việt có dấu.
+ * - Trả về: Chuỗi chữ thường không dấu đã chuyển đổi đ/Đ thành d/D.
+ */
 export function normalize(name) {
   return name.normalize('NFD').replace(/\p{M}/gu, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase();
 }
+/**
+ * Làm gì: Kiểm tra tài khoản có phải nhân sự nòng cốt của trung tâm (email @arena3.local hoặc SĐT định trước) cần giữ nguyên thông tin đăng nhập hay không.
+ * Được gọi ở: scripts/seed-lively.mjs (suspiciousUser, impact, populate); test runner (node --test).
+ * - Tham số u: Đối tượng thông tin người dùng (chứa email và phone).
+ * - Trả về: True nếu là tài khoản demo được bảo vệ, ngược lại false.
+ */
 export function protectedLogin(u) {
   return /@arena3\.local$/i.test(u.email || '') || /^\+8490000000[123]$/.test(u.phone);
 }
+/**
+ * Làm gì: Phát hiện các tài khoản rác hoặc dữ liệu kiểm thử cũ (chứa từ test/dummy, lỗi encoding UTF-8, số ngẫu nhiên) để cảnh báo rà soát.
+ * Được gọi ở: scripts/seed-lively.mjs (impact, populate); test runner (node --test).
+ * - Tham số u: Đối tượng người dùng cần kiểm tra.
+ * - Trả về: True nếu là tài khoản nghi vấn rác và không thuộc nhóm tài khoản bảo vệ.
+ */
 export function suspiciousUser(u) {
   return !protectedLogin(u) && (/\b(coach|test|dummy|seed|check)\b/i.test(u.full_name)
     || /\d{4,}|[�ÃÄ]/u.test(u.full_name) || /^(Rô Văn Lộc|Nguyễn Văn Bát Môn)$/u.test(u.full_name));
 }
+/**
+ * Làm gì: Kiểm tra an toàn trước khi ghi dữ liệu, ngăn chặn ghi nhầm vào database từ xa nếu không có cờ xác nhận khớp hostname.
+ * Được gọi ở: scripts/seed-lively.mjs (main); test runner (node --test).
+ * - Tham số databaseUrl: Chuỗi kết nối PostgreSQL (DATABASE_URL), nếu dùng PostgreSQL.
+ * - Tham số dataDir: Đường dẫn thư mục dữ liệu PGlite cục bộ (PGLITE_DATA_DIR).
+ * - Tham số replaceRemote: Tên host từ xa chỉ định qua cờ --replace-remote để xác nhận ghi đè có chủ đích.
+ * - Lỗi có thể ném: Error Khi host remote không khớp tham số xác nhận, hoặc PGlite thiếu thư mục vật lý riêng.
+ */
 export function writableTarget(databaseUrl, dataDir, replaceRemote) {
+  // Bước 1: Cho phép ghi đè database từ xa khi và chỉ khi cờ --replace-remote khớp chính xác hostname của DATABASE_URL.
   if (databaseUrl && replaceRemote) {
     // Deliberate production reseed: the operator must type the exact host they mean.
     if (new URL(databaseUrl).hostname !== replaceRemote)
       throw new Error('--replace-remote must equal the DATABASE_URL hostname.');
     return;
   }
+  // Bước 2: Chặn tuyệt đối ghi vào PostgreSQL từ xa nếu không có cờ xác nhận; chỉ chấp nhận localhost hoặc 127.0.0.1.
   if (databaseUrl) {
     const parsed = new URL(databaseUrl);
     if (['host', 'hostaddr', 'service'].some(k => parsed.searchParams.has(k)))
@@ -77,18 +135,28 @@ export function writableTarget(databaseUrl, dataDir, replaceRemote) {
     const host = parsed.hostname;
     if (!['localhost', '127.0.0.1', '[::1]'].includes(host))
       throw new Error('Remote PostgreSQL/Neon writes are blocked. Use the read-only plan and a backup branch.');
+  // Bước 3: Đảm bảo PGlite được trỏ vào thư mục vật lý riêng trên ổ đĩa, không chạy trên RAM (memory).
   } else if (!dataDir || dataDir === 'memory') {
     throw new Error('Set PGLITE_DATA_DIR to a fresh, dedicated local directory.');
   }
 }
 
+/**
+ * Làm gì: Khởi tạo kết nối đa hình tới cơ sở dữ liệu (dùng pg.Client cho PostgreSQL hoặc nạp @electric-sql/pglite cho môi trường nhúng).
+ * Được gọi ở: scripts/seed-lively.mjs (main).
+ * - Tham số databaseUrl: Chuỗi kết nối PostgreSQL, nếu có.
+ * - Tham số dataDir: Đường dẫn thư mục lưu dữ liệu PGlite.
+ * - Trả về: Đối tượng kết nối DB cung cấp các hàm query, exec và close thống nhất.
+ */
 async function connect(databaseUrl, dataDir) {
+  // Bước 1: Kết nối tới PostgreSQL bằng pg.Client với thời gian chờ timeout 10 giây nếu có DATABASE_URL.
   if (databaseUrl) {
     const { default: pg } = await import('pg');
     const db = new pg.Client({ connectionString: databaseUrl, connectionTimeoutMillis: 10000 });
     await db.connect();
     return { query: (s, p = []) => db.query(s, p), exec: s => db.query(s), close: () => db.end() };
   }
+  // Bước 2: Nạp PGlite nhúng cục bộ nếu không có URL; cấu hình parser giữ nguyên chuỗi cho DATE và parse Number cho BIGINT.
   const { PGlite } = await import('@electric-sql/pglite');
   const db = new PGlite({ dataDir, parsers: { 1082: s => s, 20: Number } });
   await db.waitReady;
@@ -98,8 +166,16 @@ async function connect(databaseUrl, dataDir) {
 // Windows may mark newly created directories ReadOnly. Emscripten's NODEFS
 // interprets that attribute as Unix permissions and cannot reopen Postgres.
 // Only touch this seed's explicitly validated, dedicated directory; no symlinks.
+/**
+ * Làm gì: Chuẩn bị thư mục dữ liệu PGlite cục bộ và phân quyền 0o700 đệ quy trên Windows để tránh lỗi khóa ReadOnly của Emscripten NODEFS.
+ * Được gọi ở: scripts/seed-lively.mjs (main); test runner (node --test).
+ * - Tham số dataDir: Đường dẫn thư mục dữ liệu PGlite.
+ * - Trả về: Promise hoàn tất khi thư mục đã được tạo và thiết lập quyền truy cập.
+ */
 export async function prepareLocalDirectory(dataDir) {
+  // Bước 1: Tạo thư mục dữ liệu nếu chưa tồn tại.
   await mkdir(dataDir, { recursive: true });
+  // Bước 2: Duyệt đệ quy trên Windows để gán quyền 0o700, giải quyết lỗi Emscripten coi thuộc tính ReadOnly của Windows là cấm ghi.
   if (process.platform !== 'win32') return;
   const visit = async dir => {
     await chmod(dir, 0o700);
@@ -109,9 +185,17 @@ export async function prepareLocalDirectory(dataDir) {
   await visit(resolve(dataDir));
 }
 
+/**
+ * Làm gì: Kiểm tra và áp dụng tuần tự các migration SQL còn thiếu vào cơ sở dữ liệu, lưu vết lịch sử trong bảng _migrations.
+ * Được gọi ở: scripts/seed-lively.mjs (main); test runner (node --test).
+ * - Tham số db: Đối tượng kết nối cơ sở dữ liệu.
+ * - Lỗi có thể ném: Error Nếu một file migration bị lỗi cú pháp hoặc vi phạm ràng buộc dữ liệu khi thực thi.
+ */
 export async function migrate(db) {
+  // Bước 1: Đảm bảo bảng theo dõi _migrations tồn tại và lấy danh sách tên migration đã chạy.
   await db.exec('create table if not exists _migrations(name text primary key, applied_at timestamptz not null default now())');
   const applied = (await db.query('select name from _migrations')).rows.map(r => r.name);
+  // Bước 2: Thực thi từng migration còn thiếu trong một transaction riêng biệt; rollback ngay lập tức nếu gặp lỗi.
   for (const { name } of pendingMigrations(await readdir(resolve(ROOT, 'migrations')), applied)) {
     await db.exec('begin');
     try {
@@ -122,22 +206,41 @@ export async function migrate(db) {
   }
 }
 
+/**
+ * Làm gì: Đánh giá hiện trạng cơ sở dữ liệu trước khi seed (đếm số dòng trong các bảng nghiệp vụ, lọc tài khoản bảo vệ và tài khoản nghi vấn).
+ * Được gọi ở: scripts/seed-lively.mjs (replaceActivity, main).
+ * - Tham số db: Đối tượng kết nối cơ sở dữ liệu.
+ * - Trả về: Đối tượng báo cáo số bản ghi hiện tại, danh sách tài khoản được bảo vệ và tài khoản cần rà soát thủ công.
+ */
 async function impact(db) {
+  // Bước 1: Lấy danh sách người dùng và danh sách bảng thuộc schema public trong database.
   const users = (await db.query('select id, full_name, role, email, phone from users order by role, full_name')).rows;
   const tables = (await db.query("select tablename from pg_tables where schemaname='public'")).rows.map(r => r.tablename);
+  // Bước 2: Đếm số lượng bản ghi hiện có trong từng bảng thuộc nhóm ACTIVITY để đo lường mức độ tác động.
   const existingActivity = {};
   for (const t of ACTIVITY.filter(t => tables.includes(t)))
     existingActivity[t] = Number((await db.query(`select count(*) as n from ${t}`)).rows[0].n);
+  // Bước 3: Phân loại tài khoản đăng nhập được bảo vệ và các tài khoản rác cần nhân viên rà soát lại.
   return { existingActivity, protectedLogins: users.filter(protectedLogin),
     reviewOnlyJunkCandidates: users.filter(suspiciousUser),
     deletionPolicy: 'No users are deleted. Activity replacement is local-only in an owned demo DB. Junk candidates require manual review on a Neon backup branch.' };
 }
 
+/**
+ * Làm gì: Chèn dữ liệu hàng loạt vào một bảng theo từng khối (batch) tối đa 150 dòng để không vượt quá giới hạn tham số của PostgreSQL.
+ * Được gọi ở: scripts/seed-lively.mjs (populate).
+ * - Tham số db: Đối tượng kết nối cơ sở dữ liệu.
+ * - Tham số table: Tên bảng đích cần chèn dữ liệu.
+ * - Tham số rows: Mảng các đối tượng dữ liệu cần chèn.
+ * - Trả về: Promise hoàn thành khi toàn bộ các dòng được chèn thành công.
+ */
 async function insertRows(db, table, rows) {
   if (!rows.length) return;
   const keys = Object.keys(rows[0]);
+  // Chia thành các khối 150 dòng để vừa tối ưu tốc độ vừa không vượt quá giới hạn biến tham số ($1, $2...) của PostgreSQL.
   for (let offset = 0; offset < rows.length; offset += 150) {
     const params = [];
+    // Chuyển đổi các trường object phức tạp thành chuỗi JSON; giữ nguyên kiểu Date và các kiểu dữ liệu nguyên thủy.
     const values = rows.slice(offset, offset + 150).map(row => `(${keys.map(k => {
       const v = row[k]; params.push(v != null && typeof v === 'object' && !(v instanceof Date) ? JSON.stringify(v) : v);
       return `$${params.length}`;
@@ -146,22 +249,35 @@ async function insertRows(db, table, rows) {
   }
 }
 
+/**
+ * Làm gì: Tạo toàn bộ dữ liệu mô phỏng hoạt động thực tế của trung tâm thể thao (hội viên, gói tập, đặt sân, lớp học, hóa đơn, chat) từ WINDOW_START đến asOf.
+ * Được gọi ở: scripts/seed-lively.mjs (replaceActivity); test runner (node --test).
+ * - Tham số db: Đối tượng kết nối cơ sở dữ liệu.
+ * - Tham số asOf: Mốc thời gian ISO kết thúc chuỗi dữ liệu (không tạo hoạt động vượt quá mốc này).
+ * - Trả về: Báo cáo số lượng bản ghi đã thêm vào từng bảng dữ liệu.
+ * - Lỗi có thể ném: Error Nếu thời gian asOf không hợp lệ, nằm trước ngày mở trung tâm hoặc thiếu dữ liệu nhân sự, sân mẫu.
+ */
 export async function populate(db, asOf) {
+  // Bước 1: Kiểm tra tính hợp lệ của mốc thời gian asOf và khởi tạo các biến tính toán theo múi giờ Việt Nam (UTC+7).
   const now = new Date(asOf);
   if (!Number.isFinite(+now)) throw new Error('Invalid --as-of timestamp');
+  // Quy đổi sang múi giờ Việt Nam (UTC+7) để xác định chuỗi ngày hiện tại và tính số ngày tương đối so với WINDOW_START.
   const today = new Date(+now + 7 * 3600000).toISOString().slice(0, 10);
   const first = Math.round((Date.parse(WINDOW_START) - Date.parse(today)) / DAY);
   if (+now < +new Date(`${WINDOW_START}T00:00:00+07:00`)) throw new Error('--as-of precedes activity window');
   const day = n => new Date(Date.parse(`${today}T00:00:00Z`) + n * DAY).toISOString().slice(0, 10);
   const at = (n, h, m = 0) => new Date(`${day(n)}T${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00+07:00`);
+  // Khởi tạo bộ nhớ tạm chứa dữ liệu các bảng và hàm trợ giúp audit_logs để lưu nhật ký mọi thao tác nghiệp vụ.
   const rows = {};
   const add = (table, row) => { (rows[table] ??= []).push(row); return row; };
   const audit = (time, actor, action, entity, entityId, after = {}, before = null) =>
     add('audit_logs', { at: time, actor_id: actor.id, action, entity, entity_id: entityId,
       before, after: { source: VERSION, ...after } });
+  // Bước 2: Nạp thông tin cấu hình trung tâm, danh sách sân, bảng giá và tài khoản nhân sự nòng cốt từ database.
   const settings = (await db.query('select * from center_settings where id=1')).rows[0];
   const courts = (await db.query("select * from courts where status='ready' and retired_at is null order by court_code")).rows;
   const plans = (await db.query('select * from membership_plans where is_on_sale and duration_months in (1,3,6,12) order by duration_months')).rows;
+  // Quy tắc bất biến: trung tâm phải có đủ 4 gói hội viên (1, 3, 6, 12 tháng) và phí thuê sân của hội viên là 30.000 đ/giờ.
   if (plans.length !== 4 || Number(settings.member_court_fee_vnd) !== 30000) throw new Error('Expected four current membership plans and 30,000 VND member court fee');
   const rules = (await db.query('select * from price_rules')).rows;
   const users = (await db.query("select * from users order by id")).rows;
@@ -174,8 +290,10 @@ export async function populate(db, asOf) {
   const given = ['Minh Châu', 'Thu Trang', 'Quang Huy', 'Bảo Ngọc', 'Đức Duy', 'Thanh Trúc', 'Gia Hân', 'Tuấn Kiệt'];
   const hash = manager.password_hash;
   // Synthetic contact details only; existing protected accounts retain their credentials.
+  // Bước 3: Tạo danh sách 96 hội viên người Việt với ngày tham gia phân bổ tăng dần theo thời gian.
   for (let i = 0; i < 96; i++) {
     const uid = id(`member:${i}`);
+    // 24 hội viên đầu đăng ký trong 10 ngày đầu; các hội viên sau phân bổ theo hàm căn bậc hai mô phỏng lượng khách tăng trưởng ổn định.
     const joined = at(first + (i < 24 ? i % 10 : 11 + Math.floor(80 * Math.sqrt((i - 24) / 72))), 8);
     if (+joined > +now) continue;
     if (users.some(u => u.id === uid)) continue;
@@ -187,9 +305,11 @@ export async function populate(db, asOf) {
       pii_consent_at: joined, created_at: joined });
     users.push(u);
   }
+  // Bước 4: Lọc các hội viên hợp lệ đã gia nhập và tạo chiến dịch khuyến mãi Tuần lễ tập luyện tháng 10 nếu thời gian đã tới.
   const members = users.filter(u => u.role === 'member' && u.status === 'active' && !suspiciousUser(u)
     && +new Date(u.created_at) <= +now).sort((a,b) => a.id.localeCompare(b.id));
   const promoId = id('promo:october-2026');
+  // Thêm chương trình khuyến mãi giảm 10% gói tập (LV-OCT26) diễn ra từ ngày 12/10 đến 19/10/2026.
   if (today >= '2026-10-12') await db.query(`insert into promotions
     (id,code,name,kind,value,max_per_member,applies_to,starts_at,ends_at,created_by,created_at,updated_at)
     values($1,'LV-OCT26','Tuần lễ tập luyện tháng 10','percent',10,100,ARRAY['plan'],
@@ -198,18 +318,35 @@ export async function populate(db, asOf) {
   const subs = new Map();
   const shifts = new Map();
   let payN = 0;
+  /**
+   * Làm gì: Xử lý giao dịch thanh toán hoàn chỉnh: liên kết ca trực lễ tân, tính thuế, xuất hóa đơn VAT, gửi biên lai và ghi nhật ký kiểm toán.
+   * Được gọi ở: scripts/seed-lively.mjs (populate: thanh toán gói tập, học phí, tiền thuê sân và hoàn tiền hủy sân).
+   * - Tham số refType: Loại nghiệp vụ tham chiếu ('subscription', 'enrollment', 'booking').
+   * - Tham số refId: ID của bản ghi nghiệp vụ cần thanh toán.
+   * - Tham số user: Đối tượng hội viên thanh toán (null nếu là khách vãng lai).
+   * - Tham số amount: Số tiền giao dịch tính bằng VND (số âm biểu thị hoàn tiền).
+   * - Tham số time: Thời điểm phát sinh thanh toán.
+   * - Tham số label: Tên diễn giải khoản thu hiển thị trên hóa đơn.
+   * - Tham số status: Trạng thái thanh toán ('posted',...). Mặc định là 'posted'.
+   * - Tham số discount: Số tiền được giảm giá theo khuyến mãi (VND). Mặc định là 0.
+   * - Tham số refundMethod: Phương thức hoàn tiền (nếu là giao dịch hoàn, giữ đúng kênh thanh toán ban đầu).
+   * - Trả về: Đối tượng bản ghi thanh toán (payment) vừa được khởi tạo.
+   * - Lỗi có thể ném: Error Nếu thời điểm thanh toán nằm ngoài cửa sổ hoạt động hoặc vượt quá mốc asOf.
+   */
   function payment(refType, refId, user, amount, time, label, status = 'posted', discount = 0, refundMethod = null) {
     if (+time > +now || +time < +at(first, 0)) throw new Error('Payment outside activity window');
     const n = ++payN;
     const localDay = new Date(+time + 7 * 3600000).toISOString().slice(0, 10);
     const shiftStart = new Date(`${localDay}T05:00:00+07:00`);
     const shiftEnd = new Date(`${localDay}T22:30:00+07:00`);
+    // Xác định giao dịch có diễn ra tại quầy trong ca trực lễ tân (05:00 - 22:30) hay không; tự mở ca mới nếu cần.
     const atDesk = +time >= +shiftStart && +time <= +shiftEnd;
     if (atDesk && !shifts.has(localDay)) shifts.set(localDay, add('cashier_shifts', {
       id: id(`shift:${localDay}`), receptionist_id: desk.id, opened_at: shiftStart,
       closed_at: +shiftEnd <= +now ? shiftEnd : null, cash_declared_vnd: 0 }));
     const shift = atDesk ? shifts.get(localDay) : null;
     const method = refundMethod || (shift ? ['cash', 'transfer', 'card', 'gateway'][n % 4] : 'transfer');
+    // Cộng dồn vào quỹ tiền mặt khai báo của ca trực lễ tân nếu khách thanh toán bằng tiền mặt.
     if (shift && method === 'cash') shift.cash_declared_vnd += amount;
     const p = add('payments', { id: id(`payment:${n}`), code: `PAY-LV-${String(n).padStart(6, '0')}`,
       user_id: user?.id ?? null, shift_id: shift?.id ?? null, method, amount_vnd: amount,
@@ -218,9 +355,11 @@ export async function populate(db, asOf) {
       capture_mode: method === 'gateway' ? 'auto' : 'manual', provider: method === 'gateway' ? 'payos' : null,
       provider_txn_id: method === 'gateway' ? `LV-${n}` : null,
       promo_id: discount ? promoId : null, discount_vnd: discount });
+    // Ghi nhận lịch sử sử dụng khuyến mãi (promotion_redemptions) nếu đơn hàng có áp dụng giảm giá.
     if (discount) add('promotion_redemptions', { id: id(`redemption:${p.id}`), promo_id: promoId,
       user_id: user.id, payment_id: p.id, discount_vnd: discount, status: 'applied', created_at: time });
     if (status !== 'posted') return p;
+    // Tự động xuất hóa đơn VAT (invoices, invoice_lines) cho giao dịch thành công: tách tiền hàng trước thuế và thuế VAT.
     const net = Math.floor(amount / (1 + Number(settings.vat_rate) / 100));
     const inv = add('invoices', { id: id(`invoice:${n}`), code: `INV-LV-${String(n).padStart(6, '0')}`,
       payment_id: p.id, buyer_name: user?.full_name ?? 'Khách vãng lai', issued_at: time,
@@ -229,14 +368,17 @@ export async function populate(db, asOf) {
       subtotal_vnd: net, vat_rate: Number(settings.vat_rate), vat_vnd: amount - net, total_vnd: amount });
     add('invoice_lines', { id: id(`line:${n}`), invoice_id: inv.id, description: label,
       qty: 1, unit: refType === 'booking' ? 'giờ' : 'gói', unit_vnd: amount, amount_vnd: amount });
+    // Đưa biên lai thanh toán vào hàng đợi thông báo in-app (outbox) để gửi đến tài khoản hội viên.
     if (user && amount > 0) add('outbox', { id: id(`receipt:${p.id}`), channel: 'inapp', template: 'payment_receipt',
       user_id: user.id, payload: { payment_id: p.id, invoice_id: inv.id, amount_vnd: amount, method },
       dedupe_key: `lively:receipt:${p.id}`, created_at: time, sent_at: time,
       read_at: n % 5 && +time + 45 * 60000 <= +now ? new Date(+time + 45 * 60000) : null });
+    // Ghi nhật ký kiểm toán (audit_logs) tương ứng: tạo khoản thu thanh toán mới hoặc hoàn tiền hủy giao dịch.
     audit(time, shift ? desk : manager, amount < 0 ? 'refund' : 'create_payment', 'payment', p.id,
       { ref_type: refType, amount_vnd: amount });
     return p;
   }
+  // Bước 5: Sinh lịch sử mua và gia hạn gói hội viên (subscriptions), xuất hóa đơn và khởi tạo hồ sơ tập luyện (training_profiles).
   for (const [i, user] of members.entries()) {
     const synthetic = Array.from({ length: 96 }, (_, j) => id(`member:${j}`)).indexOf(user.id);
     const joinOffset = synthetic >= 0 ? (synthetic < 24 ? synthetic % 10 : 11 + Math.floor(80 * Math.sqrt((synthetic - 24) / 72))) : i % 10;
@@ -248,6 +390,7 @@ export async function populate(db, asOf) {
       const targetMonth = d.getUTCMonth() + plan.duration_months;
       const last = new Date(Date.UTC(d.getUTCFullYear(), targetMonth + 1, 0)).getUTCDate();
       const end = new Date(Date.UTC(d.getUTCFullYear(), targetMonth, Math.min(d.getUTCDate(), last)) - DAY).toISOString().slice(0, 10);
+      // Áp dụng giảm giá 10% nếu ngày mua gói tập nằm trong tuần lễ khuyến mãi tháng 10 (12/10 - 18/10/2026).
       const discount = start >= '2026-10-12' && start <= '2026-10-18' ? Math.floor(plan.price_vnd * 0.1) : 0;
       const s = add('subscriptions', { id: id(`sub:${user.id}:${renewal}`), user_id: user.id, plan_id: plan.id,
         start_on: start, end_on: end, status: end < today ? 'expired' : 'active', price_vnd: plan.price_vnd,
@@ -260,6 +403,7 @@ export async function populate(db, asOf) {
       start = new Date(Date.parse(end) + DAY).toISOString().slice(0, 10);
       renewal++;
       }
+    // Khởi tạo hồ sơ tập luyện với mục tiêu ngẫu nhiên (kỹ thuật, vui khỏe, giảm cân, thi đấu) cho hội viên đã có gói tập.
     if (subs.has(user.id)) add('training_profiles', { user_id: user.id, goal: ['technique', 'fun', 'weight', 'compete'][i % 4], updated_at: at(first + joinOffset, 8) });
   }
   const busy = new Set();
@@ -267,16 +411,19 @@ export async function populate(db, asOf) {
   const userDays = new Map();
   const key = (who, date) => `${who}:${+date}`;
   const eligible = members.filter(u => rows.subscriptions?.some(s => s.user_id === u.id && s.end_on > '2026-11-12' && s.start_on <= '2026-09-10'));
+  // Bước 6: Khởi tạo các lớp học thể thao (classes) theo lịch cố định và ghi danh hội viên đủ điều kiện (enrollments).
   for (const [ci, coach] of coaches.entries()) {
     const sport = coachSports.find(s => s.user_id === coach.id)?.sport;
     const court = courts.find(c => c.sport === sport);
     if (!court) continue;
+    // Mỗi HLV phụ trách 2 đợt lớp học (cơ bản và nâng cao), mỗi đợt kéo dài 4 tuần liên tục.
     for (let phase = 0; phase < 2; phase++) {
       const from = first + (phase ? 42 : 11);
       const to = from + 28;
       if (eligible.length < 8 || +at(from, 0) > +now) continue;
       const hour = 17 + ci % 3;
       const weekday = 1 + ci % 5;
+      // Thiết lập thông tin lớp học: thể thao, trình độ, lịch học hàng tuần theo rrule và học phí theo từng HLV.
       const klass = add('classes', { id: id(`class:${ci}:${phase}`), sport, level: phase ? 'intermediate' : 'beginner',
         coach_id: coach.id, court_id: court.id, capacity: 10, enrolled_count: 8,
         rrule: `FREQ=WEEKLY;BYDAY=${['SU','MO','TU','WE','TH','FR','SA'][weekday]};BYHOUR=${hour}`,
@@ -285,25 +432,30 @@ export async function populate(db, asOf) {
         description: 'Rèn kỹ thuật, phối hợp đồng đội và duy trì thói quen vận động cùng huấn luyện viên.',
         syllabus: 'Khởi động; kỹ thuật nền tảng; bài tập phối hợp; thi đấu thực hành; giãn cơ.',
         who_for: 'Hội viên muốn luyện tập đều đặn và cải thiện kỹ thuật.', bring: 'Giày thể thao, nước uống và khăn cá nhân.' });
+      // Chọn danh sách 8 hội viên có gói tập dài hạn hợp lệ để đăng ký vào lớp học.
       const roster = Array.from({ length: 8 }, (_, j) => eligible[(ci * 8 + j) % eligible.length]);
       for (const u of roster) {
         const e = add('enrollments', { id: id(`enroll:${klass.id}:${u.id}`), class_id: klass.id,
           user_id: u.id, status: 'confirmed', waitlist_pos: null, prepaid_sessions: 0, price_vnd: klass.price_vnd });
         const joined = rows.subscriptions.find(s => s.user_id === u.id).start_on;
         const joinDay = Math.round((Date.parse(joined) - Date.parse(today)) / DAY);
+        // Thu học phí lớp học trước ngày khai giảng và ghi nhận vào nhật ký kiểm toán.
         const enrolled = at(Math.max(joinDay, from - 8 + roster.indexOf(u)), 9, ci * 3);
         payment('enrollment', e.id, u, klass.price_vnd, enrolled, `Học phí ${sport} — ${klass.level}`);
         audit(enrolled, u, 'enroll_class', 'enrollment', e.id, { class_id: klass.id });
       }
       for (let n = from; n <= to; n++) {
+        // Chỉ tạo buổi học cho các ngày khớp với thứ trong tuần (weekday) đã lên lịch trong rrule.
         if (new Date(`${day(n)}T12:00:00Z`).getUTCDay() !== weekday) continue;
         const start = at(n, hour), end = at(n, hour + 1);
         if (+end > +now) continue;
         const sid = id(`session:${klass.id}:${day(n)}`);
+        // Đánh dấu sân và danh sách học viên bận trong khung giờ này để tránh bị trùng khi xếp lịch đặt sân tự do.
         courtBusy.add(key(court.id, start));
         for (const u of roster) busy.add(key(u.id, start));
         add('sessions', { id: sid, class_id: klass.id, court_id: court.id, start_at: start, end_at: end,
           status: 'done', occupancy_id: null });
+        // Điểm danh (attendance) và ghi nhận kết quả tập luyện (session_results): ngẫu nhiên vắng (~1/11), đi muộn (~1/7) hoặc có mặt.
         for (const [j, u] of roster.entries()) {
           const absent = (n + 100 + j) % 11 === 0;
           add('attendance', { id: id(`att:${sid}:${u.id}`), kind: 'session', user_id: u.id, session_id: sid,
@@ -312,6 +464,7 @@ export async function populate(db, asOf) {
             plan_pct: 70 + j * 3, metrics: { practice_minutes: 45 }, note: 'Di chuyển chủ động hơn, cần giữ nhịp thở đều.', recorded_by: coach.id, recorded_at: end });
         }
       }
+      // Với lớp nâng cao (phase 1) mở trước ít nhất 3 ngày: HLV giao bài tập về nhà, ghi chú thể lực và đánh giá tiến độ 4 tuần.
       if (phase && first <= -3) {
         const hw = add('homework', { id: id(`hw:${ci}`), coach_id: coach.id, class_id: klass.id,
           title: 'Luyện bước chân và sức bền', body: 'Tập 3 hiệp bước chân, mỗi hiệp 5 phút. Giãn cơ sau tập.',
@@ -324,17 +477,20 @@ export async function populate(db, asOf) {
       }
     }
   }
+  // Bước 7: Sinh lịch đặt sân tự do (court_bookings) từ WINDOW_START đến hiện tại (horizon = 0), phục vụ cả hội viên và khách vãng lai.
   let bn = 0;
   const horizon = 0;
   for (let n = first; n <= horizon; n++) {
     for (const [ci, court] of courts.entries()) {
       for (let hour = 6; hour <= 21; hour++) {
         const start = at(n, hour), end = at(n, hour + 1);
+        // Bỏ qua các khung giờ kết thúc sau thời điểm hiện tại hoặc khung giờ sân đã bận do lớp học chiếm chỗ.
         if (+end > +now) continue;
         if (courtBusy.has(key(court.id, start))) continue;
         // Quiet weekday mornings, busy evenings/weekends; deterministic gaps remain bookable.
         const weekend = [0, 6].includes(new Date(+start + 7 * 3600000).getUTCDay());
         if (random(`slot:${day(n)}:${ci}:${hour}`) >= demand(day(n), hour)) continue;
+        // Phân bổ người đặt: ưu tiên hội viên có gói tập hợp lệ (chưa bị trùng giờ và dưới 2 lượt/ngày); định kỳ 1/4 lượt dành cho khách vãng lai.
         let guest = (bn + 1) % 4 === 0 || !rows.subscriptions?.some(s => s.start_on <= day(n));
         const user = guest ? null : Array.from({ length: members.length }, (_, j) => members[(bn * 7 + j) % members.length])
           .find(candidate => rows.subscriptions?.some(s => s.user_id === candidate.id && s.start_on <= day(n))
@@ -345,12 +501,14 @@ export async function populate(db, asOf) {
         const sub = user && rows.subscriptions.find(s => s.user_id === user.id && s.start_on <= day(n) && s.end_on >= day(n));
         const covered = sub && sub.start_on <= day(n) && sub.end_on >= day(n);
         const dayKind = weekend ? 'weekend' : 'weekday';
+        // Hội viên có gói tập còn hạn được hưởng giá ưu đãi 30.000 đ/giờ; khách vãng lai áp dụng giá niêm yết theo quy tắc (price_rules).
         const rule = rules.filter(r => r.sport === court.sport && (!r.court_id || r.court_id === court.id)
           && r.day_kind === dayKind && r.start_min <= hour * 60 && r.end_min >= (hour + 1) * 60)
           .sort((a, b) => Number(Boolean(b.court_id)) - Number(Boolean(a.court_id)) || a.id.localeCompare(b.id))[0];
         if (!rule) throw new Error(`Missing price rule for ${court.court_code}/${dayKind}/${hour}`);
         const amount = covered ? Number(settings.member_court_fee_vnd) : rule.price_vnd;
         const number = ++bn, bid = id(`booking:${number}`);
+        // Mô phỏng tỷ lệ thực tế: ~1/23 đơn bị hủy (cancelled), ~1/29 khách không đến (no_show), còn lại hoàn thành (completed).
         const status = number % 23 === 0 ? 'cancelled' : number % 29 === 0 ? 'no_show' : 'completed';
         add('court_bookings', { id: bid, code: `CRT-LV-${String(number).padStart(6, '0')}`, court_id: court.id,
           user_id: user?.id ?? null, guest_name: guest ? `${surnames[number % 12]} ${given[number % 8]}` : null,
@@ -358,15 +516,18 @@ export async function populate(db, asOf) {
           start_at: start, end_at: end, status, channel: guest ? 'desk' : 'app', price_vnd: amount,
           vat_rate: Number(settings.vat_rate), occupancy_id: null, paid_vnd: amount, deposit_vnd: 0,
           cancel_refund_pct: status === 'cancelled' ? 100 : null, cancel_fee_vnd: status === 'cancelled' ? 0 : null });
+        // Thu tiền trước giờ chơi 15 phút, xuất hóa đơn VAT và ghi nhận nhật ký kiểm toán.
         const paidAt = new Date(+start - 15 * 60000);
         const charge = payment('booking', bid, user, amount, paidAt, `Thuê sân ${court.court_code} — ${day(n)} ${hour}:00`);
         audit(paidAt, user || desk, guest ? 'walk_in' : 'create_booking', 'booking', bid, { start_at: start, court_id: court.id });
+        // Nếu hủy sân, hoàn lại 100% tiền qua giao dịch âm giữ đúng phương thức thanh toán ban đầu và ghi log cancel_booking.
         if (status === 'cancelled') {
           const cancelled = new Date(+start - 5 * 60000);
           payment('booking', bid, user, -amount, cancelled, 'Hoàn tiền hủy sân', 'posted', 0, charge.method);
           audit(cancelled, user || desk, 'cancel_booking', 'booking', bid, { refund_pct: 100, reason: 'Đổi kế hoạch cá nhân' });
         } else if (number % 37 === 0) audit(new Date(+paidAt + 60000), user || desk, 'reschedule_booking', 'booking', bid,
           { start_at: start, court_id: court.id }, { start_at: end, court_id: court.id });
+        // Đánh dấu hội viên bận, cập nhật số lượt đặt trong ngày (tối đa 2) và mô phỏng quẹt thẻ qua cổng với 1/3 số lượt hoàn thành.
         if (user) {
           busy.add(key(user.id, start));
           const uk = `${user.id}:${day(n)}`; userDays.set(uk, (userDays.get(uk) || 0) + 1);
@@ -376,6 +537,7 @@ export async function populate(db, asOf) {
       }
     }
   }
+  // Bước 8: Tạo 180 phiếu yêu cầu hỗ trợ (tickets), phản hồi của lễ tân và thông báo gửi đến hội viên qua outbox.
   const ticketTexts = ['Nhờ kiểm tra đèn sân cầu lông buổi tối.', 'Tôi muốn đổi giờ tập sang cuối tuần, nhờ tư vấn.',
     'Xin hướng dẫn gia hạn hội viên trước khi hết hạn.', 'Nhờ hỗ trợ lấy lại hóa đơn buổi đặt sân hôm qua.',
     'Tôi muốn đăng ký lớp nâng cao vào tháng tới.'];
@@ -388,6 +550,7 @@ export async function populate(db, asOf) {
     const days = earliest + Math.floor(random(`ticket-day:${i}`) * (1 - earliest));
     const created = at(days, 8 + i % 12, i % 60);
     if (+created > +now) continue;
+    // Phản hồi sau 20-180 phút; khoảng 4/5 số phiếu được xử lý đóng (closed) nếu thời gian phản hồi trước thời điểm hiện tại.
     const answered = new Date(+created + (20 + i % 160) * 60000);
     const closed = i % 5 !== 0 && +answered <= +now;
     const replied = closed && i % 9 !== 0;
@@ -396,6 +559,7 @@ export async function populate(db, asOf) {
         'Bạn nhắn giờ muốn đổi, lễ tân sẽ kiểm tra sân giúp bạn.', 'Bạn có thể gia hạn tại quầy hoặc trong mục Hội viên.',
         'Hóa đơn nằm trong mục Thanh toán, bạn kiểm tra lại giúp mình nhé.', 'Lễ tân đã gửi lịch lớp nâng cao cho bạn.'][i % 5] : null,
       replied_at: replied ? answered : null, replied_by: replied ? desk.id : null });
+    // Ghi nhật ký kiểm toán đóng hoặc trả lời ticket và gửi thông báo in-app (outbox) cho hội viên.
     if (closed) {
       audit(answered, desk, replied ? 'ticket_reply' : 'ticket_close', 'ticket', id(`ticket:${i}`));
       add('outbox', { id: id(`notice:${i}`), channel: 'inapp', template: replied ? 'ticket_reply' : 'ticket_closed', user_id: user.id,
@@ -405,6 +569,7 @@ export async function populate(db, asOf) {
     }
   }
   // One conversation per member/staff pair (0038); class group chats aren't supported.
+  // Bước 9: Thiết lập các cuộc hội thoại 1-1 (conversations) và chuỗi tin nhắn trao đổi (messages) giữa từng hội viên với lễ tân hoặc HLV.
   const deskTopics = [
     ['Tối thứ sáu còn sân lúc 19h không ạ?', 'Mình còn khung 19h và 20h, bạn đi mấy người?', 'Nhóm mình bốn người, để mình chốt với mọi người nhé.', 'Dạ, bạn chọn giờ trên lịch rồi thanh toán giúp mình nhé.'],
     ['Mình muốn đổi buổi tập sang thứ bảy, cần làm gì ạ?', 'Bạn vào lịch đặt sân, chọn Đổi lịch để xem giờ trống nhé.', 'Nếu đổi sang buổi sáng thì có chênh lệch phí không?', 'Hệ thống sẽ hiện giá mới trước khi bạn xác nhận nha.'],
@@ -423,6 +588,7 @@ export async function populate(db, asOf) {
     const joined = rows.subscriptions?.find(s => s.user_id === user.id)?.start_on;
     if (!joined) continue;
     const earliest = Math.max(first, Math.round((Date.parse(joined) - Date.parse(today)) / DAY));
+    // Mỗi cặp hội viên - nhân sự (lễ tân hoặc 3 HLV đầu) chỉ có tối đa một cuộc trò chuyện duy nhất theo quy định hệ thống.
     for (const [si, staff] of [desk, ...coaches.slice(0, 3)].entries()) {
       const cid = id(`conversation:${user.id}:${staff.id}`);
       let conversation;
@@ -432,6 +598,7 @@ export async function populate(db, asOf) {
         const topics = si === 0 ? deskTopics : coachTopics;
         const topic = topics[(mi + si + turn) % topics.length];
         let time = +base;
+        // Sinh các lượt tin nhắn hỏi đáp xen kẽ; tin nhắn gửi cách nhau 5-70 phút và người nhận đọc sau 2-4 phút.
         for (let j = 0; j < topic.length; j++) {
           if (j) time += (5 + Math.floor(random(`reply:${cid}:${turn}:${j}`) * 65)) * 60000;
           if (time > +now) break;
@@ -444,6 +611,7 @@ export async function populate(db, asOf) {
         }
       }
     }
+    // Bước 10: Bổ sung nhật ký kiểm toán cho các sự kiện thực tế: hội viên đăng nhập, lễ tân cập nhật hồ sơ, quẹt thẻ và quản lý đổi cấu hình.
     for (let n = earliest; n <= 0; n += 3 + mi % 5) {
       const time = at(n, 9 + mi % 12, mi % 50);
       if (+time > +now) continue;
@@ -451,11 +619,13 @@ export async function populate(db, asOf) {
       if ((n - earliest) % 19 === 0) audit(time, desk, 'update_member', 'user', user.id, { health_notes: 'Ưu tiên tập buổi tối' });
     }
   }
+  // Ghi nhận nhật ký kiểm toán cho điểm danh qua cổng (gate_checkin) và quản lý định kỳ 14 ngày cập nhật cấu hình đặt sân trước.
   for (const a of rows.attendance || []) if (a.kind === 'gate') audit(a.at, desk, 'gate_checkin', 'user', a.user_id, { method: 'staff' });
   for (let n = first + 7; n <= 0; n += 14) if (+at(n, 10) <= +now)
     audit(at(n, 10), manager, 'patch_settings', 'settings', null,
       { book_ahead_days: settings.book_ahead_days }, { book_ahead_days: settings.book_ahead_days === 7 ? 6 : 7 });
   // FK order, with deferred coach-session FK left enabled.
+  // Bước 11: Lưu toàn bộ dữ liệu đã tạo vào cơ sở dữ liệu theo đúng thứ tự phụ thuộc khóa ngoại (Foreign Key) để không vi phạm ràng buộc.
   const order = ['users', 'subscriptions', 'training_profiles', 'classes', 'enrollments', 'occupancies', 'sessions',
     'coach_occupancies', 'court_bookings', 'cashier_shifts', 'payments', 'promotion_redemptions', 'invoices', 'invoice_lines', 'attendance', 'session_results',
     'homework', 'homework_recipients', 'coach_notes', 'progress_reviews', 'conversations', 'messages', 'tickets', 'outbox', 'audit_logs'];
@@ -464,8 +634,17 @@ export async function populate(db, asOf) {
     added: Object.fromEntries(order.map(t => [t, rows[t]?.length || 0])) };
 }
 
+/**
+ * Làm gì: Kiểm tra toàn diện hơn 35 quy tắc bất biến nghiệp vụ (không trùng lịch, không lệch tiền, đủ hóa đơn VAT, quyền hạn nhân sự, cửa sổ thời gian) sau khi seed dữ liệu.
+ * Được gọi ở: scripts/seed-lively.mjs (hàm replaceActivity); scripts/seed-lively.test.mjs ("test runner (node --test)").
+ * - Tham số db: Đối tượng kết nối cơ sở dữ liệu (pg.Client hoặc PGlite).
+ * - Tham số asOf: Mốc thời gian ISO dùng làm cận trên kiểm tra các giao dịch và hoạt động.
+ * - Trả về: Đối tượng chứa tổng số quy tắc đã kiểm tra (checks) và danh sách các lỗi vi phạm nếu có (failures).
+ * - Lỗi có thể ném: Error Nếu có bất kỳ quy tắc nghiệp vụ nào bị vi phạm (failures không rỗng).
+ */
 export async function verify(db, asOf) {
   const failures = {};
+  // Bước 1: Định nghĩa danh mục các câu truy vấn SQL kiểm tra toàn bộ các bất biến nghiệp vụ (toàn vẹn dữ liệu, tài chính, lịch trình, phân quyền).
   const checks = {
     staleBookings: "select count(*) n from court_bookings where status in ('hold','confirmed','in_use') and start_at <= $1",
     futureCompletedBookings: "select count(*) n from court_bookings where status in ('completed','no_show') and end_at > $1",
@@ -507,24 +686,38 @@ export async function verify(db, asOf) {
     gatewayCapture: "select count(*) n from payments where method='gateway' and (capture_mode<>'auto' or provider is distinct from 'payos' or provider_txn_id is null)",
     refundMethods: "select count(*) n from payments r where r.amount_vnd<0 and not exists(select 1 from payments p where p.ref_type=r.ref_type and p.ref_id=r.ref_id and p.amount_vnd=-r.amount_vnd and p.method=r.method and p.paid_at<r.paid_at)",
   };
+  // Bước 2: Thực thi tuần tự từng câu kiểm tra; nếu số lượng vi phạm n > 0 thì ghi nhận vào danh sách failures.
   for (const [name, sql] of Object.entries(checks)) {
     const n = Number((await db.query(sql, sql.includes('$1') ? [asOf] : [])).rows[0].n);
     if (n) failures[name] = n;
     if (n && process.env.SEED_DEBUG) console.error(name, JSON.stringify((await db.query(sql.replace(/^select count\(\*\) n from/, 'select * from').replace(/$/, ' limit 3'), sql.includes('$1') ? [asOf] : [])).rows));
   }
+  // Bước 3: Ném ngoại lệ chặn đứng tiến trình nếu phát hiện bất kỳ vi phạm nào, đảm bảo dữ liệu luôn đạt chuẩn 100%.
   if (Object.keys(failures).length) throw new Error(`Seed invariant violations: ${JSON.stringify(failures)}`);
   return { checks: Object.keys(checks).length, failures };
 }
 
+/**
+ * Làm gì: Thực hiện thay thế toàn bộ dữ liệu hoạt động trong transaction an toàn: khóa bảng độc quyền, xóa sạch dữ liệu cũ (TRUNCATE), tạo lại dữ liệu mới, xác minh bất biến và commit.
+ * Được gọi ở: scripts/seed-lively.mjs (hàm main); scripts/seed-lively.test.mjs ("test runner (node --test)").
+ * - Tham số db: Đối tượng kết nối cơ sở dữ liệu (pg.Client hoặc PGlite).
+ * - Tham số asOf: Mốc thời gian ISO kết thúc chuỗi dữ liệu mô phỏng.
+ * - Trả về: Đối tượng tổng hợp kết quả seed gồm số lượng dòng các bảng, doanh thu tháng 10 theo thứ, kết quả xác minh và trạng thái bảo toàn tài khoản.
+ * - Lỗi có thể ném: Error Khi bất kỳ thao tác nào thất bại; giao dịch sẽ tự động rollback.
+ */
 export async function replaceActivity(db, asOf) {
+  // Bước 1: Mở giao dịch (BEGIN) và áp dụng khóa độc quyền ACCESS EXCLUSIVE lên toàn bộ các bảng hoạt động và users để ngăn xung đột ghi.
   await db.exec('begin');
   try {
     // FIRST statement after BEGIN: never acquire read locks before this bulk lock.
     await db.exec(`lock table ${ACTIVITY.join(', ')}, users in access exclusive mode`);
+    // Bước 2: Đánh giá số lượng bản ghi cũ và dọn sạch dữ liệu các bảng hoạt động bằng lệnh TRUNCATE ... RESTART IDENTITY.
     const before = await impact(db);
     await db.exec(`truncate table ${ACTIVITY.join(', ')} restart identity`);
+    // Bước 3: Tạo mới toàn bộ dữ liệu hoạt động bằng populate() và kiểm tra hơn 35 quy tắc bất biến bằng verify().
     const result = await populate(db, asOf);
     const verification = await verify(db, asOf);
+    // Bước 4: Thống kê số lượng bản ghi thực tế sau khi seed và tổng hợp doanh thu tháng 10/2026 theo từng thứ trong tuần.
     const counts = {};
     for (const table of ['users', 'promotions', ...ACTIVITY])
       counts[table] = Number((await db.query(`select count(*) n from ${table}`)).rows[0].n);
@@ -538,39 +731,54 @@ export async function replaceActivity(db, asOf) {
     ) select extract(isodow from date_key)::int weekday, to_char(date_key,'Dy') label,
       count(*)::int days, sum(revenue_vnd)::bigint total_vnd, round(avg(revenue_vnd))::bigint average_vnd
       from daily group by 1,2 order by 1`, [asOf])).rows;
+    // Bước 5: Cập nhật mốc thời gian seed vào bảng trạng thái _lively_seed_state để xác nhận quyền sở hữu và hoàn tất giao dịch (COMMIT).
     await db.exec('create table if not exists _lively_seed_state(id int primary key check(id=1), as_of timestamptz not null)');
     await db.query('insert into _lively_seed_state values(1,$1) on conflict(id) do update set as_of=excluded.as_of', [asOf]);
     await db.exec('commit');
     return { ...result, counts, octoberRevenueByWeekday, verification,
       replacedLocalActivity: before.existingActivity, preservedUsers: true, deletedUsers: 0,
       junkCandidatesForManualReview: before.reviewOnlyJunkCandidates };
+  // Rollback toàn bộ giao dịch nếu có bất kỳ bước nào phát sinh lỗi, bảo vệ database không bị hỏng trạng thái.
   } catch (err) { await db.exec('rollback'); throw err; }
 }
 
+/**
+ * Làm gì: Điểm vào CLI chính của kịch bản seed: phân tích tham số dòng lệnh, kiểm tra rào chắn bảo vệ môi trường, chạy migration và thực hiện seed dữ liệu demo.
+ * Được gọi ở: scripts/seed-lively.mjs (dòng 594 khi chạy trực tiếp: node scripts/seed-lively.mjs).
+ * - Tham số args: Mảng tham số dòng lệnh truyền vào (mặc định lấy từ process.argv.slice(2)).
+ * - Trả về: Promise hoàn thành sau khi in kết quả JSON ra console hoặc hiển thị trợ giúp (--help).
+ * - Lỗi có thể ném: Error Nếu tham số không hợp lệ, không vượt qua rào chắn bảo vệ DB hoặc lỗi trong quá trình seed.
+ */
 export async function main(args = process.argv.slice(2)) {
+  // Bước 1: Phân tích các cờ dòng lệnh: --apply (áp dụng thật), --as-of (mốc thời gian), --data-dir (thư mục PGlite), --replace-remote (xác nhận ghi remote).
   const { values } = parseArgs({ args, options: { apply: { type: 'boolean', default: false },
     'as-of': { type: 'string' }, 'data-dir': { type: 'string' }, help: { type: 'boolean' }, 'replace-remote': { type: 'string' } } });
   if (values.help) { console.log('node scripts/seed-lively.mjs [--apply] [--data-dir FRESH_DIR] [--as-of ISO_TIMESTAMP] [--replace-remote EXACT_HOST]\nDATABASE_URL selects pg; otherwise PGLITE_DATA_DIR selects PGlite. Remote targets are read-only unless --apply --replace-remote EXACT_HOST is explicit.'); return; }
+  // Bước 2: Kiểm tra cấu hình kết nối, kiểm tra tính hợp lệ của mốc asOf và kích hoạt rào chắn bảo vệ an toàn nếu có cờ --apply.
   const url = process.env.DATABASE_URL?.trim();
   const dataDir = values['data-dir'] || process.env.PGLITE_DATA_DIR;
   const asOf = values['as-of'] || new Date().toISOString();
   if (!Number.isFinite(+new Date(asOf))) throw new Error('Invalid --as-of timestamp');
   if (values.apply) writableTarget(url, dataDir, values['replace-remote']);
   if (!url && !dataDir) throw new Error('Supply a dedicated PGLITE_DATA_DIR or DATABASE_URL. No implicit .pglite or dotenv fallback.');
+  // Bước 3: Đối với PGlite: chỉ cho phép ghi đè thư mục mới hoặc thư mục đã có file đánh dấu quyền sở hữu (.arena3-lively-owner).
   if (values.apply && !url) {
     // Do not even open an unrelated PGlite database. Ownership is a sidecar file.
     const entries = await readdir(dataDir).catch(err => { if (err.code === 'ENOENT') return []; throw err; });
     if (entries.length && !entries.includes('.arena3-lively-owner')) throw new Error('Refusing existing PGlite directory without lively ownership marker. Choose a fresh directory.');
     await prepareLocalDirectory(dataDir);
   }
+  // Bước 4: Khởi tạo kết nối tới cơ sở dữ liệu (PostgreSQL hoặc PGlite).
   const db = await connect(url, dataDir);
   try {
+    // Bước 5: Nếu không có cờ --apply, chạy ở chế độ chỉ đọc (read-only plan) trong transaction tạm để báo cáo hiện trạng mà không làm thay đổi dữ liệu.
     if (!values.apply) {
       await db.exec('begin read only');
       try { console.log(JSON.stringify({ mode: 'read-only-plan', ...await impact(db), proposed: `Up to 96 synthetic Vietnamese member accounts; regenerate activity from ${WINDOW_START} through --as-of. No future bookings or payments.` }, null, 2)); }
       finally { await db.exec('rollback'); }
       return;
     }
+    // Bước 6: Chế độ áp dụng (--apply): kiểm tra quyền sở hữu bảng, ghi nhận file đánh dấu và áp dụng các migration SQL còn thiếu.
     if (url) {
       const owned = (await db.query("select to_regclass('public._lively_seed_state') as t")).rows[0].t;
       if (!owned) {
@@ -583,6 +791,7 @@ export async function main(args = process.argv.slice(2)) {
       await writeFile(resolve(dataDir, '.arena3-lively-owner'), VERSION);
       await migrate(db);
     }
+    // Bước 7: Thực hiện thay thế dữ liệu hoạt động qua replaceActivity() và in kết quả chi tiết dưới dạng JSON ra console.
     const result = await replaceActivity(db, asOf);
     console.log(JSON.stringify({ mode: url ? 'postgres-demo-applied' : 'local-demo-applied',
       asOf: result.asOf, from: result.from, through: result.through, counts: result.counts,
@@ -591,4 +800,5 @@ export async function main(args = process.argv.slice(2)) {
       junkCandidatesForManualReview: result.junkCandidatesForManualReview }, null, 2));
   } finally { await db.close(); }
 }
+// Tự động thực thi hàm main khi file được gọi trực tiếp từ Node.js CLI.
 if (isMainModule(import.meta.url)) main().catch(err => { console.error(`[seed-lively] ${err.message}`); process.exitCode = 1; });
