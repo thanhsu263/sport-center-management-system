@@ -193,6 +193,10 @@ export default defineConfig(({ command, isPreview }) => ({
     host: "0.0.0.0",
     port: 8080,
     strictPort: true,
+    // Không theo dõi thư mục lớn ngoài mã nguồn (video, bản sao DB, đồ thị) để dev server khởi động kịp
+    watch: {
+      ignored: ["**/video/**", "**/.pglite*/**", "**/graphify-out/**", "**/arena3-ui-v2/**", "**/docs/**", "**/.cache/**", "**/.playwright-mcp/**"],
+    },
   },
   preview: {
     host: "127.0.0.1",
