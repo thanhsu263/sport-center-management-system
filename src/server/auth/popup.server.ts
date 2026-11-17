@@ -29,12 +29,21 @@ type PopupMessage = {
  * Handle `GET /auth/popup`. Invoked by the Vite `authPopupPlugin` (dev / live
  * preview). Do not re-export this from a React route file.
  */
+/**
+ * Làm gì: Xử lý HTTP request GET /auth/popup để điều phối luồng đăng nhập OAuth trong môi trường Live Preview. Điều phối 2 giai đoạn: Phase 1 khởi tạo OAuth rồi chuyển hướng 302 đến broker, hoặc Phase 2 trả về trang HTML hoàn tất để gửi session token về cửa sổ cha qua postMessage.
+ * Được gọi ở: vite.config.ts (middleware authPopupPlugin khi chạy npm run dev / preview).
+ * @param request Đối tượng Request HTTP gửi tới endpoint /auth/popup.
+ * @returns Promise giải quyết thành Response HTTP (chuyển hướng 302 đến broker, trả về HTML 200, hoặc mã lỗi 400).
+ */
 export async function handleAuthPopupRequest(request: Request): Promise<Response> {
+  // Bước 1: Trích xuất thông tin URL từ request và kiểm tra tham số "done" để xác định giai đoạn xử lý OAuth.
   const url = new URL(request.url);
   const done = url.searchParams.get("done") === "1";
 
+  // Bước 2: Xử lý Phase 2 (khi done=1) sau khi broker chuyển hướng quay lại popup. Đọc session token từ cookie hoặc bắt lỗi để đóng gói thành PopupMessage.
   if (done) {
     const errored = url.searchParams.has("error");
+    // Đọc session token từ cookie của popup (first-party) để gửi sang iframe preview (vốn bị hạn chế do partitioned cookies).
     const token = errored ? null : readCookie(request, SESSION_TOKEN_COOKIE);
     const message: PopupMessage = {
       source: "grok-auth-popup",
@@ -51,6 +60,7 @@ export async function handleAuthPopupRequest(request: Request): Promise<Response
     });
   }
 
+  // Bước 3: Xử lý Phase 1 - Bắt đầu luồng OAuth. Lấy mã nhà cung cấp (providerId) và kiểm tra tính hợp lệ; trả về 400 nếu thiếu.
   const providerId = url.searchParams.get("providerId")?.trim();
   if (!providerId) {
     return new Response("Missing providerId", {
@@ -61,6 +71,7 @@ export async function handleAuthPopupRequest(request: Request): Promise<Response
 
   // Stay first-party for the callback so the session cookie lands in THIS popup.
   const back = `${url.origin}/auth/popup?done=1`;
+  // Bước 4: Gọi API signInWithOAuth2 của Better Auth để lấy URL đăng nhập của broker, đặt callback quay lại chính popup này kèm tham số done=1.
   try {
     const apiRes = await auth.api.signInWithOAuth2({
       body: {
@@ -74,6 +85,7 @@ export async function handleAuthPopupRequest(request: Request): Promise<Response
       asResponse: true,
     });
 
+    // Bước 5: Kiểm tra kết quả phản hồi từ Better Auth; nếu thất bại hoặc thiếu URL chuyển hướng, trả về trang HTML báo lỗi cho cửa sổ cha.
     if (!apiRes.ok) {
       const detail = await apiRes.text().catch(() => "");
       return completionResponse({
@@ -97,12 +109,14 @@ export async function handleAuthPopupRequest(request: Request): Promise<Response
 
     // 302 to the broker (which headlessly forwards to Google/X). Forward any
     // Set-Cookie (OAuth state / PKCE) so the callback can complete in this popup.
+    // Bước 6: Chuyển hướng 302 tới broker đăng nhập, đồng thời chuyển tiếp các header Set-Cookie (chứa state và PKCE) để popup lưu lại.
     const headers = new Headers({ location, "cache-control": "no-store" });
     for (const cookie of apiRes.headers.getSetCookie()) {
       headers.append("set-cookie", cookie);
     }
     return new Response(null, { status: 302, headers });
   } catch (err) {
+    // Bắt ngoại lệ nếu quá trình khởi tạo OAuth phát sinh lỗi và gửi thông báo lỗi về cửa sổ cha.
     const message = err instanceof Error ? err.message : "oauth_init_threw";
     return completionResponse({
       source: "grok-auth-popup",
@@ -112,6 +126,12 @@ export async function handleAuthPopupRequest(request: Request): Promise<Response
   }
 }
 
+/**
+ * Làm gì: Tạo HTTP Response với mã trạng thái 200 chứa nội dung HTML hoàn tất xác thực, thiết lập header no-store để không lưu cache trang chứa token.
+ * Được gọi ở: src/server/auth/popup.server.ts (trong hàm handleAuthPopupRequest khi cần trả về trang HTML hoàn tất hoặc báo lỗi).
+ * @param message Dữ liệu PopupMessage chứa session token hoặc thông báo lỗi cần gửi về client.
+ * @returns Đối tượng Response HTTP hoàn chỉnh với Content-Type là text/html.
+ */
 function completionResponse(message: PopupMessage): Response {
   return new Response(completionHtml(message), {
     status: 200,
@@ -123,10 +143,18 @@ function completionResponse(message: PopupMessage): Response {
 }
 
 /** Minimal HTML: postMessage the token to the opener and close. No React. */
+/**
+ * Làm gì: Sinh mã HTML tĩnh gọn nhẹ không chứa React shell, dùng script nội tuyến để gửi thông điệp PopupMessage tới window.opener qua postMessage rồi tự đóng popup.
+ * Được gọi ở: src/server/auth/popup.server.ts (trong hàm handleAuthPopupRequest và completionResponse).
+ * @param message Đối tượng PopupMessage chứa token hoặc thông tin lỗi cần gửi tới cửa sổ cha.
+ * @returns Chuỗi HTML tĩnh hoàn chỉnh của trang hoàn tất xác thực.
+ */
 function completionHtml(message: PopupMessage): string {
   // JSON is safe inside a <script type="application/json"> block; the inline
   // script only reads it. Avoids escaping pitfalls of embedding in JS source.
+  // Bước 1: Chuyển message thành chuỗi JSON và escape ký tự "<" thành dạng unicode để chống tấn công XSS và tránh đóng sớm thẻ script.
   const payload = JSON.stringify(message).replace(/</g, "\\u003c");
+  // Bước 2: Trả về chuỗi HTML chứa inline script tự động gửi postMessage tới window.opener và đóng cửa sổ popup.
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -158,15 +186,25 @@ function completionHtml(message: PopupMessage): string {
 }
 
 /** Read a single cookie value from the request (handles `=` inside values). */
+/**
+ * Làm gì: Đọc và giải mã giá trị của một cookie cụ thể từ header cookie của request, hỗ trợ giá trị có chứa ký tự dấu bằng (=).
+ * Được gọi ở: src/server/auth/popup.server.ts (trong hàm handleAuthPopupRequest để lấy giá trị SESSION_TOKEN_COOKIE).
+ * @param request Đối tượng Request HTTP chứa cookie header cần đọc.
+ * @param name Tên cookie cần tìm.
+ * @returns Chuỗi giá trị cookie đã giải mã URL, hoặc null nếu không tìm thấy.
+ */
 function readCookie(request: Request, name: string): string | null {
+  // Bước 1: Lấy header cookie từ request; nếu không có thì trả về null ngay.
   const header = request.headers.get("cookie");
   if (!header) return null;
+  // Bước 2: Tách chuỗi cookie thành các cặp name=value, tìm cặp có tên trùng khớp với tham số name.
   for (const part of header.split(";")) {
     const trimmed = part.trim();
     if (!trimmed) continue;
     const eq = trimmed.indexOf("=");
     if (eq <= 0) continue;
     if (trimmed.slice(0, eq) !== name) continue;
+    // Bước 3: Lấy giá trị sau dấu "=" đầu tiên và giải mã decodeURIComponent; nếu lỗi giải mã thì giữ nguyên chuỗi thô.
     const raw = trimmed.slice(eq + 1);
     try {
       return decodeURIComponent(raw);

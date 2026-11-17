@@ -1,3 +1,9 @@
+/**
+ * Dịch vụ cung cấp danh mục công khai (public catalog) và lịch sân trống cho khách vãng lai.
+ * Phục vụ dữ liệu cho Landing Page (trang chủ "/") thông qua các Server Function của TanStack Start:
+ * - getPublicAvailability: Tra cứu các ca bận/trống của từng sân theo ngày mà không yêu cầu đăng nhập, ẩn danh thông tin người đặt.
+ * - getPublicCatalog: Tải danh mục tổng hợp gồm gói hội viên đang bán, lớp học mở, bảng giá theo khung giờ, giờ hoạt động và danh sách huấn luyện viên.
+ */
 import { createServerFn } from "@tanstack/react-start";
 
 import type { CatalogPlan, CatalogClass, CatalogPrice, CatalogCourt, CatalogSlot } from "@/shared/arena3/contracts";
@@ -13,18 +19,29 @@ import type { CatalogPlan, CatalogClass, CatalogPrice, CatalogCourt, CatalogSlot
  * enrolment the hour belongs to. What is left is when the building is busy,
  * which is what a sign on the door would say anyway.
  */
+/**
+ * Làm gì: Tra cứu lịch bận và danh sách sân hoạt động theo ngày để hiển thị các ô giờ trống cho khách chưa đăng nhập trên Landing Page.
+ * Được gọi ở: src/routes/index.tsx (loader của Route "/" khi tải trang, và useEffect khi người dùng chọn ngày xem lịch).
+ * @param input Đối tượng chứa date (chuỗi ngày YYYY-MM-DD tùy chọn, mặc định lấy ngày hiện tại theo giờ ICT).
+ * @returns Object chứa ngày tra cứu (date), danh sách sân (courts) và danh sách ca bận đã chuẩn hóa thời gian ISO (slots).
+ * @throws Lỗi kết nối cơ sở dữ liệu nếu truy vấn SQL thất bại.
+ */
 export const getPublicAvailability = createServerFn({ method: "POST" })
   .inputValidator((input: { date?: string } | undefined) => {
+    // Kiểm tra định dạng ngày YYYY-MM-DD; nếu không hợp lệ sẽ đặt chuỗi rỗng để handler dùng ngày hiện tại.
     const date = input?.date ?? "";
     return { date: /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : "" };
   })
   .handler(async ({ data }) => {
+    // Bước 1: Nạp kết nối database và xác định khoảng thời gian cả ngày [00:00, 24:00) theo múi giờ Việt Nam (ICT).
     const { getSql } = await import("@/server/data/db");
     const { ictDateString, ictDateTime } = await import("../../shared/arena3/time");
     const sql = await getSql();
     const date = data.date || ictDateString();
+    // Lấy mốc bắt đầu (00:00) và kết thúc (24:00, cộng 1 phút sau 23:59) để bao quát trọn vẹn ngày được chọn theo giờ ICT.
     const start = ictDateTime(date, "00:00");
     const end = new Date(ictDateTime(date, "23:59").getTime() + 60_000);
+    // Bước 2: Truy vấn song song danh sách sân đang hoạt động và các ca chiếm dụng trong ngày (ẩn danh thông tin đặt chỗ).
     const [courts, slots] = await Promise.all([
       sql.query<CatalogCourt>(
         `select id, court_code, sport, status
@@ -40,6 +57,7 @@ export const getPublicAvailability = createServerFn({ method: "POST" })
         [start.toISOString(), end.toISOString()],
       ),
     ]);
+    // Bước 3: Chuẩn hóa thời gian các ca bận về chuỗi ISO 8601 và trả về dữ liệu lịch sân cho client.
     return {
       date,
       courts,
@@ -55,9 +73,17 @@ export const getPublicAvailability = createServerFn({ method: "POST" })
     };
   });
 
+/**
+ * Làm gì: Tải toàn bộ danh mục dịch vụ công khai cho Landing Page (gói hội viên, lớp học tiêu biểu, bảng giá, giờ hoạt động và danh sách huấn luyện viên).
+ * Được gọi ở: src/routes/index.tsx (loader của Route "/" khi người dùng truy cập trang chủ).
+ * @returns Object chứa danh sách plans, classes, prices, venue (giờ mở/đóng cửa và số phút giữ chỗ) và coaches.
+ * @throws Lỗi kết nối cơ sở dữ liệu nếu truy vấn SQL thất bại.
+ */
 export const getPublicCatalog = createServerFn({ method: "POST" }).handler(async () => {
+  // Bước 1: Khởi tạo kết nối database để chuẩn bị truy vấn danh mục.
   const { getSql } = await import("@/server/data/db");
   const sql = await getSql();
+  // Bước 2: Tải song song 5 nhóm dữ liệu danh mục (gói hội viên, lớp học tiêu biểu, bảng giá, giờ mở/đóng cửa và HLV hoạt động).
   const [plans, classes, prices, venueRows, coaches] = await Promise.all([
     sql.query<CatalogPlan>(
       `select id, name, duration_days, session_quota, court_hours,
@@ -103,5 +129,6 @@ export const getPublicCatalog = createServerFn({ method: "POST" }).handler(async
     ),
   ]);
   // Opening hours and hold length for the landing's copy and grid (see src/client/lib/venue.ts).
+  // Bước 3: Đóng gói toàn bộ thông tin danh mục công khai và trả về cho Landing Page.
   return { plans, classes, prices, venue: venueRows[0] ?? null, coaches };
 });
