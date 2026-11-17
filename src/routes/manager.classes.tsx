@@ -1,3 +1,11 @@
+/**
+ * Quản lý danh sách lớp học và lịch học (Classes & Sessions) dành cho vai trò Quản lý (Manager).
+ * Tệp này định nghĩa trang `/manager/classes`, cung cấp các chức năng:
+ * - Xem số liệu thống kê nhanh (lớp đang mở, lớp nháp, tổng số học viên đăng ký).
+ * - Lọc danh sách lớp học theo huấn luyện viên, thứ trong tuần và buổi trong ngày.
+ * - Tạo lớp học mới theo quy tắc lặp lại hàng tuần (RRULE) và tự động xuất bản (publish) các buổi học.
+ * - Quản lý chi tiết từng lớp học (danh sách buổi học, học viên ghi danh) qua ClassDetailModal.
+ */
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -18,6 +26,11 @@ import { useCentre } from "@/client/lib/use-centre";
 import { hoursOf } from "@/client/lib/venue";
 import { HighlightBadge, useLive } from "@/client/lib/use-live";
 
+/**
+ * Làm gì: Định nghĩa route `/manager/classes` của TanStack Router, liên kết URL tới component Page để quản lý các lớp học.
+ * Được gọi ở: URL `/manager/classes` (cấu hình trong src/shared/ui-config.ts, điều hướng từ menu Quản lý hoặc trang chi tiết hội viên).
+ * @returns Route definition object của TanStack Router dành cho trang `/manager/classes`.
+ */
 export const Route = createFileRoute("/manager/classes")({
   component: Page,
 });
@@ -25,6 +38,7 @@ export const Route = createFileRoute("/manager/classes")({
 /** Matches MAX_CLASS_CAPACITY in the classes handler, which refuses anything above it. */
 const MAX_CAPACITY = 200;
 
+// Danh sách các thứ trong tuần kèm mã 2 ký tự theo chuẩn iCal RRULE (MO, TU,...) dùng để cấu hình lịch lặp lại.
 const DAYS = [
   { k: "MO", l: tk("Mon") },
   { k: "TU", l: tk("Tue") },
@@ -35,6 +49,7 @@ const DAYS = [
   { k: "SU", l: tk("Sun") },
 ];
 
+// Kiểu dữ liệu đại diện cho một dòng thông tin lớp học trả về từ API /classes.
 type ClassRow = {
   id: string;
   code: string;
@@ -53,15 +68,24 @@ type ClassRow = {
   min_enrolled?: number | null;
 };
 
+/**
+ * Làm gì: Component giao diện trang quản lý lớp học; hiển thị tổng quan số liệu, bộ lọc tìm kiếm, form tạo mới và danh sách các lớp học cùng trạng thái hoạt động.
+ * Được gọi ở: Route `/manager/classes` (src/routes/manager.classes.tsx) khi người dùng truy cập trang quản lý lớp học.
+ * @returns Giao diện React hoàn chỉnh của trang quản lý lớp học nằm trong khung layout Shell role="manager".
+ */
 function Page() {
+  // Bước 1: Khởi tạo dữ liệu và trạng thái trang (tải danh sách lớp học, sân thể thao, huấn luyện viên đang hoạt động).
   const { venue } = useCentre();
+  // Giới hạn 8 lớp học mỗi lần hiển thị ban đầu để tối ưu tốc độ render danh sách.
   const [limit, setLimit] = useState(8);
   const classesRead = useRead<{ items: ClassRow[] }>("/classes");
   const courtsRead = useRead<{ items: Array<{ id: string; court_code: string; sport: string }> }>("/courts");
+  // Chỉ lấy nhân sự có vai trò coach và trạng thái đang hoạt động (active) để phân công phụ trách lớp.
   const coachesRead = useRead<{ items: Array<{ id: string; full_name: string; sports: string[] | null }> }>(
     "/staff?role=coach&status=active",
   );
   const items = classesRead.data?.items ?? null;
+  // Bước 2: Thiết lập bộ lọc và xử lý danh sách lớp học theo huấn luyện viên, thứ trong tuần, buổi và trạng thái huỷ.
   // Cancelled classes stay on record but are folded away; the server sends the newest first.
   const [showCancelled, setShowCancelled] = useState(false);
   const cancelledCount = items?.filter((c) => c.status === "cancelled").length ?? 0;
@@ -70,12 +94,15 @@ function Page() {
   const [day, setDay] = useState("");
   const [part, setPart] = useState("");
   const filtering = !!(coach || day || part);
+  // Trích xuất danh sách tên HLV duy nhất từ các lớp học và sắp xếp theo thứ tự bảng chữ cái tiếng Việt.
   const coachNames = [...new Set((items ?? []).map((c) => c.coach_name))].sort((a, b) => a.localeCompare(b, "vi"));
+  // Lọc danh sách lớp học: loại bỏ lớp đã huỷ (nếu không bật xem lớp huỷ), lọc theo HLV và khớp lịch lặp lại (rrule).
   const listed = items
     ? (showCancelled ? items : items.filter((c) => c.status !== "cancelled"))
         .filter((c) => !coach || c.coach_name === coach)
         .filter((c) => classSlotMatches(c.rrule, day, part))
     : null;
+  // Reset số lượng hiển thị về 8 khi người dùng thay đổi bất kỳ tiêu chí lọc nào để xem từ đầu kết quả mới.
   useEffect(() => setLimit(8), [coach, day, part]);
   const courts = useMemo(() => courtsRead.data?.items ?? [], [courtsRead.data]);
   const coaches = useMemo(() => coachesRead.data?.items ?? [], [coachesRead.data]);
@@ -84,6 +111,7 @@ function Page() {
   const formError = courtsRead.error ?? coachesRead.error;
   // The class whose sessions and roster are open (B-08).
   const [detail, setDetail] = useState<string | null>(null);
+  // Bước 3: Khởi tạo state cho form tạo mới lớp học với các thông số mặc định (lặp thứ Ba/Năm lúc 19:00, thời lượng 60 ngày).
   const [creating, setCreating] = useState(false);
   const [days, setDays] = useState<string[]>(["TU", "TH"]);
   const [hour, setHour] = useState(19);
@@ -100,6 +128,7 @@ function Page() {
     start_on: todayISO(),
     end_on: addDaysISO(todayISO(), 60),
   });
+  // Tự động gán môn thể thao mặc định là môn đầu tiên trong danh mục khi vừa mở form nếu chưa có môn nào được chọn.
   useEffect(() => {
     if (!form.sport && sports.length > 0) {
       setForm((prev) => ({ ...prev, sport: sports[0].code }));
@@ -108,8 +137,10 @@ function Page() {
 
   // After a change, the class list is read again (a published class is a new row or a new status).
   const load = classesRead.reload;
+  // Lắng nghe sự kiện realtime qua WebSocket trên kênh "classes" để tự động tải lại danh sách khi có thay đổi trên server.
   useLive("classes", load);
 
+  // Bước 4: Lọc danh sách sân và huấn luyện viên phù hợp với môn thể thao được chọn trong form.
   // The people and courts a class of this sport can actually use. Nothing is
   // assumed about which accounts exist: a centre that issued its own coach
   // logins has none of the seed ids.
@@ -118,6 +149,7 @@ function Page() {
     () => coaches.filter((c) => (c.sports ?? []).some((s) => s === form.sport || s === "all")),
     [coaches, form.sport],
   );
+  // Tự động cập nhật lại court_id và coach_id mặc định khi danh sách sân hoặc HLV theo môn thể thao thay đổi.
   useEffect(() => {
     setForm((f) => {
       const court_id = sportCourts.some((c) => c.id === f.court_id) ? f.court_id : (sportCourts[0]?.id ?? "");
@@ -125,6 +157,7 @@ function Page() {
       return court_id === f.court_id && coach_id === f.coach_id ? f : { ...f, court_id, coach_id };
     });
   }, [sportCourts, sportCoaches]);
+  // Kiểm tra điều kiện tiên quyết: cảnh báo nếu môn thể thao được chọn chưa có HLV phụ trách hoặc chưa có sân tập.
   const missing = !loaded
     ? null
     : !sportCoaches.length
@@ -135,7 +168,14 @@ function Page() {
 
   // The same limits the server holds the class to, said beside the box before the click rather
   // than after it. Typed as text so a half-typed or emptied box is shown as wrong, not as 0.
+  /**
+   * Làm gì: Chuyển đổi chuỗi thành số nguyên dương hợp lệ; trả về NaN nếu chuỗi không phải chữ số thuần túy hoặc bị rỗng.
+   * Được gọi ở: Component Page trong src/routes/manager.classes.tsx (khi validate form tạo lớp học).
+   * @param v Chuỗi nhập từ ô input cần kiểm tra và parse sang số nguyên.
+   * @returns Số nguyên đã parse thành công, hoặc NaN nếu chuỗi không hợp lệ.
+   */
   const whole = (v: string) => (/^\d+$/.test(v.trim()) ? Number(v.trim()) : NaN);
+  // Bước 5: Validate dữ liệu form phía client (sức chứa 1-200, số lượng tối thiểu, giá tiền, ngày bắt đầu, ngày trong tuần).
   const capacityN = whole(form.capacity);
   const capacityError =
     Number.isInteger(capacityN) && capacityN >= 1 && capacityN <= MAX_CAPACITY
@@ -148,21 +188,31 @@ function Page() {
       : t("The minimum must be a whole number from 1 up to the capacity.");
   const priceError =
     form.price.trim() === "" || Number.isInteger(whole(form.price)) ? null : t("Price must be a whole number of dong, or empty.");
+  // Quy tắc nghiệp vụ: Lớp học không được bắt đầu trong quá khứ để tránh xung đột lịch đặt sân.
   const startError =
     form.start_on && form.start_on < todayISO() ? t("A class cannot start or end in the past. Pick today or a later first day.") : null;
   // No day picked used to fall back to Monday and then report a clash nobody asked for.
   const daysError = days.length ? null : t("Pick at least one day of the week.");
+  // Xác định trạng thái không hợp lệ của toàn bộ form để vô hiệu hóa nút tạo lớp nếu có lỗi nhập liệu.
   const invalid = !!(capacityError || minError || priceError || startError || daysError);
 
+  /**
+   * Làm gì: Chọn hoặc bỏ chọn một thứ trong tuần để cấu hình chu kỳ lặp lại hàng tuần của lớp học.
+   * Được gọi ở: Nút chọn ngày lặp lại (DAYS buttons) trong form tạo lớp của component Page.
+   * @param k Mã thứ trong tuần theo chuẩn iCal RRULE (ví dụ: "MO", "TU", "WE",...).
+   * @returns Không trả về giá trị (cập nhật state days).
+   */
   function toggleDay(k: string) {
     setDays((prev) => (prev.includes(k) ? prev.filter((d) => d !== k) : [...prev, k]));
   }
 
+  // Bước 6: Tính toán các chỉ số thống kê tổng quan (tổng số lớp, lớp đang mở, lớp nháp, tổng số học viên đăng ký).
   const totalClasses = items?.length ?? 0;
   const publishedClasses = items?.filter((c) => c.status === "open").length ?? 0;
   const draftClasses = items?.filter((c) => c.status === "draft").length ?? 0;
   const totalEnrolled = items?.reduce((sum, c) => sum + (c.enrolled_count || 0), 0) ?? 0;
 
+  // Bước 7: Render giao diện trang quản lý gồm banner, khối thống kê, form tạo lớp học và danh sách lớp học.
   return (
     <Shell role="manager">
       <PageHero
@@ -347,8 +397,10 @@ function Page() {
               // One click used to land many identical classes: the button stayed
               // live for the whole create-and-publish round trip.
               if (creating || invalid) return;
+              // Bước 1: Bật cờ creating để khóa nút bấm, tránh việc người quản lý bấm nhiều lần tạo trùng lớp học (double-click).
               setCreating(true);
               try {
+                // Bước 2: Chuẩn bị payload và gọi API POST /classes tạo lớp học mới ở trạng thái bản nháp (draft); tự động sinh chuỗi quy tắc lặp rrule theo thứ và giờ bắt đầu.
                 const { price, min, ...rest } = form;
                 const row = await apiPost<{ id: string }>("/classes", {
                   ...rest,
@@ -358,12 +410,16 @@ function Page() {
                   rrule: composeWeeklyRrule(days, hour),
                 });
                 toast.success(t("Draft created"));
+                // Bước 3: Xuất bản lớp học ngay sau khi tạo nháp thành công qua API POST /classes/:id/publish; hệ thống sẽ tự động sinh các ca học (sessions) cụ thể trong vòng 60 ngày tới.
                 const pub = await apiPost<{ sessions: unknown[]; skipped: unknown[] }>(`/classes/${row.id}/publish`);
                 toast.success(t("Published {n} sessions", { n: pub.sessions.length }));
+                // Bước 4: Tải lại danh sách lớp học (classesRead.reload) để cập nhật giao diện hiển thị lớp mới vừa xuất bản.
                 load();
               } catch (e) {
+                // Bước 5: Bắt lỗi nếu gọi API thất bại và hiển thị thông báo lỗi từ máy chủ qua toast.error.
                 toast.error(e instanceof Error ? tServer(e.message) : t("Something went wrong"));
               } finally {
+                // Mở lại nút bấm tạo lớp sau khi tiến trình hoàn tất hoặc gặp lỗi.
                 setCreating(false);
               }
             }}
@@ -441,10 +497,13 @@ function Page() {
                 className="mt-3 ml-2"
                 onClick={async () => {
                   try {
+                    // Bước 1: Gọi API POST /classes/:id/publish để xuất bản lớp học từ trạng thái nháp (draft) sang mở (open) và sinh các buổi học theo lịch.
                     await apiPost(`/classes/${c.id}/publish`);
                     toast.success(t("Published"));
+                    // Bước 2: Thông báo xuất bản thành công và làm mới danh sách lớp học để cập nhật trạng thái mới nhất trên giao diện.
                     load();
                   } catch (e) {
+                    // Bước 3: Bắt lỗi và hiển thị thông báo lỗi từ máy chủ nếu xuất bản lớp học thất bại.
                     toast.error(e instanceof Error ? tServer(e.message) : t("Something went wrong"));
                   }
                 }}
