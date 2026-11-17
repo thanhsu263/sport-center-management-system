@@ -849,52 +849,143 @@ export async function trainingSuggest(sql: Sql, request: Request, user: PublicUs
       target: text(x.target, 200) || (vietnamese ? `Hoàn thành ${minutes} phút tập đúng kỹ thuật.` : `Complete ${minutes} minutes with correct technique.`),
     };
   });
-  // Bước 3: Khởi tạo danh sách bài tập mặc định ban đầu trước khi gọi AI
-  let blocks = cleanBlocks(list.map((title, i) => ({ title, minutes: 10 + i })));
-  let usedAi = false;
-  // Bước 4: Thiết lập prompt hệ thống quy định chặt chẽ AI chỉ trả về mảng JSON bài tập
-  const system = [
-    "You plan one training session for a sports coach.",
-    `Sport: ${sport}. Level: ${level}. Focus: ${goal}.`,
-    "Reply with ONLY a JSON array of 3 to 8 blocks, no prose, no code fence.",
+  // Phân tích mảng khối bài tập từ AI thành danh sách đã làm sạch; null nếu không dùng được
+  const parseBlocks = (parsed: unknown) => {
+    if (!Array.isArray(parsed)) return null;
+    const clean = cleanBlocks(parsed
+      .filter((x): x is Record<string, unknown> => !!x && typeof x === "object" && !Array.isArray(x))
+      .filter((x) => text(x.title, 60))
+      .slice(0, 8));
+    return clean.length >= 2 ? clean : null;
+  };
+  const parseReply = (raw: string): unknown => {
+    const body = raw.replace(/^```(?:json)?\s*|\s*```$/g, "");
+    return JSON.parse(body.slice(body.indexOf("["), body.lastIndexOf("]") + 1));
+  };
+
+  // Bước 3: Nếu có class_id, đọc hồ sơ học viên của lớp (ẩn danh: không gửi tên cho AI)
+  const classId = str(b.class_id);
+  let learners: string[] = [];
+  let cls: { id: string; coach_id: string; assistant_id: string | null; sport: string; level: string } | null = null;
+  if (classId && /^[0-9a-f-]{36}$/i.test(classId)) {
+    cls = await one(sql, `select id, coach_id, assistant_id, sport::text as sport, level from classes where id = $1`, [classId]) ?? null;
+    if (!cls) throw err.notFound("Class not found.");
+    if (user.role !== "manager" && cls.coach_id !== user.id && cls.assistant_id !== user.id) throw err.forbidden("That class is not yours.");
+    const rows = await sql.query<{ goal: string | null; level: string | null; health: string | null; age: number | null; pct: number | null; present: number; total: number }>(
+      `select tp.goal, ml.level, u.health_notes as health,
+              extract(year from age(u.date_of_birth))::int as age,
+              (select round(avg(r.plan_pct))::int from session_results r join sessions s on s.id = r.session_id
+                where r.user_id = u.id and s.class_id = $1) as pct,
+              (select count(*)::int from attendance a where a.user_id = u.id and a.kind = 'session' and a.result::text in ('present','late')) as present,
+              (select count(*)::int from attendance a where a.user_id = u.id and a.kind = 'session' and a.result is not null) as total
+         from enrollments e join users u on u.id = e.user_id
+         left join training_profiles tp on tp.user_id = u.id
+         left join member_levels ml on ml.user_id = u.id and ml.sport::text = $2
+        where e.class_id = $1 and e.status = 'confirmed'
+        order by e.id limit 30`,
+      [cls.id, cls.sport],
+    );
+    learners = rows.map((r, i) => [
+      `Student ${i + 1}:`,
+      r.age != null ? `age ${r.age}` : null,
+      `level ${r.level ?? cls!.level}`,
+      r.goal ? `goal ${r.goal}` : null,
+      r.pct != null ? `avg plan completion ${r.pct}%` : null,
+      r.total ? `attendance ${r.present}/${r.total}` : null,
+      r.health ? `health note: ${text(r.health, 120)}` : null,
+    ].filter(Boolean).join(" "));
+  }
+  const learnerRules = learners.length
+    ? [`Learners in this class (anonymised):\n${learners.join("\n")}`, "Adapt drills, intensity and rest to these learners: respect every health note, give easier options for weaker or younger learners, and work towards their goals."]
+    : [];
+  const blockRules = [
     `Each block must contain title (short drill name, max 60 chars), minutes (whole number 3-45), phase (exactly one of ${PLAN_PHASES.join("| ")}), intensity (exactly one of ${INTENSITIES.join("| ")}), description (short instructions for running the drill, max 600 chars), equipment (max 200 chars), target (measurable goal, max 200 chars).`,
     "Use warm-up for the first block and cool-down for the last block when available in phase values.",
-    "Total time 45-120 minutes. Keep drills safe for the level. Answer in the language the coach writes in.",
-  ].join("\n");
-  const ask = prompt ? `Coach instructions: ${prompt}` : `Plan a ${level} ${sport} session on ${goal}.`;
-  // Bước 5: Gọi mô hình AI tạo gợi ý giáo án
-  const reply = await generateAssistantReply(system, [{ role: "user", text: ask }], { maxOutputTokens: 4096, json: true });
-  // Bước 6: Phân tích JSON trả về từ AI; nếu hợp lệ thì thay thế danh sách bài tập mặc định
-  if (reply) {
-    try {
-      const raw = reply.text.replace(/^```(?:json)?\s*|\s*```$/g, "");
-      const parsed = JSON.parse(raw.slice(raw.indexOf("["), raw.lastIndexOf("]") + 1)) as unknown;
-      if (Array.isArray(parsed)) {
-        const clean = cleanBlocks(parsed
-          .filter((x): x is Record<string, unknown> => !!x && typeof x === "object" && !Array.isArray(x))
-          .filter((x) => text(x.title, 60))
-          .slice(0, 8));
-        if (clean.length >= 2) {
-          blocks = clean;
-          usedAi = true;
-        }
-      }
-    } catch {
-      // A reply that is not JSON falls back to the standard drills below.
-    }
-  }
-  // Bước 7: Đóng gói dữ liệu giáo án hoàn chỉnh và trả về kết quả (đánh dấu ai = true nếu dùng kết quả AI)
-  const payload = {
-    sport,
-    level,
-    goal,
-    source: "ai",
-    generated_on: ictDateString(),
+    "Keep drills safe for the level. Answer in the language the coach writes in.",
+  ];
+  // Tên mẫu có thể kèm số phút ("Warm-up 8′"): tách ra làm thời lượng để tên không bị lặp số phút
+  const fallback = () => cleanBlocks(list.map((raw, i) => {
+    const m = raw.match(/^(.*?)\s*(\d+)′$/);
+    return m ? { title: m[1], minutes: Number(m[2]) } : { title: raw, minutes: 10 + i };
+  }));
+  const meta = (blocks: ReturnType<typeof cleanBlocks>) => ({
+    sport, level, goal, source: "ai", generated_on: ictDateString(),
     ...(prompt ? { prompt } : {}),
     blocks,
     note: "A coach reviews this before it goes out. AI never overwrites a published plan.",
-  };
-  return { status: 200, body: { payload, ai: usedAi } };
+  });
+
+  // Chế độ "course": gợi ý cho mọi buổi sắp tới chưa có giáo án; không lưu gì, HLV duyệt từng buổi
+  if (str(b.mode) === "course") {
+    if (!cls) throw err.field("class_id", "class_id is required for a course suggestion.");
+    const sessions = await sql.query<{ id: string; start_at: string; end_at: string }>(
+      `select s.id, s.start_at, s.end_at from sessions s
+        where s.class_id = $1 and s.status = 'scheduled' and s.start_at > now()
+          and not exists (select 1 from training_plans p where p.session_id = s.id)
+        order by s.start_at limit 12`,
+      [cls.id],
+    );
+    if (!sessions.length) return { status: 200, body: { sessions: [], ai: false, learners: learners.length } };
+    const minutesOf = (x: { start_at: string; end_at: string }) => Math.round((new Date(x.end_at).getTime() - new Date(x.start_at).getTime()) / 60_000);
+    const system = [
+      `You plan a progressive course of ${sessions.length} training sessions for a sports coach.`,
+      `Sport: ${sport}. Level: ${level}. Focus: ${goal}.`,
+      ...learnerRules,
+      `Reply with ONLY a JSON array of exactly ${sessions.length} objects in session order, no prose, no code fence. Each object: {"title": short session title (max 80 chars), "blocks": array of 3 to 8 blocks}.`,
+      ...blockRules,
+      "Each session builds on the one before: vary the drills and raise difficulty gradually. Fit each session to its length.",
+    ].join("\n");
+    const ask = [
+      prompt ? `Coach instructions: ${prompt}` : `Plan the course for a ${level} ${sport} class on ${goal}.`,
+      `Session lengths in minutes, in order: ${sessions.map(minutesOf).join(", ")}.`,
+    ].join("\n");
+    const reply = await generateAssistantReply(system, [{ role: "user", text: ask }], { maxOutputTokens: 16384, json: true });
+    let drafts: { title: string; blocks: ReturnType<typeof cleanBlocks> | null }[] = [];
+    if (reply) {
+      try {
+        const parsed = parseReply(reply.text);
+        if (Array.isArray(parsed)) {
+          drafts = parsed.map((x) => {
+            const o = x && typeof x === "object" && !Array.isArray(x) ? (x as Record<string, unknown>) : {};
+            return { title: text(o.title, 80), blocks: parseBlocks(o.blocks) };
+          });
+        }
+      } catch {
+        // Not JSON: every session falls back to the standard drills.
+      }
+    }
+    const items = sessions.map((x, i) => {
+      const d = drafts[i];
+      return { session_id: x.id, start_at: x.start_at, end_at: x.end_at, title: d?.title || "", ai: !!d?.blocks, payload: meta(d?.blocks ?? fallback()) };
+    });
+    return { status: 200, body: { sessions: items, ai: items.some((x) => x.ai), learners: learners.length } };
+  }
+
+  // Chế độ "session" (mặc định): gợi ý cho một buổi
+  let blocks = fallback();
+  let usedAi = false;
+  const system = [
+    "You plan one training session for a sports coach.",
+    `Sport: ${sport}. Level: ${level}. Focus: ${goal}.`,
+    ...learnerRules,
+    "Reply with ONLY a JSON array of 3 to 8 blocks, no prose, no code fence.",
+    ...blockRules,
+    "Total time 45-120 minutes.",
+  ].join("\n");
+  const ask = prompt ? `Coach instructions: ${prompt}` : `Plan a ${level} ${sport} session on ${goal}.`;
+  const reply = await generateAssistantReply(system, [{ role: "user", text: ask }], { maxOutputTokens: 4096, json: true });
+  if (reply) {
+    try {
+      const clean = parseBlocks(parseReply(reply.text));
+      if (clean) {
+        blocks = clean;
+        usedAi = true;
+      }
+    } catch {
+      // A reply that is not JSON falls back to the standard drills.
+    }
+  }
+  return { status: 200, body: { payload: meta(blocks), ai: usedAi, learners: learners.length } };
 }
 
 // ticketBody() moved to ../rules — a Unicode-hardened version (zero-width
