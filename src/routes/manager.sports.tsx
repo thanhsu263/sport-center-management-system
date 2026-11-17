@@ -1,3 +1,9 @@
+/**
+ * Quản lý danh mục môn thể thao (/manager/sports) dành cho Quản lý trung tâm (Manager).
+ * Tệp này định nghĩa route và giao diện cho phép cấu hình các môn thể thao trong hệ thống Arena3:
+ * thiết lập mã môn, tên song ngữ Anh - Việt, tiền tố mã sân, bảng màu nhận diện, biểu tượng glyph,
+ * giá thuê sân mặc định theo khung giờ và quản lý vòng đời môn thể thao (kích hoạt, ngưng hoạt động, xóa vĩnh viễn).
+ */
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { AlertTriangle, Camera, ChevronRight, Plus, Search, Undo2, Trash2 } from "lucide-react";
@@ -14,11 +20,22 @@ import { useManagerSports, type ManagerSport, COLOR_KEYS, GLYPH_KEYS, PHOTO_TYPE
 export { type ManagerSport } from "@/client/lib/pages/manager.sports";
 
 
+/**
+ * Làm gì: Định nghĩa cấu hình route `/manager/sports` cho TanStack Router, liên kết URL với component Page quản lý môn thể thao.
+ * Được gọi ở: URL `/manager/sports` (đăng ký qua TanStack Router trong src/routeTree.gen.ts).
+ * @returns Đối tượng route của TanStack Router liên kết với component Page.
+ */
 export const Route = createFileRoute("/manager/sports")({
   component: Page,
 });
 
+/**
+ * Làm gì: Component trang quản lý danh mục môn thể thao, hiển thị bảng thống kê, bộ lọc tìm kiếm, lưới thẻ môn và các modal tạo/sửa/retire/xóa môn.
+ * Được gọi ở: `src/routes/manager.sports.tsx` thông qua `Route` tại URL `/manager/sports`.
+ * @returns JSX.Element giao diện trang quản lý danh mục môn thể thao dành cho Quản lý (Manager).
+ */
 function Page() {
+  // Bước 1: Khởi tạo toàn bộ state, dữ liệu môn thể thao và các handler nghiệp vụ từ useManagerSports (tách biệt logic nghiệp vụ khỏi UI)
   const {
     read, items, query, setQuery, statusFilter, setStatusFilter, creating, setCreating, createStep,
     setCreateStep, cCode, setCCode, cNameEn, setCNameEn, cNameVi, setCNameVi, cPrefix, setCPrefix,
@@ -32,6 +49,7 @@ function Page() {
     handleDelete,
   } = useManagerSports();
 
+  // Bước 2: Render giao diện quản trị bọc trong Shell role="manager", gồm banner thống kê, thanh tìm kiếm/lọc, lưới thẻ môn và các modal nghiệp vụ
   return (
     <Shell role="manager">
       <PageHero
@@ -604,37 +622,65 @@ function Page() {
  * photo is saved at once; the form's Save is for the rest. The server's own limits are checked here
  * first so the reason reads in the manager's language.
  */
+/**
+ * Làm gì: Component hiển thị và cập nhật ảnh đại diện của môn thể thao đã tồn tại; hỗ trợ tải ảnh mới lên thay thế ngay lập tức hoặc khôi phục về ảnh gốc xuất xưởng.
+ * Được gọi ở: src/routes/manager.sports.tsx (trong Modal chỉnh sửa môn thể thao Edit Sport, dòng 410).
+ * @param sport Thông tin môn thể thao đang chỉnh sửa (ManagerSport).
+ * @returns JSX.Element chứa ảnh thumbnail hiện tại, nút đổi ảnh, nút khôi phục ảnh gốc và thông báo trạng thái.
+ */
 function SportPhotoField({ sport }: { sport: ManagerSport }) {
+  // Bước 1: Khởi tạo hook làm mới assets, ref tới thẻ input file ẩn và các state quản lý tiến trình upload cùng thông báo lỗi
   const refresh = useRefreshAssets();
   const input = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
+  // Tên vị trí (slot) tài nguyên media trên server theo quy ước định danh: sport.<mã_môn>
   const slot = `sport.${sport.code}`;
 
+  /**
+   * Làm gì: Kiểm tra tính hợp lệ của tệp ảnh được chọn, tải lên server lưu vào slot tài nguyên của môn thể thao và làm mới giao diện.
+   * Được gọi ở: src/routes/manager.sports.tsx (sự kiện onChange của input file ẩn trong SportPhotoField, dòng 670).
+   * @param file Tệp ảnh người dùng chọn tải lên từ thiết bị.
+   * @returns Promise<void>
+   */
   async function pick(file: File) {
+    // Bước 1: Xóa lỗi cũ và kiểm tra định dạng, dung lượng, kích thước ảnh ở client qua photoProblem
     setProblem(null);
     const why = await photoProblem(file);
     if (why) return setProblem(why);
+    // Bước 2: Bật cờ busy để vô hiệu hóa thao tác, ngăn chặn người dùng gửi nhiều yêu cầu upload liên tiếp
     setBusy(true);
     try {
+      // Bước 3: Gửi tệp ảnh lên API /manager/site-assets/upload bằng multipart/form-data để gán vào slot của môn thể thao
       await uploadSportPhoto(sport.code, file);
+      // Bước 4: Làm mới bộ nhớ đệm SiteAssetsContext toàn ứng dụng để cập nhật hình ảnh trên mọi màn hình và hiển thị toast
       await refresh();
       toast.success(t("Photo changed"));
     } catch (e) {
+      // Bước 5: Bắt lỗi nếu quá trình upload thất bại và hiển thị thông báo lỗi đã được bản địa hóa
       setProblem(e instanceof Error ? tServer(e.message) : t("Something went wrong"));
     } finally {
       setBusy(false);
     }
   }
 
+  /**
+   * Làm gì: Khôi phục ảnh đại diện của môn thể thao về ảnh gốc mặc định xuất xưởng của hệ thống và làm mới context tài nguyên.
+   * Được gọi ở: src/routes/manager.sports.tsx (nút "Use the shipped photo" trong SportPhotoField, dòng 654).
+   * @returns Promise<void>
+   */
   async function reset() {
+    // Bước 1: Xóa thông báo lỗi trước đó và bật trạng thái busy
     setProblem(null);
     setBusy(true);
     try {
+      // Bước 2: Gọi API POST /manager/site-assets/:slot/reset để xóa ảnh tùy chỉnh và quay về ảnh mặc định gốc xuất xưởng
       await apiPost(`/manager/site-assets/${encodeURIComponent(slot)}/reset`);
+      // Bước 3: Cập nhật lại context tài nguyên đa phương tiện và hiển thị thông báo khôi phục thành công
       await refresh();
       toast.success(t("Photo put back as shipped"));
     } catch (e) {
+      // Bước 4: Xử lý và ghi nhận thông báo lỗi nếu việc khôi phục ảnh mặc định thất bại
       setProblem(e instanceof Error ? tServer(e.message) : t("Something went wrong"));
     } finally {
       setBusy(false);
@@ -675,11 +721,20 @@ function SportPhotoField({ sport }: { sport: ManagerSport }) {
 }
 
 /** A photo for a sport that does not exist yet: checked now, uploaded once the sport is saved. */
+/**
+ * Làm gì: Thành phần chọn ảnh đại diện khi tạo môn thể thao mới; ảnh được kiểm tra tính hợp lệ và hiển thị xem trước trước khi được upload lúc lưu môn thể thao.
+ * Được gọi ở: src/routes/manager.sports.tsx (trong Modal tạo môn thể thao Create Sport Modal, bước 1, dòng 320).
+ * @param file Tệp ảnh hiện tại đã chọn (File hoặc null).
+ * @param onFile Callback cập nhật đối tượng File được chọn vào form cha (hoặc null khi xóa ảnh).
+ * @returns JSX.Element khung xem trước ảnh đại diện và các nút thao tác chọn/gỡ ảnh.
+ */
 function NewSportPhotoField({ file, onFile }: { file: File | null; onFile: (f: File | null) => void }) {
+  // Bước 1: Khởi tạo ref tới thẻ input file ẩn và các state lưu lỗi xác thực cùng URL xem trước ảnh (preview)
   const input = useRef<HTMLInputElement>(null);
   const [problem, setProblem] = useState<string | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
 
+  // Bước 2: Tạo Object URL để xem trước ảnh vừa chọn và tự động thu hồi (revokeObjectURL) khi unmount hoặc đổi file để chống rò rỉ bộ nhớ
   useEffect(() => {
     if (!file) return setPreview(null);
     const url = URL.createObjectURL(file);
@@ -687,10 +742,19 @@ function NewSportPhotoField({ file, onFile }: { file: File | null; onFile: (f: F
     return () => URL.revokeObjectURL(url);
   }, [file]);
 
+  /**
+   * Làm gì: Kiểm tra tính hợp lệ của tệp ảnh được chọn (định dạng, kích thước, độ phân giải) và cập nhật vào state của form cha nếu hợp lệ.
+   * Được gọi ở: src/routes/manager.sports.tsx (sự kiện onChange của thẻ input file ẩn trong NewSportPhotoField, dòng 730).
+   * @param f Tệp ảnh người quản lý vừa chọn từ máy tính.
+   * @returns Promise<void>
+   */
   async function pick(f: File) {
+    // Bước 1: Xóa thông báo lỗi cũ
     setProblem(null);
+    // Bước 2: Kiểm tra các điều kiện kỹ thuật của tệp ảnh; nếu vi phạm thì lưu lý do vào state problem và dừng lại
     const why = await photoProblem(f);
     if (why) return setProblem(why);
+    // Bước 3: Tệp ảnh hợp lệ, truyền đối tượng File lên form cha qua callback onFile (sẽ upload sau khi tạo môn thành công)
     onFile(f);
   }
 

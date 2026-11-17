@@ -1,3 +1,10 @@
+/**
+ * Trang quản lý sân thể thao dành cho vai trò Manager, truy cập tại route /manager/courts.
+ * Hiển thị danh sách tất cả sân, cho phép lọc theo môn thể thao và trạng thái, thêm/sửa sân,
+ * chuyển trạng thái vận hành (ready / maintenance / closed), ngưng hoạt động (retire) và khôi phục sân.
+ * Toàn bộ logic nghiệp vụ và quản lý state được đặt trong hook useManagerCourts (manager.courts.ts);
+ * file này chỉ chịu trách nhiệm render giao diện.
+ */
 import { createFileRoute } from "@tanstack/react-router";
 import { AlertTriangle, Plus, RefreshCw } from "lucide-react";
 import { Shell } from "@/client/components/shell";
@@ -12,11 +19,23 @@ import { t, tServer } from "@/client/lib/i18n";
 import { useManagerCourts, STATUS_OPTS } from "@/client/lib/pages/manager.courts";
 
 
+/**
+ * Làm gì: Khai báo route TanStack Router cho trang /manager/courts và gắn component Page vào đó.
+ * Được gọi ở: TanStack Router tự động đăng ký khi khởi động ứng dụng (file-based routing).
+ * @returns Đối tượng Route chứa cấu hình đường dẫn và component tương ứng.
+ */
 export const Route = createFileRoute("/manager/courts")({
   component: Page,
 });
 
+/**
+ * Làm gì: Component chính của trang /manager/courts — render toàn bộ giao diện quản lý sân,
+ *   bao gồm bảng thống kê, bộ lọc, danh sách sân và các modal thêm/sửa/retire/khôi phục.
+ * Được gọi ở: Route /manager/courts (khai báo tại Route export ngay phía trên).
+ * @returns JSX toàn bộ trang Manager Courts được bọc trong Shell với role manager.
+ */
 function Page() {
+  // Bước 1: Lấy toàn bộ state, dữ liệu và các handler từ hook useManagerCourts.
   const {
     read, items, sport, setSport, statusFilter, setStatusFilter, offset, setOffset, pageSize,
     sports, creating, setCreating, createSport, setCreateSport, createCode, setCreateCode,
@@ -97,10 +116,12 @@ function Page() {
         ) : (
           <div className="grid gap-3">
             {pagedItems.map((c) => {
+              // Kiểm tra sân có bị retire hay chưa; retired_at là timestamp do server gán khi retire.
               const isRetired = !!c.retired_at;
               return (
                 <Card
                   key={c.id}
+                  // Sân đã retire được hiển thị mờ hơn (opacity-70) và viền/nền nhạt để phân biệt với sân đang hoạt động.
                   className={cn(
                     "flex flex-wrap items-center justify-between gap-4 p-4 transition-all duration-200",
                     isRetired && "border-line/50 bg-wood/40 opacity-70",
@@ -155,12 +176,14 @@ function Page() {
                           className="inline-flex rounded-[var(--radius-md)] bg-wood p-0.5"
                         >
                           {STATUS_OPTS.map((st) => {
+                            // on = true khi trạng thái hiện tại của sân khớp với nút này, dùng để áp dụng style active.
                             const on = c.status === st.value;
                             return (
                               <button
                                 key={st.value}
                                 type="button"
                                 aria-pressed={on}
+                                // Khóa toàn bộ nút của sân đang có thao tác đang chạy (actionBusy) để tránh người dùng click chồng.
                                 disabled={actionBusy === c.id}
                                 onClick={() => void handleStatusChange(c, st.value)}
                                 className={cn(

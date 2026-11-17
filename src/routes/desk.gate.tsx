@@ -1,3 +1,8 @@
+/**
+ * File: src/routes/desk.gate.tsx
+ * Vai trò: Trang quản lý cổng ra vào và điểm danh (gate check-in) tại quầy lễ tân cho hệ thống Arena3.
+ * Vị trí trong app: URL /desk/gate; phục vụ lễ tân quét mã QR hoặc nhập thông tin hội viên để mở cổng, xử lý phê duyệt ghi đè (override) và theo dõi danh sách vào cổng hôm nay qua kết nối thời gian thực (SSE).
+ */
 import { createFileRoute } from "@tanstack/react-router";
 import { SectionTitle } from "@/client/components/section";
 import { useEffect, useRef, useState } from "react";
@@ -15,8 +20,13 @@ import { usePageState } from "@/client/lib/use-page-state";
 import { readError, useRead } from "@/client/lib/use-read";
 import { useLive } from "@/client/lib/use-live";
 
+/**
+ * Làm gì: Định nghĩa route cho trang quản lý cổng ra vào và điểm danh quầy lễ tân (/desk/gate).
+ * Được gọi ở: URL /desk/gate (TanStack Router tự động tải và hiển thị component Page).
+ */
 export const Route = createFileRoute("/desk/gate")({ component: Page });
 
+// Kết quả xác thực check-in từ server: thông tin hội viên, quyền vào cổng (allowed), cờ yêu cầu ghi đè (needs_override), gói tập hiện có và lịch đặt sân hôm nay.
 type Result = {
   member: { id: string; full_name: string; member_code: string | null; avatar_url?: string | null };
   allowed: boolean;
@@ -32,6 +42,7 @@ type Result = {
   };
 };
 
+// Thông tin một lượt check-in qua cổng trong ngày: thời gian, mã hội viên, phương thức quét (method), lý do (nếu nhập tay) và cờ theo dõi của quản lý.
 type Entry = {
   id: string;
   at: string;
@@ -62,17 +73,34 @@ const OVERRIDE_REASONS = [
   { value: "other", label: tk("Other") },
 ];
 
+/**
+ * Làm gì: Ánh xạ mã phương thức check-in (qr, manual, self) sang nhãn văn bản đã được bản địa hóa.
+ * Được gọi ở: Nội bộ file src/routes/desk.gate.tsx (danh sách lịch sử lượt check-in qua cổng hôm nay).
+ */
 const METHOD_LABEL: Record<string, string> = { qr: tk("QR"), manual: tk("Manual"), self: tk("Self") };
 
 /** The wording for a stored reason code, in the current language. */
+/**
+ * Làm gì: Chuyển đổi mã lý do check-in (lý do nhập tay hoặc lý do ghi đè) sang chuỗi văn bản theo ngôn ngữ hiện tại.
+ * Được gọi ở: src/routes/desk.gate.tsx (hiển thị lý do trong danh sách lượt qua cổng hôm nay).
+ * @param code Mã lý do lưu trong database (ví dụ: "no_phone", "renewing").
+ * @returns Chuỗi văn bản lý do hiển thị cho người dùng, hoặc mã gốc đã bỏ dấu gạch dưới nếu không có trong danh mục.
+ */
 function reasonLabel(code: string) {
   const hit = [...MANUAL_REASONS, ...OVERRIDE_REASONS].find((r) => r.value === code);
   return hit ? t(hit.label) : code.replace(/_/g, " ");
 }
 
+// Trạng thái yêu cầu check-in đang chờ xử lý hoặc chờ duyệt ghi đè (quét mã QR hoặc nhập thông tin thủ công).
 type Pending = { kind: "qr"; token: string } | { kind: "manual"; body: Record<string, unknown> };
 
+/**
+ * Làm gì: Hiển thị giao diện quản lý cổng ra vào và điểm danh tại quầy lễ tân; hỗ trợ quét mã QR bằng máy quét/camera, nhập tay khi không có mã, phê duyệt ghi đè (override) và theo dõi danh sách lượt vào cổng theo thời gian thực.
+ * Được gọi ở: URL /desk/gate (thông qua Route định nghĩa ở đầu file).
+ * @returns Khối JSX toàn bộ giao diện trang quản lý cổng ra vào tại quầy lễ tân.
+ */
 function Page() {
+  // Bước 1: Khởi tạo thông tin người dùng hiện tại và các state quản lý giao diện (chế độ quét QR/nhập tay, nội dung scan/q, cờ bận busy, kết quả result, lỗi error).
   const user = useSessionUser();
   const [mode, setMode] = useState("qr");
   const [scan, setScan] = useState("");
@@ -83,32 +111,51 @@ function Page() {
   const [pending, setPending] = useState<Pending | null>(null);
   const [overrideReason, setOverrideReason] = useState("renewing");
   const [error, setError] = useState<string | null>(null);
+  // Bước 2: Quản lý phân trang (mặc định 25 dòng/trang) và tải danh sách các lượt qua cổng hôm nay từ API /desk/gate-checkins (giữ dữ liệu cũ khi đổi trang).
   const gatePage = usePageState("desk.gate", 25);
   const todayRead = useRead<{ items: Entry[]; total: number }>(
     `/desk/gate-checkins?limit=${gatePage.pageSize}&offset=${gatePage.offset}`,
     { keepPrevious: true },
   );
+  // Bước 3: Lắng nghe sự kiện SSE kênh "attendance" để tự động tải lại danh sách ngay khi có lượt check-in mới từ bất kỳ nguồn nào.
   useLive("attendance", () => {
     todayRead.reload();
   });
   const today = todayRead.data?.items ?? null;
 
+  /**
+   * Làm gì: Tự động đưa con trỏ focus trở lại ô nhập liệu chỉ định sau khi thao tác check-in hoàn tất.
+   * Được gọi ở: Nội bộ hàm send (khối finally) và sự kiện click nút chuyển chế độ nhập không mã.
+   * @param id ID của phần tử input trong DOM cần focus ("gate-scan" hoặc "gate-q").
+   */
   const refocus = (id: string) => setTimeout(() => document.getElementById(id)?.focus(), 0);
 
+  /**
+   * Làm gì: Gửi yêu cầu check-in (quét mã QR hoặc nhập tay) lên server, xử lý các trường hợp thành công, trùng lặp hoặc cần duyệt ghi đè khi hội viên không có gói tập.
+   * Được gọi ở: Nội bộ component Page (hàm submitScan, submitManual, sự kiện quét mã của QrScanner và nút "Let them in").
+   * @param p Dữ liệu lượt check-in cần gửi dạng mã QR ({ kind: "qr", token }) hoặc nhập tay ({ kind: "manual", body }).
+   * @param override Mã lý do cho phép vào cổng ghi đè (nếu có, ví dụ: đóng tiền tại quầy, vé khách).
+   * @returns Không trả về giá trị (Promise<void>).
+   */
   async function send(p: Pending, override?: string) {
+    // Bước 1: Bật cờ bận (busy) để khóa giao diện tạm thời và xóa thông báo lỗi trước đó.
     setBusy(true);
     setError(null);
     try {
+      // Bước 2: Chuẩn bị tham số ghi đè (override) nếu có và gọi API tương ứng: POST /desk/scan cho mã QR hoặc POST /desk/gate-checkin cho nhập tay.
       const extra = override ? { override: true, override_reason: override } : {};
       const res =
         p.kind === "qr"
           ? await apiPost<Result>("/desk/scan", { token: p.token, ...extra })
           : await apiPost<Result>("/desk/gate-checkin", { ...p.body, ...extra });
+      // Bước 3: Lưu kết quả phản hồi từ server vào state result để hiển thị thông tin thẻ hội viên lên màn hình.
       setResult(res);
+      // Bước 4: Kiểm tra điều kiện vào cổng: nếu không có gói/lịch hợp lệ (needs_override = true), lưu lại pending và cảnh báo lễ tân chọn lý do ghi đè.
       if (res.needs_override) {
         setPending(p);
         toast.warning(t("Needs override approval"));
       } else {
+        // Trường hợp hợp lệ: xóa trạng thái chờ, làm sạch ô nhập, báo toast thành công (hoặc báo đã vào trước đó nếu duplicate) và tải lại danh sách hôm nay.
         setPending(null);
         setScan("");
         setQ("");
@@ -119,33 +166,51 @@ function Page() {
         );
         todayRead.reload();
       }
+    // Bước 5: Bắt lỗi khi gọi API: nếu server yêu cầu lý do (field === "reason"), tự động chuyển sang tab manual để lễ tân chọn lý do.
     } catch (err) {
       setResult(null);
       setPending(null);
       setError(err instanceof Error ? tServer(err.message) : t("Check-in failed"));
       toast.error(t("That check-in didn't go through"));
       if (err instanceof ApiClientError && err.body.field === "reason") setMode("manual");
+    // Bước 6: Tắt cờ bận và tự động focus lại ô nhập liệu tương ứng để sẵn sàng quét lượt tiếp theo mà không cần dùng chuột.
     } finally {
       setBusy(false);
       refocus(p.kind === "qr" ? "gate-scan" : "gate-q");
     }
   }
 
+  /**
+   * Làm gì: Xử lý sự kiện submit biểu mẫu khi lễ tân quét mã QR hoặc nhập chuỗi token từ máy quét mã vạch.
+   * Được gọi ở: src/routes/desk.gate.tsx (sự kiện onSubmit của form quét mã QR).
+   * @param e Đối tượng sự kiện FormEvent từ biểu mẫu.
+   */
   function submitScan(e: React.FormEvent) {
+    // Bước 1: Ngăn trình duyệt reload trang mặc định khi nhấn Enter trên form quét mã.
     e.preventDefault();
+    // Bước 2: Kiểm tra chuỗi mã quét hợp lệ, trích xuất token sạch qua tokenFromScan rồi gửi yêu cầu check-in.
     const v = scan.trim();
     if (v) void send({ kind: "qr", token: tokenFromScan(v) });
   }
 
+  /**
+   * Làm gì: Xử lý sự kiện submit biểu mẫu check-in thủ công khi hội viên không mang điện thoại hoặc mã QR bị lỗi.
+   * Được gọi ở: src/routes/desk.gate.tsx (sự kiện onSubmit của form check-in thủ công).
+   * @param e Đối tượng sự kiện FormEvent từ biểu mẫu.
+   */
   function submitManual(e: React.FormEvent) {
+    // Bước 1: Ngăn hành vi reload trang mặc định của biểu mẫu HTML.
     e.preventDefault();
+    // Bước 2: Kiểm tra chuỗi tìm kiếm đã nhập; nếu rỗng thì dừng xử lý.
     const v = q.trim();
     if (!v) return;
     // A phone number starts with a digit or +; a member code is letters first.
     const who = /^[+0-9][0-9 .-]{7,}$/.test(v) ? { phone: v.replace(/[ .-]/g, "") } : { code: v };
+    // Bước 3: Gửi yêu cầu check-in thủ công kèm thông tin định danh (số điện thoại đã chuẩn hóa hoặc mã hội viên) và mã lý do không dùng mã QR.
     void send({ kind: "manual", body: { ...who, reason } });
   }
 
+  // Bước 4: Render giao diện màn hình: gồm Shell theo vai trò người dùng, banner tiêu đề, cột trái chứa form quét QR/nhập tay và mã tự phục vụ, cột phải hiển thị thẻ kết quả check-in và bảng lịch sử qua cổng hôm nay.
   return (
     <Shell role={user?.role === "manager" ? "manager" : "receptionist"}>
       <PageHero
@@ -414,24 +479,43 @@ function Page() {
 }
 
 /** The address a member's phone can open: VITE_PUBLIC_URL when set, else this page's own origin. */
+/**
+ * Làm gì: Xác định địa chỉ URL gốc công khai mà điện thoại hội viên có thể truy cập; ưu tiên biến môi trường VITE_PUBLIC_URL nếu được cấu hình, ngược lại dùng origin hiện tại của trình duyệt.
+ * Được gọi ở: src/routes/desk.gate.tsx (hàm phoneCannotReach và hàm draw trong SelfCheckinCode).
+ * @returns Chuỗi URL gốc công khai không có dấu gạch chéo ở cuối (ví dụ: "http://192.168.1.10:8080").
+ */
 function publicOrigin() {
+  // Cắt bỏ dấu gạch chéo ở cuối VITE_PUBLIC_URL nếu có; fallback về window.location.origin nếu chưa cấu hình biến môi trường.
   const env = (import.meta.env.VITE_PUBLIC_URL as string | undefined)?.replace(/\/+$/, "");
   return env || window.location.origin;
 }
 
 /** A phone cannot open "localhost": that address points at the phone itself. */
+/**
+ * Làm gì: Kiểm tra xem địa chỉ publicOrigin có trỏ về localhost hoặc loopback IP không; điện thoại của hội viên không thể quét mã nếu quầy đang mở trên localhost.
+ * Được gọi ở: src/routes/desk.gate.tsx (điều kiện hiển thị cảnh báo mạng trong JSX của SelfCheckinCode).
+ * @returns true nếu URL trỏ về localhost, 127.0.0.1 hoặc IPv6 [::1]; ngược lại false.
+ */
 function phoneCannotReach() {
+  // Kiểm tra chuỗi URL bằng regex: nếu là localhost, 127.0.0.1 hoặc IPv6 [::1] thì điện thoại quét mã sẽ không thể kết nối tới.
   return /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:|\/|$)/.test(publicOrigin());
 }
 
 /** The 30-second code members scan to check themselves in, when the centre allows it. */
+/**
+ * Làm gì: Component hiển thị mã QR tự điểm danh tại quầy lễ tân; tự động gọi API lấy token và tạo ảnh mã QR tự làm mới mỗi 30 giây để hội viên tự quét bằng điện thoại cá nhân.
+ * Được gọi ở: src/routes/desk.gate.tsx (bên trong component Page tại dòng 218).
+ * @returns Phần tử JSX hiển thị thẻ Card mã QR tự điểm danh hoặc thông báo hướng dẫn.
+ */
 function SelfCheckinCode() {
+  // Quản lý state: cờ mở/đóng thẻ QR (open), trạng thái bật/tắt từ cài đặt (enabled), ảnh QR dạng data URL (img), thông báo lỗi (problem) và bộ đếm làm mới (round).
   const [open, setOpen] = useState(false);
   const [enabled, setEnabled] = useState<boolean | null>(null);
   const [img, setImg] = useState<string | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
   const [round, setRound] = useState(0);
 
+  // Bước 1: Quản lý vòng đời tải và tự động làm mới mã QR định kỳ khi mở thẻ hoặc khi người dùng bấm thử lại.
   useEffect(() => {
     // Closed: forget the old code, so opening it again never flashes one that has since run out.
     if (!open) {
@@ -440,35 +524,48 @@ function SelfCheckinCode() {
       setProblem(null);
       return;
     }
+    // Cờ stop hủy cập nhật state nếu unmount; biến timer lưu timeout làm mới mã.
     let stop = false;
     let timer: ReturnType<typeof setTimeout>;
+    /**
+     * Làm gì: Gọi API lấy token điểm danh của quầy, tạo ảnh QR base64 và lập lịch tự động tải mã mới trước khi token hết hạn.
+     * Được gọi ở: Nội bộ hook useEffect của component SelfCheckinCode (dòng 465).
+     * @returns Không trả về giá trị (Promise<void>).
+     */
     const draw = async () => {
       try {
+        // Bước 1: Gọi API GET /desk/checkin-qr lấy token điểm danh mới nhất và thời gian hết hạn (expires_at).
         const res = await apiGet<{ enabled: boolean; token: string; expires_at: string }>("/desk/checkin-qr");
         if (stop) return;
+        // Bước 2: Khi tính năng bật, tạo URL dẫn tới trang /app/pass?d={token} và chuyển thành ảnh QR code (mức sửa lỗi M để máy ảnh điện thoại dễ quét).
         if (res.enabled) {
           const url = `${publicOrigin()}/app/pass?d=${encodeURIComponent(res.token)}`;
           const drawn = await QRCode.toDataURL(url, { margin: 1, width: 280, errorCorrectionLevel: "M" });
           if (stop) return;
           setImg(drawn);
         }
+        // Bước 3: Cập nhật state enabled, xóa lỗi cũ và lập lịch tải mã tiếp theo: trước khi token hết hạn 4 giây, tối thiểu chờ 5 giây để tránh gửi dồn request.
         setEnabled(res.enabled);
         setProblem(null);
         const wait = Math.max(5000, new Date(res.expires_at).getTime() - Date.now() - 4000);
         timer = setTimeout(() => void draw(), wait);
       } catch (e) {
+        // Bước 4: Xử lý lỗi khi gọi API: lưu thông báo lỗi để hiển thị và hẹn giờ thử lại sau 10 giây.
         if (stop) return;
         setProblem(readError(e).message);
         timer = setTimeout(() => void draw(), 10000);
       }
     };
+    // Kích hoạt vẽ mã QR lần đầu tiên khi thẻ được mở.
     void draw();
+    // Dọn dẹp effect: đánh dấu stop = true và hủy timer định thời khi đóng thẻ hoặc unmount để tránh rò rỉ bộ nhớ.
     return () => {
       stop = true;
       clearTimeout(timer);
     };
   }, [open, round]);
 
+  // Bước 2: Render giao diện thẻ Card gồm thanh tiêu đề, nút Ẩn/Hiện, thông báo lỗi/tắt tính năng, cảnh báo truy cập localhost và ảnh mã QR.
   return (
     <Card className="grid gap-3">
       <div className="flex items-center justify-between gap-2">

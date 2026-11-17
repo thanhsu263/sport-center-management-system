@@ -1,3 +1,8 @@
+/**
+ * Giao diện và định tuyến trang tổng quan lịch dạy của huấn luyện viên (/coach) trong hệ thống Arena 3.
+ * Hiển thị buổi dạy tiếp theo, dải thống kê lịch 7 ngày, danh sách buổi dạy theo ngày và các lớp cần thêm học viên.
+ * Hỗ trợ HLV điều hướng nhanh tới màn hình điểm danh (/coach/attendance) và quản lý chứng chỉ cá nhân.
+ */
 import { useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Award, CalendarDays, ChevronRight, ClipboardCheck, MapPin, Users } from "lucide-react";
@@ -27,10 +32,16 @@ import { AddToCalendar, MinSizeBadge } from "@/client/components/class-extras";
 import { CertificationsModal } from "@/client/components/coach-certifications";
 import { getStoredUser } from "@/client/arena3/client";
 
+/**
+ * Làm gì: Khởi tạo định tuyến cho trang tổng quan lịch dạy HLV bằng TanStack Router, liên kết URL /coach/ với component Page.
+ * Được gọi ở: TanStack Router khi người dùng truy cập URL /coach hoặc /coach/.
+ * @returns Route cấu hình cho đường dẫn /coach/.
+ */
 export const Route = createFileRoute("/coach/")({
   component: Page,
 });
 
+// Cấu trúc dữ liệu buổi dạy của huấn luyện viên trả về từ API /coach/schedule.
 export type CoachSession = {
   id: string;
   start_at: string;
@@ -48,11 +59,19 @@ export type CoachSession = {
 
 /** The centre's calendar day of an instant, for grouping — "2026-10-21". */
 function dayKey(iso: string) {
+  // Dùng locale "en-CA" vì luôn trả về định dạng chuẩn YYYY-MM-DD theo múi giờ Việt Nam để gom nhóm theo ngày.
   return new Date(iso).toLocaleDateString("en-CA", { timeZone: "Asia/Ho_Chi_Minh" });
 }
 
+/**
+ * Làm gì: Chuyển đổi thời gian ISO thành tên ngày thân thiện (Hôm nay, Ngày mai hoặc tên thứ/ngày) theo múi giờ Việt Nam.
+ * Được gọi ở: `src/routes/coach.index.tsx` bên trong component Page (dòng 152, 229) và BelowMinimum (dòng 336).
+ * @param iso Chuỗi thời gian chuẩn ISO 8601 của buổi học.
+ * @returns Chuỗi tên ngày thân thiện đã được bản địa hóa.
+ */
 function dayName(iso: string) {
   const today = dayKey(new Date().toISOString());
+  // 864e5 ms = 24 * 60 * 60 * 1000 (1 ngày) để tính mốc thời gian của ngày mai.
   const tomorrow = dayKey(new Date(Date.now() + 864e5).toISOString());
   const k = dayKey(iso);
   if (k === today) return t("Today");
@@ -66,31 +85,43 @@ function shortBy(s: CoachSession) {
   return Math.max(0, s.min_enrolled - s.enrolled_count);
 }
 
+/**
+ * Làm gì: Component trang chính hiển thị lịch dạy của HLV: buổi dạy tiếp theo, dải lịch tuần, danh sách chi tiết và các buổi thiếu học viên.
+ * Được gọi ở: `src/routes/coach.index.tsx` trong Route (dòng 31) khi truy cập URL /coach.
+ * @returns JSX giao diện bảng điều khiển lịch dạy của huấn luyện viên bọc trong Shell vai trò coach.
+ */
 function Page() {
+  // Bước 1: Khởi tạo điều hướng và tải danh sách lịch dạy của HLV từ API /coach/schedule.
   const navigate = useNavigate();
   const read = useRead<{ items: CoachSession[] }>("/coach/schedule");
   // null = not answered yet (or failed); [] = the centre really has nothing for this coach.
   const items = read.data?.items ?? null;
 
+  // Bước 2: Khởi tạo state cho modal chứng chỉ HLV, số ngày hiển thị và lấy thông tin người dùng đang đăng nhập.
   const [certsOpen, setCertsOpen] = useState(false);
   // Two weeks of sessions is a wall; the next few days answer "what am I teaching", the rest on demand.
   const [daysShown, setDaysShown] = useState(DAYS_STEP);
   const me = getStoredUser();
 
+  // Bước 3: Hàm tiện ích chuyển hướng nhanh đến màn hình điểm danh (/coach/attendance) cho buổi học được chọn.
   const take = (id: string) => void navigate({ to: "/coach/attendance", search: { session: id } });
 
   // The first session still to come is the one to act on; everything else is a timeline under it.
+  // Bước 4: Tìm buổi dạy gần nhất còn hiệu lực (chưa kết thúc và có trạng thái scheduled) để đưa lên thẻ nổi bật đầu trang.
   const next = items?.find(
     (s) => s.status === "scheduled" && new Date(s.end_at).getTime() > Date.now(),
   );
+  // Bước 5: Lọc bỏ buổi học kế tiếp để tránh trùng lặp, sau đó gom nhóm các buổi còn lại theo từng ngày (YYYY-MM-DD).
   const rest = (items ?? []).filter((s) => s.id !== next?.id);
   const days = new Map<string, CoachSession[]>();
   for (const s of rest) {
     const k = dayKey(s.start_at);
     days.set(k, [...(days.get(k) ?? []), s]);
   }
+  // Lọc các buổi học chưa đạt số học viên tối thiểu (shortBy > 0) để hiển thị trong thanh cảnh báo bên phải.
   const short = (items ?? []).filter((s) => shortBy(s) > 0);
 
+  // Bước 6: Render toàn bộ giao diện bảng điều khiển gồm hero banner, thẻ buổi dạy sắp tới, dải lịch tuần và danh sách theo ngày.
   return (
     <Shell role="coach">
       <PageHero
@@ -258,9 +289,18 @@ function Page() {
   );
 }
 
+// Số ngày hiển thị mặc định ban đầu và số ngày tăng thêm mỗi lần bấm nút "Show more days" để tránh tải giao diện quá dài.
 const DAYS_STEP = 4;
 
+/**
+ * Làm gì: Hiển thị một hàng buổi học trong dòng thời gian, gồm khung giờ, bộ môn, sân đấu, sĩ số và trạng thái thiếu học viên.
+ * Được gọi ở: `src/routes/coach.index.tsx` bên trong component Page (dòng 236).
+ * @param props.s Dữ liệu buổi học của huấn luyện viên (CoachSession).
+ * @param props.onOpen Hàm callback điều hướng tới màn hình điểm danh khi HLV bấm vào hàng này.
+ * @returns JSX phần tử <li> đại diện cho một buổi học trong danh sách.
+ */
 function TimelineRow({ s, onOpen }: { s: CoachSession; onOpen: () => void }) {
+  // Kiểm tra số học viên còn thiếu; nếu thiếu thì viền và chỉ báo chuyển sang màu đất sét (clay) để gây chú ý.
   const need = shortBy(s);
   return (
     <li>
@@ -310,6 +350,7 @@ function TimelineRow({ s, onOpen }: { s: CoachSession; onOpen: () => void }) {
 
 /** Sessions that will not run unless more students enrol: the one thing a coach can still change. */
 function BelowMinimum({ list, onOpen }: { list: CoachSession[]; onOpen: (id: string) => void }) {
+  // Lấy giới hạn số buổi hiển thị tối đa từ cấu hình trung tâm (coach_below_min, mặc định 5) để tránh làm thanh bên quá dài.
   const { coach_below_min } = useLimits();
   return (
     <section aria-label={t("Below minimum")}>
@@ -352,7 +393,14 @@ function BelowMinimum({ list, onOpen }: { list: CoachSession[]; onOpen: (id: str
   );
 }
 
+/**
+ * Làm gì: Tải và hiển thị danh sách học viên kèm avatar đã đăng ký trong buổi học kế tiếp của HLV.
+ * Được gọi ở: `src/routes/coach.index.tsx` bên trong thẻ buổi dạy tiếp theo (Next session card) của component Page (dòng 205).
+ * @param props.sessionId Mã ID của buổi học cần tra cứu danh sách học viên.
+ * @returns JSX khối danh sách học viên với avatar và tên, hoặc thông báo nếu chưa có ai đăng ký.
+ */
 function NextSessionStudents({ sessionId }: { sessionId: string }) {
+  // Gọi API /sessions/:id/attendance để lấy danh sách học viên kèm mã hội viên và ảnh đại diện.
   const read = useRead<{ items: Array<{ id: string; full_name: string; member_code: string | null; avatar_url?: string | null }> }>(
     `/sessions/${sessionId}/attendance`
   );
@@ -390,15 +438,18 @@ function NextSessionStudents({ sessionId }: { sessionId: string }) {
  * day, so a busy week reads at a glance before anything is opened. Today is outlined.
  */
 function CoachWeeklyStrip({ items }: { items: CoachSession[] }) {
+  // Bước 1: Duyệt qua toàn bộ danh sách buổi học để đếm tổng số ca dạy theo từng ngày (key YYYY-MM-DD).
   const sessionDays = new Map<string, number>();
   for (const s of items) {
     const k = dayKey(s.start_at);
     sessionDays.set(k, (sessionDays.get(k) ?? 0) + 1);
   }
+  // Bước 2: Khởi tạo mảng thông tin cho 7 ngày liên tiếp tính từ hôm nay để vẽ 7 cột biểu đồ.
   const daysList: Array<{ date: string; dayName: string; dayNum: number; count: number }> = [];
 
   const today = new Date();
   for (let i = 0; i < 7; i++) {
+    // 864e5 ms = 24 * 60 * 60 * 1000 (1 ngày) để cộng dồn tìm ngày tiếp theo trong vòng lặp 7 ngày.
     const d = new Date(today.getTime() + i * 864e5);
     const key = dayKey(d.toISOString());
     daysList.push({
@@ -408,8 +459,10 @@ function CoachWeeklyStrip({ items }: { items: CoachSession[] }) {
       count: sessionDays.get(key) ?? 0,
     });
   }
+  // Bước 3: Tìm số ca dạy lớn nhất trong 7 ngày (tối thiểu là 1 để tránh chia cho 0) làm chuẩn tính chiều cao phần trăm cột.
   const busiest = Math.max(1, ...daysList.map((d) => d.count));
 
+  // Bước 4: Render giao diện dải 7 cột; ngày hôm nay (cột đầu tiên) có viền và màu nền nhấn (accent).
   return (
     <section aria-label={t("Weekly schedule")}>
       <p className="mb-2 font-mono text-2xs font-semibold uppercase tracking-[0.18em] text-muted">
