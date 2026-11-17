@@ -1,3 +1,9 @@
+/**
+ * Quản lý sơ đồ sân (Court map) và đặt sân vãng lai (walk-in) dành cho lễ tân (role="receptionist").
+ * Tuyến đường (route): /desk/courts.
+ * Phù hợp với luồng nghiệp vụ: theo dõi tình trạng kín/trống của các sân theo ngày và bộ môn,
+ * tạo đơn đặt sân trực tiếp tại quầy kèm thu tiền mặt/chuyển khoản và in hóa đơn tức thì.
+ */
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -18,15 +24,27 @@ import { hoursOf, venueFrom, type VenueRaw } from "@/client/lib/venue";
 import { useSports } from "@/client/components/sports-ui";
 import { useLive } from "@/client/lib/use-live";
 
+/**
+ * Làm gì: Định nghĩa route `/desk/courts` trong TanStack Router, gắn kết component Page vào cây route của ứng dụng.
+ * Được gọi ở: URL `/desk/courts` (TanStack Router tree), điều hướng từ menu điều hướng (src/client/components/shell.tsx) và trang chủ lễ tân (src/routes/desk.index.tsx).
+ * @returns Route object của TanStack Router dành cho trang `/desk/courts`.
+ */
 export const Route = createFileRoute("/desk/courts")({
   component: Page,
 });
 
+/**
+ * Làm gì: Hiển thị giao diện sơ đồ sân cho lễ tân, bao gồm thanh thống kê ca trực, bộ lọc theo ngày/môn, form đặt sân vãng lai và lưới lịch sân.
+ * Được gọi ở: Thuộc tính `component` khi khai báo `Route` (/desk/courts) ở file này.
+ * @returns JSX element chứa toàn bộ giao diện quản lý sơ đồ sân và các modal chi tiết.
+ */
 function Page() {
+  // Bước 1: Khởi tạo state bộ lọc (ngày, môn) và nạp dữ liệu lịch chiếm dụng sân, ca trực hiện tại, số thanh toán chờ duyệt.
   const { sports } = useSports();
   const [date, setDate] = useState(todayISO);
   const [sport, setSport] = useState("");
   const { data, error, reload } = useRead<{ courts: Court[]; slots: OccSlot[] }>(`/occupancy?date=${date}`);
+  // Lắng nghe sự kiện realtime qua kênh "courts" để tự động cập nhật sơ đồ ngay khi có thay đổi đặt sân.
   useLive("courts", reload);
   const now = useNowMinute();
   const shiftRead = useRead<{ shift: { id: string; opened_at: string } | null; totals?: { cash: number } | null }>("/shifts/current?optional=1");
@@ -36,21 +54,31 @@ function Page() {
   // The centre's opening hours from its settings, so the map's rows match what can be sold.
   const flags = useRead<{ venue?: VenueRaw }>("/flags");
   const dayHours = hoursOf(venueFrom(flags.data?.venue));
+  // Quản lý state cho luồng đặt sân vãng lai (sân và giờ được chọn, thông tin khách) và modal tra cứu chi tiết.
   const [pick, setPick] = useState<{ court: Court; hour: number } | null>(null);
   const [form, setForm] = useState({ guest_name: "", guest_phone: "", method: "cash" });
   // The taken hour whose owner the desk is looking up, and the class it may lead to.
   const [look, setLook] = useState<{ kind: string; ref: string } | null>(null);
   const [lookClass, setLookClass] = useState<string | null>(null);
 
+  // Bước 2: Xác định khung giờ hiện tại theo múi giờ Việt Nam và đếm số sân còn trống trong giờ này.
+  // Ép múi giờ Asia/Ho_Chi_Minh để giờ hiển thị luôn khớp với giờ thực tế tại cơ sở; mặc định 10h nếu chưa có thời gian thực.
   const currentHour = now
     ? Number(new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Ho_Chi_Minh", hour: "2-digit", hour12: false }).format(new Date(now)))
     : 10;
   const freeNowCount = data && now ? freeHours(data.courts, data.slots, date, now).filter((f) => f.hour === currentHour).length : 0;
 
+  /**
+   * Làm gì: Ghép ngày đang chọn với khung giờ thành chuỗi thời gian chuẩn ISO 8601 theo múi giờ Việt Nam (+07:00).
+   * Được gọi ở: Hàm xử lý sự kiện `onClick` của nút thanh toán walk-in trong component `Page`.
+   * @param hour Khung giờ bắt đầu của khung đặt sân (0-23).
+   * @returns Chuỗi thời gian chuẩn ISO 8601 kèm offset +07:00 (ví dụ: "2026-11-16T14:00:00+07:00").
+   */
   function isoAt(hour: number) {
     return `${date}T${String(hour).padStart(2, "0")}:00:00+07:00`;
   }
 
+  // Bước 3: Chuẩn bị dữ liệu hiển thị cho thanh thống kê ca trực và trạng thái sân.
   const statItems = [
     { label: t("Courts free this hour"), value: freeNowCount },
     { label: t("Current shift"), value: shift?.shift ? t("Shift open") : t("No open shift") },
@@ -58,6 +86,7 @@ function Page() {
     { label: t("Waiting payments"), value: waiting },
   ];
 
+  // Bước 4: Render giao diện gồm thanh thống kê, bộ lọc ngày/môn, form đặt sân vãng lai (walk-in) và lưới sơ đồ sân (CourtGrid).
   return (
     <Shell role="receptionist">
       <PageHero

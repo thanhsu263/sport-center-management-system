@@ -1,3 +1,8 @@
+/**
+ * File: src/routes/coach.earnings.tsx
+ * Vai trò: Tuyến đường (route) hiển thị trang chi tiết thu nhập của huấn luyện viên (/coach/earnings).
+ * Vị trí trong app: Thuộc phân hệ Coach, liên kết với API /me/earnings để hiển thị bảng kê thù lao theo từng tháng (thù lao buổi dạy và phụ cấp học viên), danh sách lớp đã dạy và lịch sử các đợt chi trả từ trung tâm.
+ */
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { SectionTitle } from "@/client/components/section";
@@ -8,12 +13,24 @@ import { levelLabel } from "@/shared/arena3/labels";
 import { locale, t } from "@/client/lib/i18n";
 
 /** "2026-11" is a database key; a coach reads "November 2026". */
+/**
+ * Làm gì: Định dạng mã chu kỳ tháng dạng "YYYY-MM" thành tên tháng và năm đầy đủ theo ngôn ngữ người dùng để hiển thị trên giao diện (ví dụ: "2026-11" thành "November 2026").
+ * Được gọi ở: src/routes/coach.earnings.tsx (thanh điều hướng chuyển tháng và danh sách lịch sử quá khứ trong component Page).
+ * @param period Chuỗi mã kỳ kế toán định dạng "YYYY-MM" (ví dụ: "2026-11").
+ * @returns Chuỗi tên tháng và năm đã định dạng theo locale hiện tại ở múi giờ UTC.
+ */
 const monthName = (period: string) =>
   new Date(`${period}-01T00:00:00Z`).toLocaleDateString(locale(), { month: "long", year: "numeric", timeZone: "UTC" });
 import { useRead } from "@/client/lib/use-read";
 
+/**
+ * Làm gì: Khởi tạo định nghĩa tuyến đường cho trang thu nhập của huấn luyện viên (/coach/earnings) trong TanStack Router, liên kết URL với component Page.
+ * Được gọi ở: URL "/coach/earnings" (được tự động đăng ký vào cây route của ứng dụng thông qua src/routeTree.gen.ts).
+ * @returns Đối tượng Route cấu hình tuyến đường của TanStack Router.
+ */
 export const Route = createFileRoute("/coach/earnings")({ component: Page });
 
+// Cấu trúc dữ liệu thu nhập của HLV nhận về từ API /me/earnings (bao gồm kỳ xem, kỳ hiện tại, thống kê thù lao, danh sách buổi dạy và lịch sử thanh toán)
 type Data = {
   period: string;
   current: string;
@@ -22,18 +39,33 @@ type Data = {
   history: { period: string; sessions: number; students: number; amount_vnd: number; status: string; paid_at: string | null }[];
 };
 
+/**
+ * Làm gì: Tính toán chu kỳ tháng mới bằng cách cộng hoặc trừ một số lượng tháng tương đối so với kỳ hiện tại (dùng để chuyển sang tháng trước hoặc tháng sau).
+ * Được gọi ở: src/routes/coach.earnings.tsx (sự kiện click nút lùi/tiến tháng trong component Page).
+ * @param p Chuỗi kỳ tháng gốc theo định dạng "YYYY-MM" (ví dụ: "2026-11").
+ * @param by Số lượng tháng cần dịch chuyển (số âm là lùi về quá khứ, số dương là tiến tới tương lai).
+ * @returns Chuỗi định dạng "YYYY-MM" của tháng mới (ví dụ: "2026-10" hoặc "2026-12").
+ */
 function shiftMonth(p: string, by: number) {
   const [y, m] = p.split("-").map(Number) as [number, number];
+  // Dùng Date.UTC với chỉ số tháng bắt đầu từ 0 (m - 1) để tránh lệch ngày do múi giờ địa phương khi chuyển tháng
   const d = new Date(Date.UTC(y, m - 1 + by, 1));
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
 }
 
+/**
+ * Làm gì: Component giao diện chính hiển thị trang thu nhập của huấn luyện viên (/coach/earnings), cung cấp bộ điều hướng chuyển tháng, thẻ thống kê tổng quan (thu nhập, số lớp dạy, số học viên), danh sách lớp chi tiết và lịch sử các đợt chi trả trước đây.
+ * Được gọi ở: src/routes/coach.earnings.tsx (được gắn vào Route để hiển thị khi người dùng truy cập URL "/coach/earnings").
+ * @returns Giao diện React hoàn chỉnh của trang thu nhập được bọc trong component Shell.
+ */
 function Page() {
+  // Bước 1: Quản lý chu kỳ tháng đang chọn và truy vấn dữ liệu thu nhập từ API /me/earnings
   // undefined = the month that is running now, whatever the centre calls it; the server answers with it.
   const [period, setPeriod] = useState<string | undefined>();
   const read = useRead<Data>(`/me/earnings${period ? `?period=${period}` : ""}`);
   const data = read.data;
 
+  // Bước 2: Ghi nhớ tháng hiện tại của hệ thống để duy trì điều hướng và xác định chu kỳ đang hiển thị
   // The centre's current month, kept once it is known so the arrows keep working after a month fails to
   // load: a coach who lands on a month that would not open can still step to the next one.
   const [knownCurrent, setKnownCurrent] = useState<string | null>(null);
@@ -41,8 +73,10 @@ function Page() {
     if (data) setKnownCurrent(data.current);
   }, [data]);
   const current = data?.current ?? knownCurrent;
+  // viewing ưu tiên theo tháng HLV chủ động chọn (period), nếu chưa chọn thì mặc định xem tháng hiện tại (current)
   const viewing = period ?? current;
 
+  // Bước 3: Trích xuất thông tin tổng kết thu nhập (summary) và kết xuất giao diện trang theo trạng thái dữ liệu
   const s = data?.summary;
   return (
     <Shell
