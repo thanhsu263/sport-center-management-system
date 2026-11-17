@@ -1,3 +1,8 @@
+/**
+ * File này quản lý trang đặt lịch sân cố định hàng tuần (/desk/series) dành cho nhân viên lễ tân và quản lý.
+ * Cho phép khách hàng đặt một khung giờ cố định trên cùng một sân qua nhiều tuần liên tiếp (series booking)
+ * với mức giá ưu đãi trọn gói trả trước, đồng thời theo dõi và quản lý các gói đặt sân đang hoạt động.
+ */
 import { createFileRoute } from "@tanstack/react-router";
 import { CalendarPlus, Repeat } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
@@ -26,6 +31,10 @@ import { addDaysISO, formatDate, sportLabel, todayISO } from "@/shared/arena3/la
 import { t, tServer } from "@/client/lib/i18n";
 import { useRead } from "@/client/lib/use-read";
 
+/**
+ * Làm gì: Định nghĩa route `/desk/series` cho TanStack Router, kết nối URL với component Page quản lý đặt lịch cố định.
+ * Được gọi ở: /desk/series
+ */
 export const Route = createFileRoute("/desk/series")({ component: Page });
 
 type Court = { id: string; court_code: string; sport: string; status: string };
@@ -65,8 +74,15 @@ type Cfg = {
   slot_minutes: number;
 };
 
+// Cấu hình mặc định dự phòng khi chưa tải được thông tin thiết lập từ server (/settings).
 const FALLBACK: Cfg = { series_min_weeks: 4, series_max_weeks: 12, open_time: "06:00", close_time: "22:00", slot_minutes: 60 };
 
+/**
+ * Làm gì: Chuyển đổi chuỗi giờ "HH:MM" thành tổng số phút tính từ đầu ngày (00:00).
+ * Được gọi ở: src/routes/desk.series.tsx trong hàm startTimes().
+ * @param hhmm Chuỗi thời gian định dạng "HH:MM".
+ * @returns Tổng số phút tính từ 00:00.
+ */
 function minutes(hhmm: string) {
   const [h = 0, m = 0] = hhmm.slice(0, 5).split(":").map(Number);
   return h * 60 + m;
@@ -75,7 +91,9 @@ function minutes(hhmm: string) {
 /** Every start time a slot can begin at, from opening time to the last slot that still ends before closing. */
 function startTimes(cfg: Cfg) {
   const out: string[] = [];
+  // Bước nhảy thời gian theo độ dài mỗi ca (slot), mặc định là 60 phút nếu cấu hình không hợp lệ.
   const step = cfg.slot_minutes > 0 ? cfg.slot_minutes : 60;
+  // Chỉ tạo các mốc giờ mà ca chơi kết thúc trước hoặc đúng thời điểm đóng cửa.
   for (let m = minutes(cfg.open_time); m + step <= minutes(cfg.close_time); m += step) {
     out.push(`${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`);
   }
@@ -85,24 +103,46 @@ function startTimes(cfg: Cfg) {
 /** The week counts offered as buttons: all of them when there are few, else a handful of round ones. */
 function weekChoices(min: number, max: number) {
   if (max - min < 9) return Array.from({ length: max - min + 1 }, (_, i) => min + i);
+  // Nếu khoảng tuần rộng, chỉ gợi ý các mốc tuần tròn phổ biến (8, 12, 16, 24) nằm trong khoảng min-max để giao diện gọn gàng.
   return [...new Set([min, 8, 12, 16, 24, max])].filter((n) => n >= min && n <= max).sort((a, b) => a - b);
 }
 
+/**
+ * Làm gì: Chuyển đổi số thứ tự ngày trong tuần (0: Chủ Nhật đến 6: Thứ Bảy) thành tên ngày theo ngôn ngữ hiển thị.
+ * Được gọi ở: src/routes/desk.series.tsx trong component Page (phần tóm tắt lịch và danh sách series).
+ * @param w Chỉ số ngày trong tuần từ 0 (Chủ Nhật) đến 6 (Thứ Bảy).
+ * @returns Tên thứ trong tuần đã được bản địa hóa.
+ */
 function weekdayName(w: number) {
   return [t("Sunday"), t("Monday"), t("Tuesday"), t("Wednesday"), t("Thursday"), t("Friday"), t("Saturday")][w] ?? "";
 }
 
+/**
+ * Làm gì: Xác định thứ trong tuần (0-6) từ chuỗi ngày định dạng ISO "YYYY-MM-DD".
+ * Được gọi ở: src/routes/desk.series.tsx trong component Page (khi xác định thứ của ngày bắt đầu).
+ * @param iso Chuỗi ngày định dạng chuẩn ISO "YYYY-MM-DD".
+ * @returns Số thứ tự ngày trong tuần từ 0 (Chủ Nhật) đến 6 (Thứ Bảy).
+ */
 function weekdayOf(iso: string) {
   const [y = 1970, m = 1, d = 1] = iso.slice(0, 10).split("-").map(Number);
+  // Dùng Date.UTC để tránh lệch ngày do múi giờ địa phương.
   return new Date(Date.UTC(y, m - 1, d)).getUTCDay();
 }
 
+/**
+ * Làm gì: Hiển thị giao diện bàn lễ tân để tạo gói đặt sân cố định hàng tuần và theo dõi các gói series đang chạy.
+ * Được gọi ở: /desk/series (thông qua Route)
+ * @returns Giao diện quản lý đặt sân cố định theo tuần.
+ */
 function Page() {
+  // Bước 1: Khởi tạo state, kiểm tra quyền truy cập và nạp dữ liệu sân, lịch đặt cố định.
   const user = useSessionUser();
+  // Phân quyền: chỉ quản lý (manager) mới có quyền chỉnh sửa cấu hình và không bắt buộc mở ca thu ngân.
   const role = user?.role === "manager" ? "manager" : "receptionist";
   const form = useRef<HTMLFormElement>(null);
   const courtsRead = useRead<{ items: Court[] }>("/courts");
   const seriesRead = useRead<{ items: Series[] }>("/series");
+  // Chỉ giữ lại những sân ở trạng thái "ready" (sẵn sàng hoạt động) để khách đặt lịch.
   const courts = useMemo(() => (courtsRead.data?.items ?? []).filter((x) => x.status === "ready"), [courtsRead.data]);
   // null = not known yet (still asking, or the question failed) — never an empty list.
   const list = seriesRead.data?.items ?? null;
@@ -118,11 +158,14 @@ function Page() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<{ field?: string; message: string } | null>(null);
   const [stopping, setStopping] = useState<Series | null>(null);
+  // Lễ tân bắt buộc phải có ca thu ngân đang mở thì mới được phép thu tiền đặt cọc hoặc thanh toán.
   const tillOpen = useTillOpen(role === "receptionist");
 
+  // Bước 2: Tự động chọn sân đầu tiên làm mặc định khi danh sách sân được nạp.
   useEffect(() => {
     setCourtId((cur) => cur || courts[0]?.id || "");
   }, [courts]);
+  // Bước 3: Nạp cấu hình hoạt động của trung tâm từ server (giờ mở/đóng cửa, giới hạn số tuần đặt).
   useEffect(() => {
     // The limits are the manager's to change, so they are read, not hard-coded. Failing to read
     // them is not fatal: the server still enforces the real ones when the weeks are checked.
@@ -139,11 +182,13 @@ function Page() {
       .catch(() => undefined);
   }, []);
 
+  // Bước 4: Tính toán danh sách mốc giờ bắt đầu và các tùy chọn số tuần phù hợp với cấu hình.
   const times = startTimes(cfg);
   const choices = weekChoices(cfg.series_min_weeks, Math.max(cfg.series_min_weeks, cfg.series_max_weeks));
   // Keep the picks inside what the centre allows once the settings arrive.
   useEffect(() => {
     setWeeks((w) => Math.min(Math.max(w, choices[0] ?? w), choices[choices.length - 1] ?? w));
+    // Ưu tiên mốc 19:00 vì đây là khung giờ vàng khách hay đặt cố định, nếu không khả dụng thì lấy mốc đầu tiên.
     setTime((cur) => (times.includes(cur) ? cur : times.includes("19:00") ? "19:00" : (times[0] ?? cur)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cfg]);
@@ -157,16 +202,27 @@ function Page() {
       setErr(null);
     };
 
+  /**
+   * Làm gì: Đóng gói các giá trị nhập trên form thành payload để gửi lên API preview hoặc book series.
+   * Được gọi ở: src/routes/desk.series.tsx trong hàm check() và book().
+   * @returns Đối tượng payload phục vụ kiểm tra hoặc tạo lịch cố định.
+   */
   const body = () => ({
     court_id: courtId,
     first_date: date,
     start_local: time,
     weeks,
     phone,
+    // Khách vãng lai mới cần nhập tên; hội viên đã có sẵn hồ sơ tra cứu theo số điện thoại.
     guest_name: name || undefined,
     method,
   });
 
+  /**
+   * Làm gì: Xử lý và chuẩn hóa lỗi nhận được từ API hoặc hệ thống, hiển thị lỗi lên giao diện và focus vào ô nhập liệu tương ứng.
+   * Được gọi ở: src/routes/desk.series.tsx trong hàm check() và book().
+   * @param e Lỗi bắt được từ khối try/catch.
+   */
   function fail(e: unknown) {
     const next =
       e instanceof ApiClientError
@@ -178,25 +234,40 @@ function Page() {
     if (el instanceof HTMLElement) requestAnimationFrame(() => el.focus());
   }
 
+  /**
+   * Làm gì: Gửi dữ liệu form lên API `/series/preview` để kiểm tra độ trùng lịch từng tuần và tính tổng tiền chiết khấu trước khi đặt.
+   * Được gọi ở: src/routes/desk.series.tsx khi người dùng submit form đặt lịch cố định.
+   * @param e Sự kiện submit form HTML (nếu có) để chặn reload trang.
+   */
   async function check(e?: FormEvent) {
+    // Bước 1: Ngăn chặn reload trang, xóa lỗi cũ và đánh dấu trạng thái đang xử lý (busy).
     e?.preventDefault();
     setErr(null);
     setBusy(true);
     try {
+      // Bước 2: Gọi API preview để kiểm tra tính khả dụng của từng tuần và tính tổng tiền.
       setPreview(await apiPost<Preview>("/series/preview", body()));
     } catch (error) {
       setPreview(null);
       fail(error);
     } finally {
+      // Bước 3: Tắt trạng thái bận khi kết thúc kiểm tra (dù thành công hay thất bại).
       setBusy(false);
     }
   }
 
+  /**
+   * Làm gì: Gọi API `/series` để thực hiện đặt chuỗi lịch cố định, ghi nhận thanh toán vào ca trực và cập nhật danh sách.
+   * Được gọi ở: src/routes/desk.series.tsx khi người dùng bấm nút xác nhận đặt lịch trong modal xem trước.
+   */
   async function book() {
+    // Bước 1: Xóa thông báo lỗi trước đó và bật trạng thái đang xử lý.
     setErr(null);
     setBusy(true);
     try {
+      // Bước 2: Gọi API POST /series; tham số thứ ba là true để kích hoạt xử lý thanh toán ngay trong ca trực.
       const r = await apiPost<{ booked: number; skipped: unknown[]; total_vnd: number }>("/series", body(), true);
+      // Bước 3: Thông báo đặt thành công, làm mới form nhập thông tin khách và tải lại danh sách series.
       toast.success(t("{n} weeks booked · {amount}", { n: r.booked, amount: money(r.total_vnd) }));
       setPreview(null);
       setPhone("");
@@ -205,15 +276,25 @@ function Page() {
     } catch (e) {
       fail(e);
     } finally {
+      // Bước 4: Tắt trạng thái đang xử lý khi hoàn tất.
       setBusy(false);
     }
   }
 
+  /**
+   * Làm gì: Lấy nội dung lỗi tương ứng với một trường nhập liệu cụ thể nếu trường đó có lỗi.
+   * Được gọi ở: src/routes/desk.series.tsx trong các component Field của form.
+   * @param f Tên trường cần kiểm tra lỗi.
+   * @returns Chuỗi thông báo lỗi hoặc undefined nếu trường không có lỗi.
+   */
   const fieldErr = (f: string) => (err?.field === f ? err.message : undefined);
+  // Bước 5: Phân loại danh sách series đang chạy và đã kết thúc, tính ngày buổi tập cuối cùng.
   const running = (list ?? []).filter((s) => s.status === "active" && s.remaining > 0);
   const ended = (list ?? []).filter((s) => !(s.status === "active" && s.remaining > 0));
+  // Tính ngày của buổi tập cuối cùng trong chuỗi (cách ngày bắt đầu 7 ngày nhân với số tuần trừ 1).
   const last = addDaysISO(date, 7 * (weeks - 1));
 
+  // Bước 6: Render toàn bộ giao diện đặt lịch cố định, cảnh báo ca trực và form nhập liệu.
   return (
     <Shell
       role={role}
@@ -437,7 +518,15 @@ function Page() {
   );
 }
 
+/**
+ * Làm gì: Hiển thị thẻ tóm tắt thông tin một gói đặt sân cố định hàng tuần (series), gồm sân, thứ, giờ, khách hàng, số tuần còn lại và nút dừng gói.
+ * Được gọi ở: src/routes/desk.series.tsx trong component Page (danh sách đang chạy ở dòng 411, danh sách đã kết thúc ở dòng 422).
+ * @param s Đối tượng Series chứa thông tin chi tiết của gói đặt sân cố định.
+ * @param onStop Callback mở modal xác nhận dừng gói (chỉ áp dụng cho các gói đang hoạt động).
+ * @returns JSX phần tử Card hiển thị tóm tắt gói đặt sân.
+ */
 function SeriesCard({ s, onStop }: { s: Series; onStop?: () => void }) {
+  // Xác định gói đặt sân còn hiệu lực (live): đang ở trạng thái hoạt động (active) và còn ít nhất một tuần chưa sử dụng.
   const live = s.status === "active" && s.remaining > 0;
   return (
     <Card className="flex flex-wrap items-center justify-between gap-3 p-4">
@@ -468,33 +557,56 @@ function SeriesCard({ s, onStop }: { s: Series; onStop?: () => void }) {
   );
 }
 
+/**
+ * Làm gì: Modal xác nhận dừng gói đặt sân cố định hàng tuần (series), hủy tất cả các buổi còn lại và tính tiền hoàn trả theo quy định hoặc miễn phí hủy.
+ * Được gọi ở: src/routes/desk.series.tsx trong component Page (dòng 428).
+ * @param series Đối tượng gói đặt sân cần dừng (Series), hoặc null nếu modal đang đóng.
+ * @param onClose Hàm callback đóng modal khi người dùng chọn giữ gói hoặc nhấn ra ngoài.
+ * @param onDone Hàm callback xử lý sau khi hủy gói thành công để đóng modal và làm mới danh sách.
+ * @returns JSX phần tử Modal xác nhận dừng gói đặt sân cố định.
+ */
 /** Stopping a block cancels every week still to come, so it is said out loud and confirmed first. */
 function StopDialog({ series, onClose, onDone }: { series: Series | null; onClose: () => void; onDone: () => void }) {
+  // Bước 1: Khởi tạo state cho tùy chọn miễn phí phạt hủy (waive) và cờ trạng thái đang gọi API (busy).
   const [waive, setWaive] = useState(false);
   const [busy, setBusy] = useState(false);
   // The dialog fades out after `series` is cleared; keep what it showed so the text does not blink away.
   const [shown, setShown] = useState<Series | null>(null);
+  // Cập nhật lại dữ liệu gói cần dừng vào state shown và đặt lại tùy chọn waive khi prop series thay đổi.
   useEffect(() => {
     if (!series) return;
     setShown(series);
     setWaive(false);
   }, [series]);
+  // Giữ lại dữ liệu của gói (từ shown) trong lúc modal mờ dần khi đóng, tránh giật nội dung giao diện.
   const s = series ?? shown;
 
+  /**
+   * Làm gì: Gửi yêu cầu hủy các tuần còn lại của gói đặt sân lên API backend, hiển thị kết quả hoàn tiền và kích hoạt callback hoàn tất.
+   * Được gọi ở: src/routes/desk.series.tsx trong sự kiện onClick của nút xác nhận dừng (dòng 508).
+   * @returns Promise<void>
+   * @throws Bắt lỗi nội bộ và hiển thị thông báo lỗi qua toast, không ném lỗi ra ngoài.
+   */
   async function go() {
+    // Bước 1: Kiểm tra gói hợp lệ và bật trạng thái bận để vô hiệu hóa nút, tránh người dùng bấm trùng lặp.
     if (!series) return;
     setBusy(true);
     try {
+      // Bước 2: Gọi API POST /series/:id/cancel để hủy các buổi còn lại của gói kèm tùy chọn miễn phí phạt hủy (waive).
       const r = await apiPost<{ cancelled: number; refunded_vnd: number }>(`/series/${series.id}/cancel`, { waive });
+      // Bước 3: Thông báo số tuần đã hủy kèm số tiền hoàn cho khách qua toast, sau đó kích hoạt callback onDone để làm mới dữ liệu.
       toast.success(t("{n} weeks cancelled · refunded {amount}", { n: r.cancelled, amount: money(r.refunded_vnd) }));
       onDone();
     } catch (e) {
+      // Bước 4: Bắt lỗi nếu gọi API thất bại và hiển thị thông báo lỗi từ server hoặc lỗi mặc định qua toast.
       toast.error(e instanceof Error ? tServer(e.message) : t("Something went wrong"));
     } finally {
+      // Bước 5: Tắt trạng thái bận để khôi phục lại các nút bấm trên modal.
       setBusy(false);
     }
   }
 
+  // Bước 2: Render Modal xác nhận dừng gói đặt sân, hiển thị số tuần còn lại và tùy chọn miễn phí phạt hủy khi gặp sự cố bất khả kháng.
   return (
     <Modal
       open={!!series}

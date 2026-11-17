@@ -1,3 +1,8 @@
+/**
+ * Mục đích: Màn hình điểm danh và điều hành buổi học dành cho huấn luyện viên (coach) và quản lý (manager).
+ * Vị trí trong app: Route `/coach/attendance`. Cho phép chọn buổi tập từ lịch dạy, thực hiện điểm danh học viên
+ * (hỗ trợ quy tắc khóa sổ sau 2 giờ BR-35), ghi nhận kết quả đánh giá (Results), xem giáo án (Plan) và giao bài tập (Homework).
+ */
 import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Check, Clock, FileCheck2, MapPin, Users, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -27,6 +32,11 @@ import { useRead, type ReadError } from "@/client/lib/use-read";
 import { HighlightBadge, useLive } from "@/client/lib/use-live";
 import type { CoachSession } from "./coach.index.tsx";
 
+/**
+ * Làm gì: Định nghĩa route `/coach/attendance` trong TanStack Router; xác thực search param session để chọn đúng buổi học cần điểm danh.
+ * Được gọi ở: URL `/coach/attendance` (được điều hướng từ src/routes/coach.index.tsx qua nút điểm danh, hoặc menu trong src/client/components/shell.tsx).
+ * @returns Đối tượng Route cấu hình cho đường dẫn `/coach/attendance` gắn với component Page.
+ */
 export const Route = createFileRoute("/coach/attendance")({
   validateSearch: (search: Record<string, unknown>): { session?: string } => ({
     session: typeof search.session === "string" ? search.session : undefined,
@@ -86,7 +96,13 @@ const RESULTS = [
   },
 ];
 
+/**
+ * Làm gì: Component trang chính hiển thị màn hình điểm danh và điều hành buổi tập cho huấn luyện viên hoặc quản lý; xử lý chọn buổi học, cờ tính năng F4/F5, các tab thao tác và đồng bộ dữ liệu thời gian thực.
+ * Được gọi ở: Thuộc tính component của Route tại route `/coach/attendance`.
+ * @returns Giao diện điểm danh và điều hành buổi học bọc trong component Shell.
+ */
 function Page() {
+  // Bước 1: Khởi tạo router hook, đọc search param 'session', lấy thông tin người dùng và tải danh sách lịch dạy (/coach/schedule) cùng cờ tính năng (/flags).
   const { session: sessionParam } = Route.useSearch();
   const navigate = useNavigate();
   const user = useSessionUser();
@@ -101,6 +117,7 @@ function Page() {
   // register again without anything having to remember to reset it.
   const [picked, setPicked] = useState({ id: "", step: "register" });
 
+  // Bước 2: Xác định buổi học đang chọn (open) theo thứ tự ưu tiên: session từ URL -> buổi sắp diễn ra -> buổi đầu tiên trong lịch.
   // The session in the address bar (from a schedule card) is the one whose register is on screen;
   // with none chosen, the next one to come.
   const open =
@@ -109,6 +126,7 @@ function Page() {
     items?.[0] ??
     null;
 
+  // Bước 3: Kiểm tra cờ F4, quyền hạn manager và xác định đường dẫn API tải danh sách điểm danh (/sessions/:id/attendance hoặc fallback roster lớp).
   const f4 = flags.F4 !== false;
   const isManager = user?.role === "manager";
   // The register is asked for here, not in the panel, so the header can say it has closed. The answer
@@ -121,6 +139,7 @@ function Page() {
         : `/classes/${open.class_id}/roster`
       : null;
   const register = useRead<RegisterData>(registerPath);
+  // Lắng nghe sự kiện realtime "attendance" qua WebSocket/SSE để tự động làm mới danh sách điểm danh và lịch khi có cập nhật.
   useLive("attendance", () => {
     register.reload();
     scheduleRead.reload();
@@ -128,6 +147,7 @@ function Page() {
   // After the lock only a manager may correct a register, and must say why (BR-35).
   const locked = !!register.data?.session?.locked;
 
+  // Bước 4: Thiết lập các tab quy trình (điểm danh, kết quả, giáo án, bài tập). Nếu cờ F4 bị tắt thì chỉ cho phép thực hiện bước điểm danh ("register").
   const steps = [
     { value: "register", label: t("Attendance") },
     { value: "results", label: t("Results") },
@@ -137,6 +157,7 @@ function Page() {
   const step = picked.id === open?.id ? picked.step : "register";
   const current = f4 ? step : "register";
 
+  // Bước 5: Render giao diện trang gồm thẻ thông tin buổi học, bộ chuyển đổi buổi học, thanh tab quy trình và panel nội dung tương ứng.
   return (
     <Shell
       role="coach"
@@ -235,6 +256,15 @@ function Page() {
   );
 }
 
+/**
+ * Làm gì: Component bảng điểm danh chi tiết của buổi học; hiển thị danh sách học viên, hỗ trợ chấm điểm danh (có mặt, đi muộn, vắng mặt, có phép), xem ghi chú sức khỏe và lưu kết quả lên server (kèm lý do điều chỉnh nếu đã khóa).
+ * Được gọi ở: src/routes/coach.attendance.tsx trong component Page (khi tab hiện tại là "register").
+ * @param session Thông tin buổi học đang chọn (id, sport, level, court_code, status, start_at, v.v.)
+ * @param f4 Cờ tính năng (Feature flag F4) bật hoặc tắt chức năng điểm danh
+ * @param read Đối tượng trạng thái đọc dữ liệu từ useRead (gồm danh sách học viên items, session meta, lỗi và hàm reload)
+ * @param isManager Quyền hạn của người dùng hiện tại có phải là Manager hay không (xác định quyền sửa điểm danh khi đã bị khóa theo BR-35)
+ * @returns JSX.Element giao diện bảng điểm danh học viên, thanh thống kê sĩ số và nút lưu
+ */
 function RegisterPanel({
   session,
   f4,
@@ -246,6 +276,7 @@ function RegisterPanel({
   read: { data: RegisterData | null; error: ReadError | null; reload: () => void };
   isManager: boolean;
 }) {
+  // Bước 1: Khởi tạo state lưu các thay đổi điểm danh cục bộ (edits), lý do chỉnh sửa khi bị khóa (reason), trạng thái lưu (saving) và cờ hiển thị phản hồi đã lưu (justSaved).
   // Only what the coach changed; every other student shows what the server holds. A roll that has
   // not been marked yet starts with everyone present, as it always did.
   const [edits, setEdits] = useState<Record<string, string>>({});
@@ -256,8 +287,10 @@ function RegisterPanel({
   const savingRef = useRef(false);
   const savedTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
+  // Dọn dẹp timer đếm ngược hiệu ứng 'Saved' khi component unmount để tránh rò rỉ bộ nhớ (memory leak).
   useEffect(() => () => clearTimeout(savedTimer.current), []);
 
+  // Bước 2: Xử lý khi tải dữ liệu điểm danh gặp lỗi; cho phép HLV bấm thử lại nếu không bị máy chủ từ chối quyền truy cập (refused).
   if (read.error) {
     return (
       <LoadError
@@ -266,8 +299,10 @@ function RegisterPanel({
       />
     );
   }
+  // Hiển thị khung chờ (Skeleton) trong khi chờ API trả về dữ liệu danh sách điểm danh.
   if (!read.data) return <Skeleton className="h-40" />;
 
+  // Bước 3: Lấy danh sách học viên, kiểm tra quy tắc nghiệp vụ BR-35 (phiên bị khóa chỉ Manager mới được sửa) và xác định trạng thái chỉ đọc (readOnly).
   const rows = read.data.items;
   const meta = read.data.session ?? null;
   const locked = !!meta?.locked;
@@ -275,8 +310,15 @@ function RegisterPanel({
   const cancelled = session.status === "cancelled" || meta?.status === "cancelled";
   // Nothing to mark: attendance is off, the session was cancelled, or the register has closed.
   const readOnly = !f4 || blocked || cancelled;
+  /**
+   * Làm gì: Xác định trạng thái điểm danh hiển thị của từng học viên: ưu tiên chỉnh sửa tạm thời của HLV, sau đó đến kết quả lưu trên server, mặc định ban đầu là 'present'.
+   * Được gọi ở: RegisterPanel (tính số lượng học viên theo từng loại, hiển thị nút bấm trạng thái và chuẩn bị dữ liệu gửi lên API).
+   * @param u Đối tượng thông tin học viên trong danh sách điểm danh
+   * @returns Trạng thái điểm danh ('present' | 'late' | 'absent' | 'excused')
+   */
   const mark = (u: AttRow) => edits[u.id] ?? u.result ?? "present";
 
+  // Nếu buổi học chưa có học viên nào đăng ký, hiển thị thông báo không có danh sách điểm danh.
   if (!rows.length) {
     return (
       <p className="text-sm text-muted">
@@ -285,12 +327,19 @@ function RegisterPanel({
     );
   }
 
+  /**
+   * Làm gì: Gửi kết quả điểm danh của toàn bộ học viên lên server qua API POST /sessions/:id/attendance; nếu phiên đã bị khóa thì gửi kèm lý do điều chỉnh theo quy tắc BR-35.
+   * Được gọi ở: RegisterPanel khi HLV hoặc Manager nhấn nút lưu điểm danh ('Save register' hoặc 'Save correction').
+   * @returns Promise<void>
+   */
   async function save() {
+    // Bước 1: Kiểm tra cờ savingRef để ngăn chặn gọi API trùng lặp khi người dùng bấm lưu liên tục (double-submit).
     if (savingRef.current) return;
     savingRef.current = true;
     setSaving(true);
     setSaveError(null);
     try {
+      // Bước 2: Gọi API POST /sessions/:id/attendance gửi mảng kết quả điểm danh; nếu phiên đã bị khóa (locked) thì gửi kèm lý do điều chỉnh (reason).
       await apiPost(
         `/sessions/${session.id}/attendance`,
         {
@@ -298,23 +347,28 @@ function RegisterPanel({
           ...(locked ? { reason } : {}),
         },
       );
+      // Bước 3: Thông báo lưu thành công, xóa trường lý do, kích hoạt icon hoàn tất CheckDraw và yêu cầu tải lại dữ liệu điểm danh mới nhất.
       toast.success(locked ? t("Register corrected") : t("Register saved"));
       setReason("");
       setJustSaved(true);
       clearTimeout(savedTimer.current);
+      // Duy trì trạng thái vừa lưu trong 2200ms để người dùng kịp nhìn thấy animation CheckDraw hoàn tất trước khi nút trở về bình thường.
       savedTimer.current = setTimeout(() => setJustSaved(false), 2200);
       // The marks stay as they are: they are what the server now holds, so nothing flickers while
       // the fresh copy comes back.
       read.reload();
+    // Bước 4: Bắt lỗi nếu gọi API thất bại, lưu thông báo lỗi để hiển thị ngay cạnh nút bấm mà vẫn giữ nguyên các lựa chọn điểm danh của HLV.
     } catch (e) {
       // Said next to the button, where the coach is looking, and the marks are kept so nothing is lost.
       setSaveError(e instanceof Error ? tServer(e.message) : t("Something went wrong"));
     } finally {
+      // Bước 5: Đặt lại cờ savingRef và tắt trạng thái saving sau khi hoàn tất tiến trình lưu.
       savingRef.current = false;
       setSaving(false);
     }
   }
 
+  // Bước 6: Render giao diện gồm cảnh báo (nếu cờ F4 tắt, buổi học bị hủy hoặc bị khóa), thanh tóm tắt số lượng, danh sách học viên, ô nhập lý do và nút lưu.
   return (
     <div>
       {!f4 ? (

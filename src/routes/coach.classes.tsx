@@ -1,3 +1,8 @@
+/**
+ * File định tuyến và hiển thị trang danh sách lớp học của huấn luyện viên (/coach/classes).
+ * Thuộc phân hệ Coach trong hệ thống Arena 3, giúp HLV theo dõi các lớp học được phân công,
+ * lịch học định kỳ (RRULE), sĩ số học viên, tiến độ lấp đầy chỗ và mở modal quản lý chi tiết buổi học.
+ */
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { Users, Ticket, Calendar, CheckCircle } from "lucide-react";
@@ -12,10 +17,16 @@ import { t } from "@/client/lib/i18n";
 import { useRead } from "@/client/lib/use-read";
 import { HighlightBadge, useLive } from "@/client/lib/use-live";
 
+/**
+ * Làm gì: Định nghĩa route cho trang quản lý lớp học của huấn luyện viên tại đường dẫn /coach/classes bằng TanStack Router.
+ * Được gọi ở: URL /coach/classes (TanStack Router tự động đăng ký và nạp route khi người dùng truy cập hoặc bấm chọn menu Lớp học).
+ * @returns Đối tượng route liên kết đường dẫn /coach/classes với component Page.
+ */
 export const Route = createFileRoute("/coach/classes")({
   component: Page,
 });
 
+// Cấu trúc dữ liệu thông tin lớp học của huấn luyện viên trả về từ API GET /coach/classes.
 type CoachClassRow = {
   id: string;
   code: string;
@@ -33,17 +44,26 @@ type CoachClassRow = {
   upcoming_sessions_count: number;
 };
 
+/**
+ * Làm gì: Component hiển thị toàn bộ trang quản lý lớp học của huấn luyện viên, gồm thống kê KPI, danh sách lớp kèm thanh tiến độ sĩ số và modal chi tiết buổi học.
+ * Được gọi ở: File `src/routes/coach.classes.tsx` trong Route /coach/classes (dòng 16).
+ * @returns JSX layout trang quản lý lớp học trong khung Shell của vai trò coach.
+ */
 function Page() {
+  // Bước 1: Tải danh sách lớp học của HLV từ API /coach/classes qua hook useRead và đăng ký kênh realtime "classes" qua useLive để tự động nạp lại dữ liệu khi có thay đổi.
   const read = useRead<{ items: CoachClassRow[]; total: number }>("/coach/classes");
   useLive("classes", read.reload);
   const items = read.data?.items ?? null;
+  // Bước 2: Khởi tạo state lưu ID lớp học để mở modal chi tiết buổi học (detail) và giới hạn số lớp hiển thị ban đầu (limit = 8, tăng thêm khi bấm ShowMore).
   const [detail, setDetail] = useState<string | null>(null);
   const [limit, setLimit] = useState(8);
 
+  // Bước 3: Tính toán các chỉ số thống kê tổng quan: tổng số lớp, số lớp đang mở tuyển sinh (status = "open") và tổng số học viên đăng ký trên các lớp.
   const totalClasses = items?.length ?? 0;
   const openClasses = items?.filter((c) => c.status === "open").length ?? 0;
   const totalStudents = items?.reduce((sum, c) => sum + (c.enrolled_count || 0), 0) ?? 0;
 
+  // Bước 4: Render giao diện trang trong khung Shell: hiển thị lỗi (LoadError), skeleton chờ tải, trạng thái trống (EmptyState) hoặc lưới danh sách lớp học và modal chi tiết.
   return (
     <Shell
       role="coach"

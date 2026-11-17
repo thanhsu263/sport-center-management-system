@@ -1,3 +1,8 @@
+/**
+ * Tuyến đường (route) hiển thị chi tiết hồ sơ học viên dành cho huấn luyện viên (coach).
+ * File này nằm trong hệ thống định tuyến của ứng dụng, kết nối từ trang điểm danh hoặc thông báo,
+ * cho phép huấn luyện viên theo dõi chuyên cần, cập nhật cấp độ, ghi chú nội bộ và đánh giá tiến độ học viên.
+ */
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { AlertTriangle, ArrowLeft, Target } from "lucide-react";
 import { SectionTitle } from "@/client/components/section";
@@ -23,15 +28,23 @@ import { cn } from "@/client/lib/cn";
 import { t, tServer, tk, tData } from "@/client/lib/i18n";
 import { useRead } from "@/client/lib/use-read";
 
+/**
+ * Làm gì: Định nghĩa route "/coach/student/$id" trên TanStack Router để hiển thị trang chi tiết hồ sơ và tiến độ của một học viên.
+ * Được gọi ở: URL "/coach/student/$id" (được điều hướng từ src/routes/coach.attendance.tsx hoặc liên kết từ thông báo hệ thống).
+ * @returns Định nghĩa route của TanStack Router liên kết với component Page.
+ */
 export const Route = createFileRoute("/coach/student/$id")({ component: Page });
 
+// Danh mục mục tiêu tập luyện của học viên (giảm cân, cải thiện kỹ thuật, thi đấu, giải trí) để ánh xạ sang nhãn hiển thị.
 const GOALS: Record<string, string> = {
   weight: tk("Lose weight"),
   technique: tk("Improve technique"),
   compete: tk("Compete"),
   fun: tk("Have fun"),
 };
+// Danh sách các cấp độ kỹ năng của học viên trong hệ thống (mới bắt đầu, trung cấp, nâng cao).
 const LEVELS = ["beginner", "intermediate", "advanced"];
+// Ánh xạ mã chỉ số kỹ thuật chuyên môn theo từng môn thể thao sang nhãn hiển thị đa ngôn ngữ.
 const METRIC_LABEL: Record<string, string> = {
   smash_count: tk("Smashes"),
   freethrow_pct: tk("Free throws"),
@@ -45,6 +58,7 @@ const ATT = [
   { k: "excused", l: tk("Excused"), bar: "border-fg" },
 ];
 
+// Kiểu dữ liệu hồ sơ học viên trả về từ API `/students/:id/profile`, gồm thông tin cá nhân, mục tiêu, trình độ, ghi chú, đánh giá và bài tập.
 type Profile = {
   student: { id: string; full_name: string; member_code: string | null; date_of_birth: string | null; health_notes: string | null };
   goal: string | null;
@@ -73,17 +87,31 @@ type Profile = {
   homework: Array<{ id: string; title: string; due_on: string | null; checklist: string[]; done_items: number[]; completed_at: string | null }>;
 };
 
+/**
+ * Làm gì: Chuyển đổi đối tượng lỗi bắt được thành chuỗi thông báo tiếng Việt thân thiện để hiển thị trên toast notification.
+ * Được gọi ở: Hàm run() trong component Page (src/routes/coach.student.$id.tsx) khi xảy ra lỗi gọi API.
+ * @param e Đối tượng lỗi bất kỳ bắt được từ khối catch (thường là Error hoặc ApiClientError).
+ * @returns Chuỗi thông báo lỗi đã được bản địa hóa qua tServer hoặc câu thông báo lỗi mặc định.
+ */
 const say = (e: unknown) => (e instanceof Error ? tServer(e.message) : t("Something went wrong"));
 
+/**
+ * Làm gì: Component trang chính hiển thị toàn bộ hồ sơ học viên, bao gồm mục tiêu, cấp độ, chuyên cần, tiền sử sức khỏe, ghi chú nội bộ và lịch sử tập luyện.
+ * Được gọi ở: Tuyến đường URL "/coach/student/$id" thông qua Route definition của TanStack Router.
+ * @returns Giao diện React quản lý hồ sơ học viên dành cho huấn luyện viên được bọc trong Shell component.
+ */
 function Page() {
+  // Bước 1: Lấy mã ID học viên từ URL parameter và gọi API `/students/:id/profile` qua hook useRead để tải toàn bộ hồ sơ.
   const { id } = Route.useParams();
   const read = useRead<Profile>(`/students/${id}/profile`);
   const p = read.data;
   const { sports } = useSports();
+  // Quản lý trạng thái tab đang chọn ("progress" | "notes" | "history") và dữ liệu các form nhập (ghi chú, cấp độ, đánh giá tiến độ).
   const [tab, setTab] = useState("progress");
   const [note, setNote] = useState("");
   const [lvl, setLvl] = useState({ sport: "", level: "beginner" });
   const [rev, setRev] = useState({ sport: "", period_weeks: "4", technique: "3", fitness: "3", attitude: "3", comment: "" });
+  // Bước 2: Tự động gán môn thể thao đầu tiên trong danh mục sports vào form cấp độ và form đánh giá khi danh sách môn thể thao sẵn sàng.
   useEffect(() => {
     if (sports.length > 0) {
       if (!lvl.sport) setLvl((prev) => ({ ...prev, sport: sports[0].code }));
@@ -94,22 +122,33 @@ function Page() {
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);
 
+  /**
+   * Làm gì: Thực thi một hàm gọi API bất đồng bộ với cơ chế khóa chống double-click (busy lock), hiển thị toast và tải lại hồ sơ học viên khi thành công.
+   * Được gọi ở: Các sự kiện bấm nút trong component Page (cập nhật cấp độ, lưu đánh giá tiến bộ, thêm ghi chú).
+   * @param fn Hàm bất đồng bộ thực hiện gửi yêu cầu API lên server (PUT hoặc POST).
+   * @param ok Chuỗi thông điệp thành công hiển thị qua toast notification khi fn hoàn thành.
+   * @returns Không trả về giá trị (Promise<void>).
+   */
   async function run(fn: () => Promise<unknown>, ok: string) {
+    // Bước 1: Kiểm tra cờ bận qua busyRef để ngăn chặn người dùng gửi nhiều thao tác trùng lặp khi request trước chưa xử lý xong.
     if (busyRef.current) return;
     busyRef.current = true;
     setBusy(true);
+    // Bước 2: Thực thi tác vụ gọi API, hiển thị thông báo thành công và tải lại dữ liệu hồ sơ mới nhất từ máy chủ.
     try {
       await fn();
       toast.success(ok);
       read.reload();
     } catch (e) {
       toast.error(say(e));
+    // Bước 3: Đặt lại trạng thái bận về false để người dùng có thể tiếp tục thực hiện các thao tác tiếp theo.
     } finally {
       busyRef.current = false;
       setBusy(false);
     }
   }
 
+  // Bước 3: Lấy dữ liệu thống kê chuyên cần của học viên và tiến hành render toàn bộ giao diện theo từng tab chức năng.
   const att = p?.attendance ?? {};
 
   return (
