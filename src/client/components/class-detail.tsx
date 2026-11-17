@@ -1,3 +1,8 @@
+/**
+ * File: src/client/components/class-detail.tsx
+ * Vai trò: Cung cấp modal chi tiết lớp học (ClassDetailModal), form quản lý lớp học (ActionForm) và modal chi tiết ca chiếm sân (OccupancyDetailModal).
+ * Vị trí trong app: Được nhúng vào các màn hình quản lý lớp học (manager.classes.tsx), lịch sân lễ tân (desk.courts.tsx), danh sách lớp lễ tân (desk.classes.tsx) và lịch dạy HLV (coach.classes.tsx).
+ */
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { MessageSquare } from "lucide-react";
@@ -15,6 +20,16 @@ import { useRead } from "@/client/lib/use-read";
 import { HighlightBadge, useLive } from "@/client/lib/use-live";
 
 /** "Tue 21 Oct" in the centre's timezone. */
+/**
+ * Làm gì: Chuyển đổi chuỗi thời gian ISO thành chuỗi thứ và ngày tháng ngắn gọn (ví dụ: 'Tue 21 Oct' hoặc 'Th 3, 21 thg 10') theo múi giờ trung tâm 'Asia/Ho_Chi_Minh' và ngôn ngữ hiện tại của người dùng.
+ * Được gọi ở:
+ *   - src/client/components/class-detail.tsx (danh sách buổi học và nhãn dời lịch)
+ *   - src/client/components/coach-training.tsx (lịch tập của HLV)
+ *   - src/routes/app.train.tsx (màn hình lịch tập hội viên)
+ *   - src/routes/coach.attendance.tsx, src/routes/coach.index.tsx (màn hình điểm danh và trang chủ HLV)
+ * @param iso Chuỗi thời gian chuẩn ISO của ca học hoặc buổi tập.
+ * @returns Chuỗi hiển thị thứ, ngày và tháng đã được định dạng theo locale.
+ */
 export function sessionDay(iso: string) {
   return new Date(iso).toLocaleDateString(locale(), {
     timeZone: "Asia/Ho_Chi_Minh",
@@ -76,6 +91,12 @@ type Action =
 
 /** A `datetime-local` value is the centre's wall clock, which is always UTC+7. */
 const toIctIso = (local: string) => `${local}:00+07:00`;
+/**
+ * Làm gì: Chuyển đổi chuỗi thời gian ISO sang định dạng 'YYYY-MM-DDTHH:mm' cho ô nhập <input type="datetime-local"> theo múi giờ Việt Nam (UTC+7).
+ * Được gọi ở: src/client/components/class-detail.tsx (ActionForm khi chọn dời lịch buổi học).
+ * @param iso Chuỗi thời gian chuẩn ISO UTC.
+ * @returns Chuỗi 16 ký tự dạng 'YYYY-MM-DDTHH:mm' theo giờ địa phương Việt Nam.
+ */
 const toLocalInput = (iso: string) => new Date(new Date(iso).getTime() + 7 * 3600000).toISOString().slice(0, 16);
 
 /**
@@ -83,6 +104,19 @@ const toLocalInput = (iso: string) => new Date(new Date(iso).getTime() + 7 * 360
  * Shared by the manager's class list and the desk, which see the same thing.
  * With `manage` (the manager only) it also cancels or moves a session, changes
  * the coach, edits the capacity or cancels the class.
+ */
+/**
+ * Làm gì: Modal hiển thị toàn bộ thông tin chi tiết của một lớp học (thời gian, sân tập, huấn luyện viên, danh sách buổi học, học viên đã đăng ký và danh sách chờ). Nếu bật cờ `manage`, quản lý có thể thao tác hủy/dời buổi học, đổi HLV, sửa sức chứa, giá tiền, mô tả hoặc hủy toàn bộ lớp.
+ * Được gọi ở:
+ *   - src/routes/manager.classes.tsx: màn hình quản lý lớp học (quản lý xem và chỉnh sửa lớp)
+ *   - src/routes/desk.classes.tsx: màn hình danh sách lớp học ở quầy lễ tân
+ *   - src/routes/desk.courts.tsx: màn hình sơ đồ sân lễ tân (bấm xem lớp đang chiếm sân)
+ *   - src/routes/coach.classes.tsx: màn hình lớp học của huấn luyện viên
+ * @param classId ID của lớp học cần hiển thị; null khi đóng modal.
+ * @param onClose Hàm callback kích hoạt khi người dùng bấm đóng modal.
+ * @param manage Cờ bật các tính năng quản lý lớp (hủy buổi, dời lịch, đổi HLV, đổi giá, đổi sức chứa, hủy lớp); chỉ dành cho Manager. Mặc định là false.
+ * @param onChanged Hàm callback gọi sau khi thực hiện thao tác quản lý thành công để component cha tải lại dữ liệu.
+ * @returns Modal giao diện chi tiết lớp học.
  */
 export function ClassDetailModal({
   classId,
@@ -95,6 +129,7 @@ export function ClassDetailModal({
   manage?: boolean;
   onChanged?: () => void;
 }) {
+  // Bước 1: Tải chi tiết lớp học qua API /classes/:id và đăng ký nhận sự kiện realtime (SSE) qua useLive để tự động đồng bộ khi có thay đổi.
   const { data, error, reload } = useRead<ClassDetail>(classId ? `/classes/${classId}` : null);
   useLive(classId ? `class:${classId}` : null, reload);
   useLive("classes", reload);
@@ -105,6 +140,7 @@ export function ClassDetailModal({
     setAction(null);
   }, [classId]);
 
+  // Xử lý sau khi hoàn tất một hành động quản lý: đóng form thao tác, nạp lại chi tiết lớp và thông báo cho component cha.
   const changed = useCallback(() => {
     setAction(null);
     reload();
@@ -115,11 +151,19 @@ export function ClassDetailModal({
   const user = useSessionUser();
   const [messagingCoach, setMessagingCoach] = useState(false);
 
+  /**
+   * Làm gì: Mở cuộc hội thoại chat trực tiếp với huấn luyện viên của lớp qua API POST /conversations, sau đó đóng modal và chuyển hướng tới màn hình chat.
+   * Được gọi ở: ClassDetailModal (nút 'Message coach' cạnh thông tin HLV).
+   * @returns Không trả về giá trị (Promise<void>).
+   */
   async function handleMessageCoach() {
+    // Chặn gọi trùng lặp khi đang xử lý (messagingCoach) hoặc khi lớp chưa có coach_id.
     if (!c?.coach_id || messagingCoach) return;
     setMessagingCoach(true);
     try {
+      // Bước 1: Tạo hoặc lấy cuộc trò chuyện hiện có với HLV qua API /conversations.
       const res = await apiPost<{ conversation: { id: string } }>("/conversations", { recipient_id: c.coach_id });
+      // Bước 2: Đóng modal chi tiết lớp và chuyển hướng sang trang chat với ID cuộc trò chuyện vừa lấy.
       onClose();
       navigate({ to: "/chat", search: { conv: res.conversation.id } });
     } catch (e: any) {
@@ -129,12 +173,14 @@ export function ClassDetailModal({
     }
   }
 
+  // Bước 2: Phân loại dữ liệu hiển thị: tách học viên chính thức (confirmed) và danh sách chờ (waitlisted); tách ca học sắp tới (scheduled) và ca học đã qua/đã hủy.
   const c = data?.class;
   const confirmed = data?.roster.filter((r) => r.status === "confirmed") ?? [];
   const waiting = data?.roster.filter((r) => r.status === "waitlisted") ?? [];
   const upcoming = data?.sessions.filter((s) => s.status === "scheduled") ?? [];
   const past = data?.sessions.filter((s) => s.status !== "scheduled") ?? [];
 
+  // Bước 3: Render giao diện modal gồm thông tin chung lớp học, các ca học, danh sách học viên và khu vực thao tác dành cho quản lý (nếu có quyền manage).
   return (
     <Modal
       open={!!classId}
@@ -337,6 +383,10 @@ export function ClassDetailModal({
   );
 }
 
+/**
+ * Làm gì: Bảng cấu hình tiêu đề form (title), nhãn nút hành động (go) và quy định có bắt buộc nhập lý do (needsReason) cho từng thao tác quản lý lớp.
+ * Được gọi ở: src/client/components/class-detail.tsx (ActionForm).
+ */
 const ACTION_COPY = {
   "cancel-session": { title: tk("Cancel this session"), go: tk("Cancel session"), needsReason: true },
   "move-session": { title: tk("Move this session"), go: tk("Move session"), needsReason: false },
@@ -348,6 +398,15 @@ const ACTION_COPY = {
 } as const;
 
 /** The one form behind every manager action on a class: it asks only for what that action needs. */
+/**
+ * Làm gì: Form xử lý các thao tác quản lý lớp học của Manager (hủy buổi học, dời lịch buổi học, thay đổi HLV, sửa sức chứa, sửa giá học phí, cập nhật mô tả/giáo trình hoặc hủy toàn bộ lớp học). Tự động hiển thị các trường dữ liệu tương ứng theo từng hành động.
+ * Được gọi ở: src/client/components/class-detail.tsx:ClassDetailModal (khi người quản lý nhấn nút chọn một hành động quản lý lớp).
+ * @param classData Thông tin chi tiết của lớp học hiện tại (ID, môn, sức chứa, HLV, giá, mô tả...).
+ * @param action Hành động quản lý đang được kích hoạt (chứa loại hành động kind và thông tin phụ trợ như sessionId, startAt).
+ * @param onDone Callback gọi khi thực hiện thao tác thành công để đóng form và tải lại dữ liệu lớp học.
+ * @param onBack Callback quay lại giao diện danh sách nút hành động ban đầu khi quản lý muốn đổi ý.
+ * @returns Giao diện form nhập liệu phù hợp với thao tác đang thực hiện.
+ */
 function ActionForm({
   classData,
   action,
@@ -359,8 +418,10 @@ function ActionForm({
   onDone: () => void;
   onBack: () => void;
 }) {
+  // Bước 1: Khởi tạo state cho các trường nhập liệu tương ứng với từng hành động (lý do, giờ dời lịch, HLV, sức chứa, học phí, nội dung giới thiệu).
   const [reason, setReason] = useState("");
   const [start, setStart] = useState(action.kind === "move-session" ? toLocalInput(action.startAt) : "");
+  // Chỉ gọi API tải danh sách huấn luyện viên đang hoạt động khi người dùng chọn hành động đổi HLV ("coach").
   const coachRead = useRead<{ items: Array<{ id: string; full_name: string; sports: string[] | null }> }>(
     action.kind === "coach" ? "/staff?role=coach&status=active" : null,
   );
@@ -368,9 +429,16 @@ function ActionForm({
   // so the manager is not picking a stranger from a bare list of names.
   const teachesHere = (x: { sports: string[] | null }) =>
     (x.sports ?? []).some((s) => s === classData.sport || s === "all");
+  // Lọc bỏ HLV hiện tại của lớp; ưu tiên HLV có chuyên môn dạy môn này lên đầu danh sách, sau đó sắp xếp theo tên tiếng Việt.
   const coaches = (coachRead.data?.items ?? [])
     .filter((x) => x.id !== classData.coach_id)
     .sort((a, b) => Number(teachesHere(b)) - Number(teachesHere(a)) || a.full_name.localeCompare(b.full_name, "vi"));
+  /**
+   * Làm gì: Định dạng danh sách các bộ môn thể thao của huấn luyện viên thành chuỗi văn bản thân thiện để hiển thị trong danh sách chọn.
+   * Được gọi ở: ActionForm (tạo nhãn môn thể thao cho từng option HLV trong thẻ select).
+   * @param x Đối tượng huấn luyện viên chứa mảng tên môn thể thao phụ trách.
+   * @returns Chuỗi tên môn thể thao (ví dụ: 'All sports', 'Badminton, Basketball' hoặc 'No sport yet').
+   */
   const coachSports = (x: { sports: string[] | null }) => {
     const list = x.sports ?? [];
     if (list.includes("all")) return t("All sports");
@@ -391,14 +459,23 @@ function ActionForm({
 
   const copy = ACTION_COPY[action.kind];
 
+  /**
+   * Làm gì: Gửi yêu cầu thực hiện hành động quản lý lớp học lên API backend (hủy buổi, dời lịch, đổi HLV, sửa sức chứa, sửa giá, sửa mô tả hoặc hủy lớp), hiển thị thông báo toast và đóng form khi thành công.
+   * Được gọi ở: ActionForm (sự kiện onClick của nút bấm xác nhận hành động).
+   * @returns Không trả về giá trị (Promise<void>).
+   */
   async function submit() {
+    // Bước 1: Khóa nút bấm (busy = true) và xóa thông báo lỗi cũ trước khi gửi request.
     setBusy(true);
     setError(null);
     try {
+      // Bước 2: Gọi API thực hiện hành động quản lý tương ứng:
       if (action.kind === "cancel-session") {
+        // Hủy một ca học: gửi lý do hủy để hoàn lại buổi tập cho học viên và gửi thông báo.
         const r = await apiPost<{ notified: number; refunded: number }>(`/sessions/${action.sessionId}/cancel`, { reason });
         toast.success(t("Session cancelled: {told} told, {back} given a session back", { told: r.notified, back: r.refunded }));
       } else if (action.kind === "move-session") {
+        // Dời lịch ca học: kiểm tra thời gian mới, đổi sang ISO giờ ICT (+07:00) và gửi thông báo cho học viên lẫn HLV.
         if (!start) throw Object.assign(new Error(t("Pick the new start time.")), { field: "start_at" });
         await apiPost(`/sessions/${action.sessionId}/reschedule`, {
           start_at: toIctIso(start),
@@ -406,22 +483,27 @@ function ActionForm({
         });
         toast.success(t("Session moved: members and coaches were told"));
       } else if (action.kind === "coach") {
+        // Thay đổi HLV: bắt buộc chọn HLV mới; cập nhật người phụ trách cho toàn bộ các ca học còn lại của lớp.
         if (!coachId) throw Object.assign(new Error(t("Choose the new coach.")), { field: "coach_id" });
         await apiPost(`/classes/${classData.id}/coach`, { coach_id: coachId, ...(reason ? { reason } : {}) });
         toast.success(t("Coach changed"));
       } else if (action.kind === "capacity") {
+        // Sửa sức chứa: cập nhật sĩ số tối đa (capacity) và số lượng đăng ký tối thiểu để mở lớp (min_enrolled).
         await apiPatch(`/classes/${classData.id}`, {
           capacity: Number(capacity),
           min_enrolled: minEnrolled.trim() === "" ? null : Number(minEnrolled),
         });
         toast.success(t("Capacity saved"));
       } else if (action.kind === "price") {
+        // Sửa giá: cập nhật học phí theo VNĐ; để trống nếu muốn tạm dừng nhận học viên mới.
         await apiPatch(`/classes/${classData.id}`, { price_vnd: price.trim() === "" ? null : Number(price) });
         toast.success(t("Price saved"));
       } else if (action.kind === "about") {
+        // Sửa nội dung: cập nhật thông tin giới thiệu lớp (mô tả, giáo trình, đối tượng phù hợp và vật dụng cần mang).
         await apiPatch(`/classes/${classData.id}`, about);
         toast.success(t("Description saved"));
       } else {
+        // Hủy toàn bộ lớp học: hủy các buổi chưa diễn ra, hoàn lại tiền mặt tại quầy cho học viên (nếu có) và thông báo cho người đăng ký.
         const res = await apiPatch<{ refunded?: number; refunded_vnd?: number }>(`/classes/${classData.id}`, { status: "cancelled", reason });
         toast.success(
           res.refunded
@@ -429,22 +511,28 @@ function ActionForm({
             : t("Class cancelled: everyone enrolled was told"),
         );
       }
+      // Bước 3: Đóng form thao tác và kích hoạt callback onDone để làm mới dữ liệu lớp học.
       onDone();
     } catch (e) {
+      // Bước 4: Xử lý lỗi trả về từ API, ánh xạ lỗi vào trường nhập liệu cụ thể (field) để hiển thị thông báo cảnh báo.
       const x = e as { message?: string; field?: string; body?: { field?: string } };
       setError({ field: x.body?.field ?? x.field, message: x.message ? tServer(x.message) : t("That did not work") });
     } finally {
+      // Hoàn tất thao tác: bỏ trạng thái bận (busy = false) để người dùng có thể tiếp tục tương tác.
       setBusy(false);
     }
   }
 
+  // Nhãn ô lý do thay đổi theo hành động: bắt buộc nhập khi dời lịch trong vòng 12 giờ trước giờ bắt đầu; tùy chọn khi đổi HLV.
   const reasonLabel =
     action.kind === "move-session"
       ? t("Reason (needed if it starts within 12 hours)")
       : action.kind === "coach"
         ? t("Reason (optional)")
         : t("Reason");
+  // Lấy thông báo lỗi của từng trường nhập liệu từ state error để truyền vào prop hint của Field component.
   const at = (field: string) => (error?.field === field ? error.message : undefined);
+  // Bước 5: Render form thao tác tương ứng; tự động cuộn đến form và hiển thị các trường nhập theo loại hành động.
   return (
     <div
       className="grid gap-3 rounded-[var(--radius-sm)] bg-wood/60 p-3"
@@ -574,6 +662,14 @@ type OccDetail =
 /**
  * Whose hour is this? Opened from a taken cell on the court map.
  */
+/**
+ * Làm gì: Modal hiển thị thông tin chi tiết về đối tượng đang chiếm sân trong một khung giờ (đơn đặt sân của khách/hội viên, ca học của lớp thể thao hoặc lịch bảo trì sân). Cho phép mở nhanh chi tiết lớp học nếu ca chiếm sân là một buổi học.
+ * Được gọi ở: src/routes/desk.courts.tsx (màn hình sơ đồ sân lễ tân, khi bấm vào một ô sân đã có lịch).
+ * @param target Đối tượng chiếm sân được chọn ({ kind: "booking" | "session" | "maintenance", ref: string }); null khi modal đóng.
+ * @param onClose Callback kích hoạt khi người dùng bấm đóng modal.
+ * @param onOpenClass Callback tùy chọn để mở modal ClassDetailModal khi người dùng muốn xem chi tiết lớp học từ buổi học này.
+ * @returns Modal hiển thị chi tiết ca chiếm sân tương ứng.
+ */
 export function OccupancyDetailModal({
   target,
   onClose,
@@ -583,10 +679,12 @@ export function OccupancyDetailModal({
   onClose: () => void;
   onOpenClass?: (classId: string) => void;
 }) {
+  // Bước 1: Tải chi tiết ca chiếm sân từ API /occupancy/detail theo loại đối tượng (kind: booking | session | maintenance) và mã định danh (ref).
   const { data, error, reload } = useRead<OccDetail>(
     target ? `/occupancy/detail?kind=${encodeURIComponent(target.kind)}&ref=${encodeURIComponent(target.ref)}` : null,
   );
 
+  // Bước 2: Xác định tiêu đề hiển thị cho modal tương ứng với từng loại ca chiếm sân (mã đặt sân, ca học hoặc bảo trì sân).
   const title =
     data?.kind === "booking"
       ? t("Booking {code}", { code: data.booking.code })
@@ -598,6 +696,7 @@ export function OccupancyDetailModal({
             ? kindLabel(target.kind)
             : t("Details");
 
+  // Bước 3: Render modal chi tiết; hiển thị nút 'Open the class' khi ca chiếm sân là một buổi học, cùng thông tin chi tiết của từng loại đối tượng (đặt sân, lớp học hoặc bảo trì).
   return (
     <Modal
       open={!!target}

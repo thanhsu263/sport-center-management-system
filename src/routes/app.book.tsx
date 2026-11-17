@@ -1,3 +1,9 @@
+/**
+ * Giao diện và định tuyến trang đặt sân thể thao (/app/book) trong hệ thống Arena 3.
+ * Dành cho hội viên: xem lịch trống theo ngày và môn thể thao qua thời gian thực (SSE),
+ * giữ chỗ tạm thời (hold slot), nhập mã ưu đãi (promo code), thanh toán trực tuyến hoặc chuyển khoản,
+ * đồng thời theo dõi danh sách sân đã đặt và các lớp học thể thao sắp diễn ra.
+ */
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { AnimatePresence, motion } from "motion/react";
 import { Landmark, Sparkles } from "lucide-react";
@@ -23,6 +29,11 @@ import { AddToCalendar } from "@/client/components/class-extras";
 import { useCourtBooking } from "@/client/lib/pages/app.book";
 
 
+/**
+ * Làm gì: Khởi tạo định tuyến cho trang /app/book bằng TanStack Router, chuẩn hóa tham số tìm kiếm sport và liên kết với component Page.
+ * Được gọi ở: URL /app/book (TanStack Router tự động đăng ký và nạp route khi người dùng truy cập).
+ * @returns Route cấu hình cho đường dẫn /app/book.
+ */
 export const Route = createFileRoute("/app/book")({
   validateSearch: (s: Record<string, unknown>): { sport?: string } => ({
     sport: typeof s.sport === "string" && s.sport.trim() ? s.sport.trim() : undefined,
@@ -30,8 +41,15 @@ export const Route = createFileRoute("/app/book")({
   component: Page,
 });
 
+// Danh sách nhãn cho 3 bước trong quy trình đặt sân: Chọn giờ (Pick an hour) -> Giữ chỗ (Held for you) -> Thanh toán (Pay).
 const STEPS = [tk("Pick an hour"), tk("Held for you"), tk("Pay")] as const;
 
+/**
+ * Làm gì: Hiển thị thanh tiến trình 3 bước đặt sân (Chọn giờ, Giữ chỗ, Thanh toán) và làm nổi bật bước hiện tại của hội viên.
+ * Được gọi ở: Component Page trong src/routes/app.book.tsx (dòng 233).
+ * @param props.step Bước hiện tại trong quy trình đặt sân (1: Pick an hour, 2: Held for you, 3: Pay).
+ * @returns Thẻ danh sách <ol> hiển thị các bước đặt sân kèm số thứ tự và trạng thái hoàn thành.
+ */
 /** The three steps of a booking, with the one the member is on lit. */
 function BookingSteps({ step }: { step: 1 | 2 | 3 }) {
   return (
@@ -58,7 +76,13 @@ function BookingSteps({ step }: { step: 1 | 2 | 3 }) {
   );
 }
 
+/**
+ * Làm gì: Component trang đặt sân chính của hội viên, kết nối hook useCourtBooking để hiển thị lịch đặt sân/lớp cá nhân, lịch tháng, lưới sân trống và xử lý thanh toán/giữ chỗ.
+ * Được gọi ở: Route configuration trong src/routes/app.book.tsx (dòng 30).
+ * @returns JSX giao diện toàn bộ màn hình đặt sân bọc trong Shell vai trò "member".
+ */
 function Page() {
+  // Bước 1: Khởi tạo toàn bộ dữ liệu, trạng thái và các hàm xử lý nghiệp vụ đặt sân từ custom hook useCourtBooking.
   const {
     limits, sports, date, setDate, sport, setSport, data, error, reload, hold, setHold, promoCode,
     setPromoCode, promoOpen, setPromoOpen, notices, overlap, setOverlap, avail, mine, myClasses,
@@ -69,6 +93,7 @@ function Page() {
     onThisDay,
   } = useCourtBooking(Route.useSearch);
 
+  // Bước 2: Hiển thị thẻ danh sách các lịch đặt sân sắp tới của hội viên (tự động ẩn khi đang ở chế độ đổi lịch).
   const myCourts = mine?.length && !moving ? (
     <Card className="p-4">
       <div className="mb-2 flex items-baseline justify-between gap-2">
@@ -126,6 +151,7 @@ function Page() {
     </Card>
   ) : null;
 
+  // Bước 3: Hiển thị thẻ danh sách các buổi học lớp sắp tới mà hội viên đã đăng ký chỗ.
   // Sessions of the classes the member has a seat in: part of their schedule, booked through the class.
   const myClassesCard = myClasses.length && !moving ? (
     <Card className="p-4">
@@ -170,6 +196,7 @@ function Page() {
     </Card>
   ) : null;
 
+  // Bước 4: Hiển thị thẻ thông tin gói hội viên đang hoạt động (tên gói, ngày hết hạn) hoặc liên kết dẫn tới trang mua gói.
   const planQuotaCard = (
     <Card className="p-4">
       <div className="mb-2 flex items-baseline justify-between gap-2">
@@ -197,10 +224,13 @@ function Page() {
     </Card>
   );
 
+  // Bước 5: Tính toán ngày tiếp theo và kiểm tra số slot trống của ngày mai.
   const tomorrowISO = addDaysISO(todayISO(), 1);
   const tomorrowFree = avail?.[tomorrowISO]?.free ?? 0;
+  // Quy tắc nghiệp vụ: Nếu ngày hiện tại còn dưới 4 khung giờ trống, hệ thống coi là gần kín sân để hiển thị banner gợi ý đặt ngày mai.
   const isTodayNearFull = date === todayISO() && (avail?.[todayISO()]?.free ?? 0) < 4;
 
+  // Bước 6: Render toàn bộ giao diện đặt sân dành cho hội viên bọc trong Shell vai trò "member".
   return (
     <Shell role="member">
       {(() => {
@@ -432,6 +462,7 @@ function Page() {
                         <div className="mt-3 flex flex-wrap gap-2">
                           {taken.alts.map((a) => (
                             <Button
+                              // Gợi ý khung giờ thay thế gần nhất của cùng môn thể thao khi giờ hội viên chọn đã bị người khác đặt trước.
                               key={`${a.court.id}-${a.hour}`}
                               size="sm"
                               variant="outline"
@@ -475,6 +506,7 @@ function Page() {
                     </p>
                     <div className="mt-3 flex flex-wrap gap-2">
                       <Button
+                        // Bỏ qua cảnh báo trùng lịch với lớp học đã đăng ký để tiếp tục giữ chỗ hoặc đổi sân (ignoreOverlap = true).
                         disabled={busy}
                         onClick={() =>
                           void (moving
@@ -538,8 +570,16 @@ function Page() {
                     // Only the ways this member can actually pay are offered (B-4), and only the first
                     // of them, the one most people take, gets the bright border.
                     const primary = onlineOn ? "online" : bankOn ? "transfer" : null;
+                    /**
+                     * Làm gì: Bọc nút thanh toán bằng viền sao phát sáng (StarBorder) nếu là phương thức ưu tiên (primary).
+                     * Được gọi ở: src/routes/app.book.tsx -> IIFE hiển thị các nút thanh toán trong thẻ giữ chỗ (hold card) của Page.
+                     * @param key Định danh phương thức thanh toán ("online" hoặc "transfer").
+                     * @param node Node React chứa nút thanh toán cần render.
+                     * @returns Node JSX được bọc trong StarBorder hoặc thẻ span.
+                     */
                     const lift = (key: string, node: ReactNode) =>
                       key === primary ? <StarBorder speed={4} key={key}>{node}</StarBorder> : <span key={key}>{node}</span>;
+                    // Khi trung tâm chưa cấu hình cổng thanh toán online lẫn chuyển khoản ngân hàng, hướng dẫn hội viên đặt và thanh toán tại quầy tiếp tân.
                     if (!primary) {
                       return (
                         <p className="max-w-sm text-sm text-muted">
@@ -547,6 +587,7 @@ function Page() {
                         </p>
                       );
                     }
+                    // Hiển thị các phương thức thanh toán khả dụng: ưu tiên cổng PayOS tự động chốt sân, hoặc chuyển khoản ngân hàng qua mã VietQR.
                     return (
                       <div className="flex flex-wrap gap-2">
                         {/* Online payment settles the slot at once (payOS confirms the money first). A bank
@@ -556,13 +597,17 @@ function Page() {
                               "online",
                               <PayOnlineButton
                                 refType="booking"
+                                // Thanh toán trực tuyến qua cổng PayOS: sau khi giao dịch thành công, hệ thống tự động xác nhận đơn đặt sân ngay lập tức.
                                 refId={hold.booking.id}
                                 label={t("Pay online")}
                                 size="md"
                                 variant={primary === "online" ? "primary" : "outline"}
                                 onPaid={() => {
+                                  // Bước 1: Xóa trạng thái giữ chỗ tạm thời (hold) sau khi PayOS xác nhận giao dịch thành công.
                                   setHold(null);
+                                  // Bước 2: Tải lại toàn bộ dữ liệu chiếm sân (occupancy) để cập nhật ô giờ sang trạng thái đã thanh toán (confirmed).
                                   load();
+                                  // Bước 3: Thông báo đặt sân thành công và nhắc hội viên kiểm tra biên lai trong cài đặt tài khoản.
                                   toast.success(t("Paid. Your court is confirmed and the receipt is in your account."));
                                 }}
                               />,
@@ -573,6 +618,7 @@ function Page() {
                           ? lift(
                               "transfer",
                               <Button
+                                // Mở modal VietQR để hội viên quét mã chuyển khoản trong thời gian slot đang được giữ chỗ (hold).
                                 variant={primary === "transfer" ? "primary" : "outline"}
                                 disabled={busy}
                                 onClick={() => setTransferOpen("hold")}
@@ -591,23 +637,29 @@ function Page() {
 
           {bankOn && transferOpen === "hold" && hold ? (
             <MemberTransferModal
+              // Hộp thoại hiển thị thông tin số tài khoản và mã QR VietQR khi hội viên chọn chuyển khoản lúc đang giữ chỗ (hold).
               open
               onClose={() => setTransferOpen(null)}
               bank={bank as CentreBank & { configured: true }}
+              // Số tiền cần chuyển: ưu tiên số tiền thực thu sau khi áp dụng mã giảm giá hoặc gói hội viên (due_now_vnd), fallback về giá gốc (price).
               amountVnd={hold.due_now_vnd ?? hold.price}
               bookingCode={hold.booking.code}
               busy={busy}
               onTransferred={() => {
+                // Bước 1: Đóng modal quét mã QR chuyển khoản ngay khi hội viên bấm xác nhận đã chuyển tiền.
                 setTransferOpen(null);
+                // Bước 2: Gọi API xác nhận đã chuyển khoản để chuyển đơn sang trạng thái chờ quầy tiếp tân đối soát (pending).
                 void confirmPay("transfer");
               }}
             />
           ) : null}
           {bankOn && transferOpen === "pending" && pending ? (
             <MemberTransferModal
+              // Modal xem lại thông tin tài khoản và mã thanh toán cho đơn đặt sân đang ở trạng thái chờ quầy duyệt (pending).
               open
               onClose={() => setTransferOpen(null)}
               bank={bank as CentreBank & { configured: true }}
+              // Hiển thị đúng số tiền chuyển khoản của đơn đang chờ đối soát (pending.amount).
               amountVnd={pending.amount}
               bookingCode={pending.code}
               busy={false}
@@ -619,16 +671,21 @@ function Page() {
               <LoadError message={error.message} onRetry={error.refused ? undefined : reload} />
             ) : data ? (
               <CourtGrid
+                // Lưới ma trận thời khóa biểu sân theo ngày: hiển thị trực quan các slot trống, đã đặt, đang giữ chỗ hoặc có lớp học.
                 date={date}
                 courts={data.courts}
                 slots={data.slots}
                 sport={sport || undefined}
+                // Xử lý khi bấm chọn ô giờ: nếu đang trong chế độ đổi lịch (moving) thì chuyển sang ô mới, ngược lại thì tạo phiên giữ chỗ (holdSlot).
                 onPick={(c, h) => void (moving ? moveTo(c, h) : holdSlot(c, h))}
                 // A member cannot hold an hour that has started, and the header reads the same count
                 // as the day strip above it (B-3).
                 startedIsPast
+                // Số khung giờ còn trống trong ngày lấy từ thống kê availability của tháng để đồng bộ với thanh lịch bên trên (B-3).
                 freeCount={avail?.[date]?.free}
+                // Danh sách khung giờ hoạt động mở cửa và đóng cửa của trung tâm thể thao được cấu hình theo venue.
                 hours={hoursOf(venue)}
+                // Callback làm mới dữ liệu lưới sân khi người dùng bấm nút Refresh hoặc sự kiện realtime SSE kích hoạt.
                 onRefresh={load}
                 // A sold-out sport hands back the two controls at the top of this page.
                 onPickSport={setSport}
@@ -644,12 +701,16 @@ function Page() {
         </div>
       </ContextLayout>
       <CancelBookingDialog
+        // Hộp thoại xác nhận hủy lịch đặt sân: tính toán số tiền hoàn trả theo chính sách và thời hạn quy định trước giờ chơi.
         bookingId={cancelId}
+        // Hộp thoại chỉ mở khi cancelId có giá trị (ID của đơn đặt sân cần hủy).
         open={cancelId != null}
+        // Đặt lại cancelId về null khi người dùng đóng hộp thoại mà không thực hiện hủy lịch.
         onClose={() => setCancelId(null)}
         onDone={() => {
           // Cancelling the hour still on hold ends the hold, so its countdown goes with it.
           if (hold && hold.booking.id === cancelId) setHold(null);
+          // Tải lại lưới sân và lịch cá nhân sau khi hủy thành công để giải phóng khung giờ vừa hủy thành slot trống.
           load();
         }}
       />
