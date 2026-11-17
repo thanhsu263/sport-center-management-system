@@ -1,3 +1,8 @@
+/**
+ * File: src/routes/desk.payments.tsx
+ * Vai trò: Trang quản lý thanh toán, chuyển khoản, hoàn tiền và tra cứu biên lai tại quầy thu ngân (Front Desk) và cho Quản lý (Manager).
+ * Vị trí trong app: Route "/desk/payments", phục vụ nhân viên quầy thu tiền gói tập, xác nhận chuyển khoản giữ chỗ sân/lớp, chi trả/duyệt hoàn tiền và theo dõi dòng tiền qua biên lai.
+ */
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { SectionTitle } from "@/client/components/section";
 import { ArrowUpRight, Banknote, Clock3, CreditCard, Landmark, Ticket, Undo2 } from "lucide-react";
@@ -16,19 +21,37 @@ import { t, tData } from "@/client/lib/i18n";
 import { useDeskPayments, METHODS, methodLabel, daysWaiting } from "@/client/lib/pages/desk.payments";
 
 
+/**
+ * Làm gì: Định nghĩa route "/desk/payments" trong TanStack Router, liên kết URL với component hiển thị Page.
+ * Được gọi ở: TanStack Router qua URL "/desk/payments" (được đăng ký trong src/routeTree.gen.ts).
+ * @returns Đối tượng cấu hình route của TanStack Router liên kết với component Page.
+ */
 export const Route = createFileRoute("/desk/payments")({
   component: Page,
 });
 
 /* With one method in the list the icon was decoration; with four it is how you
    scan the column without reading every line. */
+/**
+ * Làm gì: Hiển thị icon tương ứng với từng phương thức thanh toán (tiền mặt, thẻ, vé lượt hoặc chuyển khoản ngân hàng) để nhận diện nhanh trong danh sách biên lai.
+ * Được gọi ở: src/routes/desk.payments.tsx (bên trong danh sách biên lai receiptPage của component Page).
+ * @param method Tên phương thức thanh toán ("cash", "card", "quota", hoặc chuyển khoản).
+ * @returns Element React chứa icon Lucide tương ứng.
+ */
 function MethodIcon({ method }: { method: string }) {
+  // Chọn icon biểu diễn trực quan: Banknote (tiền mặt), CreditCard (thẻ), Ticket (vé lượt), Landmark (chuyển khoản)
   const Icon =
     method === "cash" ? Banknote : method === "card" ? CreditCard : method === "quota" ? Ticket : Landmark;
   return <Icon className="size-4 shrink-0 text-muted" />;
 }
 
+/**
+ * Làm gì: Component trang quản lý thanh toán tại quầy lễ tân ("/desk/payments"), xử lý các đơn đặt gói tập chờ thu tiền, duyệt chuyển khoản giữ chỗ sân/lớp, duyệt hoàn tiền và tra cứu biên lai.
+ * Được gọi ở: TanStack Router khi người dùng truy cập URL "/desk/payments".
+ * @returns Giao diện React hiển thị toàn bộ nghiệp vụ thanh toán quầy thu ngân.
+ */
 function Page() {
+  // Bước 1: Lấy toàn bộ dữ liệu nghiệp vụ thanh toán và các hàm xử lý từ custom hook useDeskPayments
   const {
     isManager, days, setDays, payMethod, setPayMethod, receiptQuery, setReceiptQuery,
     receiptPaging, onlineOn, shiftRead, method, setMethod, busy, setPromo, read, data, awaiting,
@@ -37,6 +60,7 @@ function Page() {
     settleRefund, payOut,
   } = useDeskPayments();
 
+  // Bước 2: Render giao diện quản lý thanh toán trong khung Shell (phân quyền manager/receptionist) gồm banner, thống kê, cảnh báo ca trực, các danh sách chờ xử lý và bảng biên lai
   return (
     <Shell role={isManager ? "manager" : "receptionist"}>
       <PageHero
@@ -233,7 +257,9 @@ function Page() {
             // it — rare, but a negative balance would render "Take -200,000đ"
             // and then ask the server to take a negative payment.
             const due = Math.max(0, dueOf(o) - o.paid_vnd);
+            // Đơn hàng đã tất toán đủ tiền (due = 0) thì nút thu tiền sẽ bị vô hiệu hóa và hiển thị yêu cầu báo quản lý
             const settled = due === 0;
+            // Tính số ngày hội viên chờ thanh toán từ ngày đặt trên app; nếu từ 3 ngày trở lên sẽ hiển thị huy hiệu cảnh báo tone="hold"
             const waited = daysWaiting(o.ordered_on);
             return (
               <StaggerItem key={o.id}>
@@ -278,6 +304,7 @@ function Page() {
                             compact
                             target={{ plan_id: o.plan_id, user_id: o.user_id }}
                             onChange={(q) =>
+                              // Lưu mã giảm giá và số tiền chiết khấu theo từng đơn hàng vào state promo để trừ vào số tiền phải thu
                               setPromo((m) => ({ ...m, [o.id]: q ? { code: q.code, discount_vnd: q.discount_vnd } : null }))
                             }
                           />
@@ -288,6 +315,7 @@ function Page() {
                         <Select
                           className="w-auto"
                           value={method[o.id] ?? "cash"}
+                          // Cập nhật phương thức thanh toán nhân viên chọn (tiền mặt, chuyển khoản, thẻ) riêng cho từng đơn hàng
                           onChange={(e) => setMethod((m) => ({ ...m, [o.id]: e.target.value }))}
                           aria-label={t("Payment method for {name}", { name: o.full_name })}
                         >
@@ -297,7 +325,9 @@ function Page() {
                         </Select>
                         <StarBorder speed={4}>
                           <Button
+                            // Vô hiệu hóa nút nếu đang xử lý đơn, quầy lễ tân chưa mở ca trực két tiền, hoặc đơn đã thanh toán xong
                             disabled={busy === o.id || !canTake || settled}
+                            // Thu tiền: nếu chọn chuyển khoản sẽ mở modal QR VietQR; nếu là tiền mặt/thẻ sẽ ghi nhận thanh toán và in biên lai
                             onClick={() => void takePayment(o)}
                           >
                             {settled
@@ -314,6 +344,7 @@ function Page() {
                         </ButtonLink>
                         {onlineOn && !settled && due > 0 ? (
                           <PayOnlineButton
+                            // Nút gửi liên kết thanh toán online (payOS) cho hội viên khi hệ thống đã cấu hình cổng thanh toán và đơn chưa trả đủ
                             refType="subscription"
                             refId={o.id}
                             label={t("Online link")}
@@ -325,7 +356,9 @@ function Page() {
                         <Button
                           variant="ghost"
                           className="ml-auto"
+                          // Quy tắc nghiệp vụ: Chỉ cho phép xóa đơn khỏi hàng đợi nếu chưa thanh toán đồng nào (paid_vnd === 0)
                           disabled={busy === o.id || o.paid_vnd > 0}
+                          // Từ chối và hủy đơn mua gói tập qua API /subscriptions/:id/decline rồi xóa khỏi hàng đợi thu ngân
                           onClick={() => void decline(o)}
                         >
                           {t("Clear")}
@@ -348,7 +381,7 @@ function Page() {
         <div className="mt-10">
           <SectionTitle text={t("Cash to hand back")} className="font-display text-2xl" />
           <p className="mt-1 text-sm text-muted">
-            {t("The centre cancelled these classes. Mark a refund paid when the member has the cash.")} {canTake ? null : t("Open a till shift first.")}
+            {t("Hand refunds back in cash at the front desk. Mark paid only after handing over the cash.")} {canTake ? null : t("Open a till shift first.")}
           </p>
           <div className="mt-3 grid gap-3">
             {payouts.map((r) => (
@@ -363,7 +396,7 @@ function Page() {
                     {r.code} · {refTypeLabel(r.ref_type)} · {when(r.created_at)}
                   </p>
                 </div>
-                <Button disabled={!canTake || busy === r.id} onClick={() => void payOut(r)}>
+                <Button disabled={!canTake || isManager || busy === r.id} onClick={() => void payOut(r)}>
                   {t("Mark as paid")}
                 </Button>
               </Card>
@@ -395,7 +428,9 @@ function Page() {
                   <div className="flex gap-2">
                     <Button
                       variant="outline"
-                      disabled={!isManager || busy === r.id}
+                      // Chỉ Quản lý (Manager) mới có quyền từ chối hoàn tiền; không thể từ chối nếu đây là khoản trung tâm nợ hội viên (centre_owed)
+                      disabled={!isManager || r.centre_owed || busy === r.id}
+                      // Quản lý từ chối yêu cầu hoàn tiền qua API reject-refund
                       onClick={() => void settleRefund(r, false)}
                     >
                       {t("Reject")}
@@ -419,6 +454,7 @@ function Page() {
             <Seg value={payMethod} onChange={setPayMethod} options={METHODS.map((m) => ({ value: m.value, label: t(m.label) }))} />
             <span className="kicker ml-1 text-2xs text-muted">{t("Last")}</span>
             <Seg
+              // Lọc biên lai theo khoảng thời gian gần nhất (7, 14 hoặc 30 ngày)
               value={days}
               onChange={setDays}
               options={[
@@ -436,6 +472,7 @@ function Page() {
           className="mt-3 sm:max-w-sm"
           placeholder={t("Search name, phone or receipt no.")}
           value={receiptQuery}
+          // Tìm kiếm biên lai theo tên, số điện thoại hoặc mã biên lai (tự động debounce 250ms trong hook useDeskPayments)
           onChange={(e) => setReceiptQuery(e.target.value)}
           aria-label={t("Search receipts")}
         />
@@ -447,6 +484,7 @@ function Page() {
               <StaggerItem key={rc.id}>
                 <motion.div
                   className="flex flex-wrap items-center gap-3 rounded-[var(--radius-lg)] bg-surface px-4 py-3 shadow-[var(--shadow-border)]"
+                  // Hiệu ứng dịch nhẹ sang phải khi di chuột qua hàng biên lai để tạo phản hồi thị giác
                   whileHover={{ x: 2 }}
                   transition={{ type: "spring", stiffness: 320, damping: 26 }}
                 >
@@ -489,6 +527,7 @@ function Page() {
           </div>
         )}
         <Pagination
+          // Phân trang danh sách biên lai phía client/server dựa theo tổng số bản ghi và kích thước trang đã chọn
           offset={receiptPaging.offset}
           total={data?.receipts_total ?? 0}
           pageSize={receiptPaging.pageSize}
@@ -503,13 +542,18 @@ function Page() {
           open={!!transferTarget}
           onClose={() => setTransferTarget(null)}
           amountVnd={dueOf(transferTarget)}
+          // Cú pháp nội dung chuyển khoản: ưu tiên dùng mã hội viên (member_code), nếu chưa có thì lấy 6 ký tự cuối của id đơn hàng viết hoa
           code={transferTarget.member_code ?? transferTarget.id.slice(-6).toUpperCase()}
           buyerName={transferTarget.full_name}
           refType="subscription"
           refId={transferTarget.id}
+          // Xác nhận thanh toán chuyển khoản thủ công khi lễ tân đã kiểm tra thấy tiền vào tài khoản trên sao kê ngân hàng
           onConfirmManual={async () => {
+            // Bước 1: Lưu tạm tham chiếu đơn hàng cần thanh toán trước khi reset state để tránh mất dữ liệu
             const target = transferTarget;
+            // Bước 2: Đóng modal hiển thị mã QR bằng cách gán state transferTarget về null
             setTransferTarget(null);
+            // Bước 3: Gửi yêu cầu thanh toán với phương thức "transfer" để hoàn tất ghi nhận giao dịch và in biên lai
             await takePayment(target, "transfer");
           }}
           onPaid={refresh}
