@@ -29,6 +29,12 @@ Mật khẩu: `ChangeMe!a3`
 
 Đặt `GEMINI_API_KEY` (Google AI Studio) trên server. Hội viên: **Hỏi AI** trên trang chủ. Key không commit.
 
+| Biến | Bắt buộc | Ý nghĩa |
+| --- | --- | --- |
+| `GEMINI_API_KEY` | Có, để dùng AI | Không có thì trợ lý trả lời theo luật dựng sẵn |
+| `ASSISTANT_SECRET` | **Có, ở production** | Ký câu trả lời để giữ ngữ cảnh hội thoại. Mọi instance phải dùng **cùng một giá trị**; thiếu thì khởi động lại server là mất ngữ cảnh |
+| `GEMINI_MODELS` | Không | Danh sách model thử lần lượt, cách nhau bởi dấu phẩy |
+
 ## Script
 
 | Lệnh | Việc |

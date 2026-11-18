@@ -211,7 +211,7 @@ const TICKET_PREFIX = /^[\s\u200B-\u200D\uFEFF]*ticket[\s\u200B-\u200D\uFEFF]*[:
  */
 /**
  * Làm gì: Lấy nội dung thực tế của yêu cầu hỗ trợ sau khi đã loại bỏ tiền tố ticket: (và các tiền tố lặp lại hoặc dấu ngoặc bọc ngoài). Trả về chuỗi gốc đã trim nếu không có tiền tố.
- * Được gọi ở: src/server/controllers/handlers/ops.ts (hàm handleAssistantTicketMessage và ticketsCreate), src/server/services/arena3.test.ts.
+ * Được gọi ở: src/server/controllers/handlers/ops.ts (hàm assistantChat và ticketsCreate), src/server/services/arena3.test.ts.
  * @param message Chuỗi tin nhắn ban đầu do người dùng nhập.
  * @returns Nội dung yêu cầu hỗ trợ đã được loại bỏ tiền tố và làm sạch khoảng trắng.
  */
