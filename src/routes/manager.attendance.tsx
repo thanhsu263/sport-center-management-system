@@ -10,9 +10,14 @@
  */
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
+import { sessionDay } from "@/client/components/class-detail";
+import { RegisterPanel, type RegisterData, type SessionRow } from "@/client/components/register-panel";
 import { AtRiskPanel, AttendancePanel } from "@/client/components/attendance-panels";
-import { Shell } from "@/client/components/shell";
-import { Seg } from "@/client/components/ui";
+import { Shell, hhmm } from "@/client/components/shell";
+import { Badge, Card, EmptyState, Field, LoadError, Seg, Select, Skeleton } from "@/client/components/ui";
+import { useLive } from "@/client/lib/use-live";
+import { useRead } from "@/client/lib/use-read";
+import { levelLabel, sportLabel } from "@/shared/arena3/labels";
 import { t } from "@/client/lib/i18n";
 
 /**
@@ -44,10 +49,78 @@ function Page() {
           options={[
             { value: "rate", label: t("Attendance rate") },
             { value: "risk", label: t("At risk") },
+            { value: "edit", label: t("Edit attendance") },
           ]}
         />
       </div>
-      {tab === "rate" ? <AttendancePanel canExport /> : <AtRiskPanel />}
+      {tab === "rate" ? <AttendancePanel canExport /> : tab === "risk" ? <AtRiskPanel /> : <CorrectRegister />}
     </Shell>
+  );
+}
+
+/**
+ * Làm gì: Cho quản lý chọn một buổi học trong 14 ngày gần đây và sửa điểm danh; sổ đã khóa (quá 2 giờ sau buổi) vẫn sửa được nhưng phải ghi lý do (BR-35).
+ * Được gọi ở: Page, tab "edit".
+ */
+function CorrectRegister() {
+  const schedule = useRead<{ items: SessionRow[] }>("/coach/schedule");
+  const items = schedule.data?.items ?? null;
+  // Mặc định buổi gần nhất đã bắt đầu, vì chưa bắt đầu thì chưa điểm danh được.
+  const started = items?.filter((s) => new Date(s.start_at).getTime() <= Date.now() && s.status !== "cancelled") ?? [];
+  const [picked, setPicked] = useState("");
+  const open = started.find((s) => s.id === picked) ?? started[0] ?? null;
+  const register = useRead<RegisterData>(open ? `/sessions/${open.id}/attendance` : null);
+  useLive("attendance", () => {
+    register.reload();
+    schedule.reload();
+  });
+  const locked = !!register.data?.session?.locked;
+
+  if (schedule.error) {
+    return <LoadError message={schedule.error.message} onRetry={schedule.error.refused ? undefined : schedule.reload} />;
+  }
+  if (!items) return <Skeleton className="h-24" />;
+  if (!started.length) {
+    return (
+      <EmptyState
+        title={t("No sessions to correct")}
+        hint={t("Sessions from the last two weeks appear here once they have started.")}
+      />
+    );
+  }
+  return (
+    <div className="mx-auto grid max-w-3xl gap-5">
+      <Card className="grid gap-3 p-4 sm:p-5">
+        <Field label={t("Session")}>
+          <Select value={open?.id ?? ""} onChange={(e) => setPicked(e.target.value)}>
+            {started.map((s) => (
+              <option key={s.id} value={s.id}>
+                {sessionDay(s.start_at)} · {hhmm(s.start_at)} · {sportLabel(s.sport)} {levelLabel(s.level)} · {t("Court")} {s.court_code}
+              </option>
+            ))}
+          </Select>
+        </Field>
+        {open ? (
+          <p className="flex flex-wrap items-center gap-2 text-sm text-muted">
+            <Badge tone="accent">{sportLabel(open.sport)}</Badge>
+            <Badge tone="muted">{levelLabel(open.level)}</Badge>
+            {locked ? <Badge tone="hold">{t("Locked")}</Badge> : null}
+            <span className="tabular-nums">
+              {open.enrolled_count}/{open.capacity}
+            </span>
+          </p>
+        ) : null}
+      </Card>
+      {open ? (
+        <RegisterPanel
+          key={open.id}
+          session={open}
+          f4
+          read={register}
+          isManager
+          studentLinks={false}
+        />
+      ) : null}
+    </div>
   );
 }

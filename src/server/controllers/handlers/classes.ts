@@ -1546,9 +1546,11 @@ export async function coachSchedule(sql: Sql, user: PublicUser) {
        join classes cl on cl.id = s.class_id
        join courts c on c.id = s.court_id
       where ($2::boolean or cl.coach_id = $1 or cl.assistant_id = $1)
-        and s.start_at > now() - interval '1 day'
-      order by s.start_at
-      limit 80`,
+        -- A manager corrects registers after the fact, so their list reaches two weeks back.
+        and s.start_at > now() - (case when $2::boolean then interval '14 days' else interval '1 day' end)
+        and ($2::boolean = false or s.start_at < now() + interval '2 days')
+      order by case when $2::boolean then -extract(epoch from s.start_at) else extract(epoch from s.start_at) end
+      limit 200`,
     [user.id, user.role === "manager"],
   );
   // Bước 3: Định dạng mã lớp hiển thị (class_code) theo môn và trình độ rồi trả về danh sách buổi học.

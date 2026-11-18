@@ -271,7 +271,7 @@ function Page() {
                       <HoldCountdown until={holding.hold_until!} onExpire={load} label={t("Holding your seat")} />
                       <p className="text-sm text-muted">{t("Tuition is not refunded if you leave.")}</p>
                       {holding.transfer_requested_at ? (
-                        <p className="text-sm text-muted">{t("Waiting for the desk to confirm your transfer")}</p>
+                        <p className="text-sm text-muted">{t("Waiting for the desk to confirm your payment")}</p>
                       ) : (
                         <>
                           <PayOnlineButton
@@ -288,7 +288,7 @@ function Page() {
                             disabled={seatBusy === holding.id}
                             onClick={() => void askTransfer(holding.id)}
                           >
-                            {t("Pay by transfer")}
+                            {t("Pay at the desk")}
                           </Button>
                         </>
                       )}
