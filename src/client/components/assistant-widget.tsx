@@ -10,10 +10,10 @@ import { useEffect, useId, useRef, useState } from "react";
 import { useReducedMotionAfterMount } from "@/client/components/motion";
 import { useSessionUser } from "@/client/components/shell";
 import { apiPost } from "@/client/arena3/client";
-import { useChatLog } from "@/client/lib/chat-log";
+import { historyFor, useChatLog } from "@/client/lib/chat-log";
 import { cn } from "@/client/lib/cn";
 import { scrollBehavior } from "@/client/lib/calm";
-import { t, tk } from "@/client/lib/i18n";
+import { getLang, t, tk } from "@/client/lib/i18n";
 
 /**
  * Shuttle, the centre's mascot: a shuttlecock with a face.
@@ -197,15 +197,15 @@ export function AssistantWidget({ docked }: { docked: boolean }) {
     // Bước 2: Xóa trắng ô nhập liệu và xóa thông báo lỗi cũ trước khi gửi request mới.
     setQ("");
     setErr(null);
-    // Bước 3: Thu thập lịch sử câu hỏi của người dùng (chỉ lấy role "me") và thêm tin nhắn mới vào nhật ký chat.
-    const history = log.filter((m) => m.role === "me").map((m) => ({ role: m.role, text: m.text }));
+    // Bước 3: Thu thập lịch sử hội thoại (câu của người dùng và câu trả lời đã ký của bot) và thêm tin nhắn mới vào nhật ký chat.
+    const history = historyFor(log);
     append({ role: "me", text: message });
     // Bước 4: Đánh dấu trạng thái bận và gọi API /assistant (POST /v1/assistant) với câu hỏi cùng lịch sử.
     setBusy(true);
     try {
-      const r = await apiPost<{ reply: string; source?: "gemini" | "xai" | "rules" }>("/assistant", { message, history });
-      // Bước 5: Nhận câu trả lời và lưu vào nhật ký chat với role "bot" kèm nguồn xử lý (gemini, xai hoặc rules).
-      append({ role: "bot", text: r.reply, source: r.source });
+      const r = await apiPost<{ reply: string; source?: "gemini" | "xai" | "rules"; sig?: string }>("/assistant", { message, history, lang: getLang() });
+      // Bước 5: Nhận câu trả lời và lưu vào nhật ký chat với role "bot" kèm nguồn xử lý (gemini, xai hoặc rules) và chữ ký sig.
+      append({ role: "bot", text: r.reply, source: r.source, sig: r.sig });
     } catch (e) {
       // Bắt lỗi khi mất kết nối mạng hoặc tính năng trợ lý ảo bị tắt phía server.
       setErr(e instanceof Error ? e.message : t("The assistant is switched off"));
