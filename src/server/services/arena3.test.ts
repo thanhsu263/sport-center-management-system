@@ -701,18 +701,18 @@ describe("database errors keep their meaning", () => {
  */
 describe("class length", () => {
   /**
-   * Làm gì: Kiểm tra thời lượng lớp học mặc định là 60 phút khi để trống, chỉ chấp nhận 60, 120, 180 phút và từ chối các số phút lẻ.
+   * Làm gì: Kiểm tra thời lượng lớp học mặc định là 60 phút khi để trống, chỉ chấp nhận đúng 60 phút và từ chối mọi số phút khác.
    * Được gọi ở: test runner (node --test)
    * @returns {void}
    */
-  it("defaults to one court hour and refuses a half hour", () => {
+  it("defaults to one court hour and refuses anything else", () => {
     // Bước 1: Giá trị undefined hoặc null tự động nhận thời lượng mặc định là 60 phút (1 giờ sân)
     assert.equal(classMinutes(undefined), 60);
     assert.equal(classMinutes(null), 60);
-    // Bước 2: Chấp nhận các thời lượng trọn vẹn 1h (60p), 2h (120p), 3h (180p)
+    // Bước 2: Chỉ chấp nhận đúng 1 tiếng (60 phút); 2 hay 3 tiếng cũng bị từ chối
     assert.equal(classMinutes(60), 60);
-    assert.equal(classMinutes(120), 120);
-    assert.equal(classMinutes(180), 180);
+    assert.equal(classMinutes(120), null);
+    assert.equal(classMinutes(180), null);
     // Bước 3: Quy tắc BR-11: Từ chối các thời lượng lẻ (90p, 45p) để không làm hỏng lưới đặt sân 1 tiếng
     assert.equal(classMinutes(90), null);
     assert.equal(classMinutes(45), null);

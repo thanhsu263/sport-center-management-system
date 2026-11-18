@@ -236,11 +236,11 @@ function readClassCapacity(rawCapacity: unknown): number {
 }
 
 /**
- * Làm gì: đọc độ dài mỗi buổi học (phút). Chỉ nhận 60, 120 hoặc 180 vì sân cho thuê theo giờ tròn;
- *   bỏ trống thì mặc định 60.
+ * Làm gì: đọc độ dài mỗi buổi học (phút). Chỉ nhận 60 vì mọi buổi học, slot và lượt đặt sân đều dài
+ *   đúng 1 tiếng; bỏ trống thì mặc định 60.
  * Được gọi ở: readClassForm (bước 2 của classesCreate).
  * @param rawDuration Giá trị thô của ô duration_min trong body JSON.
- * @returns Số phút mỗi buổi: 60, 120 hoặc 180.
+ * @returns Số phút mỗi buổi: luôn là 60.
  * @throws Lỗi 422 nếu là số phút khác.
  */
 function readClassDuration(rawDuration: unknown): number {
@@ -248,7 +248,7 @@ function readClassDuration(rawDuration: unknown): number {
   const durationMinutes = classMinutes(num(rawDuration));
 
   if (durationMinutes == null) {
-    throw err.validation("A class runs for whole court hours (60, 120 or 180).");
+    throw err.validation("Every class session lasts exactly one hour (60 minutes).");
   }
 
   return durationMinutes;
