@@ -32,6 +32,8 @@ type Item = {
   total_vnd: number;
   vat_vnd: number;
   exported_at: string | null;
+  kind?: "sale" | "adjustment";
+  adj_code?: string | null;
 };
 type Data = { from: string; to: string; items: Item[]; n: number; total: number; vat: number; pending: number };
 
@@ -148,10 +150,14 @@ function Page() {
                   <span>
                     <span className="font-mono">{i.code}</span> · {i.buyer_name}
                     {i.buyer_tax_code ? <span className="text-muted"> · {t("Tax code")} {i.buyer_tax_code}</span> : null}
-                    <span className="block text-xs text-muted">{when(i.issued_at)}</span>
+                    <span className="block text-xs text-muted">
+                      {when(i.issued_at)}
+                      {i.kind === "adjustment" ? ` · ${t("Reduces invoice")} ${i.adj_code ?? "?"}` : null}
+                    </span>
                   </span>
                   <span className="flex items-center gap-2">
                     <span className="tabular-nums">{money(i.total_vnd)}</span>
+                    {i.kind === "adjustment" ? <Badge tone="hold">{t("Adjustment")}</Badge> : null}
                     <Badge tone={i.exported_at ? "accent" : "hold"}>{i.exported_at ? t("Exported") : t("New")}</Badge>
                   </span>
                 </Card>

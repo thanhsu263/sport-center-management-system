@@ -56,6 +56,30 @@ type Invoice = {
   amount_vnd: number;
   status: string;
   ref_type: string;
+  kind?: "sale" | "adjustment";
+  total_vnd?: number | null;
+  adjusts_code?: string | null;
+};
+
+// Một khoản hoàn tiền của hội viên và trạng thái của nó, từ API /refunds/mine.
+type Refund = {
+  id: string;
+  code: string;
+  amount_vnd: number;
+  status: "refund_pending" | "posted" | "refund_rejected";
+  ref_type: string;
+  created_at: string;
+  decided_at: string | null;
+  invoice_id: string | null;
+  invoice_code: string | null;
+  note: string | null;
+};
+
+// Trạng thái hoàn tiền theo cách hội viên hiểu: tiền đang chờ ở quầy, đã cầm, hay bị từ chối.
+const REFUND_STATE: Record<Refund["status"], { label: string; tone: "hold" | "accent" | "danger" }> = {
+  refund_pending: { label: tk("Waiting at the front desk"), tone: "hold" },
+  posted: { label: tk("Paid out"), tone: "accent" },
+  refund_rejected: { label: tk("Declined"), tone: "danger" },
 };
 
 // Bảng ánh xạ mã phương thức thanh toán (cash, transfer, card) sang nhãn đa ngôn ngữ hiển thị trên biên lai.
@@ -114,7 +138,12 @@ function Page() {
         </div>
         {tab === "profile" ? <Profile user={user} /> : null}
         {tab === "security" ? <Security forced={!!user?.must_change_password} /> : null}
-        {tab === "receipts" ? <Receipts /> : null}
+        {tab === "receipts" ? (
+          <>
+            <Refunds />
+            <Receipts />
+          </>
+        ) : null}
         {tab === "support" ? <Support /> : null}
       </Shell>
     </Guard>
@@ -1285,6 +1314,62 @@ function Support() {
   );
 }
 
+function SectionHeading({ children }: { children: React.ReactNode }) {
+  return <h2 className="mb-3 font-display text-lg">{children}</h2>;
+}
+
+/**
+ * Các khoản hoàn tiền của hội viên: đang chờ nhận ở quầy, đã nhận (kèm hóa đơn
+ * điều chỉnh giảm), hoặc bị từ chối (kèm lý do). Không có khoản nào thì không vẽ gì.
+ */
+function Refunds() {
+  const read = useRead<{ items: Refund[] }>("/refunds/mine");
+  const items = read.data?.items ?? [];
+  if (items.length === 0) return null;
+  const waiting = items.some((r) => r.status === "refund_pending");
+  return (
+    <section className="mb-7">
+      <SectionHeading>{t("Refunds")}</SectionHeading>
+      {waiting ? (
+        <p className="mb-3 text-sm text-muted">
+          {t("Collect your refund in cash at the front desk.")} {t("You sign a payment voucher when you take the cash.")}
+        </p>
+      ) : null}
+      <div className="grid gap-2">
+        {items.map((r) => {
+          const state = REFUND_STATE[r.status];
+          return (
+            <Card key={r.id} className="flex flex-wrap items-center gap-x-5 gap-y-2 p-4">
+              <div className="min-w-[8rem] flex-1">
+                <p className="font-mono text-sm font-semibold tracking-wide">{r.code}</p>
+                <p className="mt-0.5 text-xs text-muted">
+                  {REF[r.ref_type] ? t(REF[r.ref_type]) : r.ref_type} · {when(r.decided_at ?? r.created_at)}
+                </p>
+                {r.status === "refund_rejected" && r.note ? (
+                  <p className="mt-0.5 text-xs text-muted">{t("Reason")}: {r.note}</p>
+                ) : null}
+                {r.status === "posted" && r.invoice_code ? (
+                  <p className="mt-0.5 text-xs text-muted">
+                    {t("Adjustment invoice")} <span className="font-mono">{r.invoice_code}</span>
+                  </p>
+                ) : null}
+              </div>
+              <p className="font-display text-lg tabular-nums">{money(r.amount_vnd)}</p>
+              <Badge tone={state.tone}>{t(state.label)}</Badge>
+              {r.status === "posted" && r.invoice_id ? (
+                <Button variant="outline" size="sm" onClick={() => openInvoice(r.invoice_id!).catch((e) => toast.error(e instanceof Error ? e.message : t("Could not open that receipt")))}>
+                  <Download className="size-3.5" strokeWidth={2} />
+                  {t("PDF")}
+                </Button>
+              ) : null}
+            </Card>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
 /**
  * Làm gì: Hiển thị tab biên lai/hóa đơn thanh toán (Receipts) của hội viên, cho phép theo dõi lịch sử thanh toán và tải file PDF hóa đơn.
  * Được gọi ở: `src/routes/account.tsx` trong component Page khi chọn tab "receipts" (dòng 94) trên trang /account.
@@ -1326,7 +1411,7 @@ function Receipts() {
   // Bước 4: Render danh sách hóa đơn theo dạng thẻ (Card), hiển thị mã hóa đơn, số tiền, trạng thái hoàn tiền và nút tải PDF.
   return (
     <>
-      <p className="mb-3 text-sm text-muted">{t("Collect your refund in cash at the front desk.")}</p>
+      <SectionHeading>{t("Receipts and invoices")}</SectionHeading>
       <Stagger className="grid gap-2.5" gap={0.05}>
         {items.map((r) => (
           <StaggerItem key={r.id}>
@@ -1340,12 +1425,17 @@ function Receipts() {
                   <p className="mt-0.5 text-xs text-muted">
                     {REF[r.ref_type] ? t(REF[r.ref_type]) : r.ref_type} · {when(r.issued_at)}
                   </p>
+                  {r.kind === "adjustment" ? (
+                    <p className="mt-0.5 text-xs text-muted">
+                      {t("Adjustment invoice, reduces")} <span className="font-mono">{r.adjusts_code ?? "?"}</span>
+                    </p>
+                  ) : null}
                 </div>
                 <div className="text-right">
-                  <p className="font-display text-lg tabular-nums">{money(r.amount_vnd)}</p>
+                  <p className="font-display text-lg tabular-nums">{money(r.kind === "adjustment" ? (r.total_vnd ?? r.amount_vnd) : r.amount_vnd)}</p>
                   <p className="text-2xs text-subtle">{METHOD[r.method] ? t(METHOD[r.method]) : r.method}</p>
                 </div>
-                {r.status !== "posted" ? <Badge tone="danger">{t("Refunded")}</Badge> : null}
+                {r.kind === "adjustment" ? <Badge tone="muted">{t("Adjustment")}</Badge> : null}
                 <Button
                   variant="outline"
                   size="sm"

@@ -631,6 +631,10 @@ async function dispatch(request: Request): Promise<Response | Result> {
   if (method === "POST" && p0 === "payments" && p1 && p2 === "pay-out-refund") {
     return authed((sql, user) => deskH.paymentsPayOutRefund(sql, p1, user));
   }
+  // GET /v1/payments/:id/voucher.pdf: In phiếu chi cho khoản hoàn đã chi, khách ký nhận tiền
+  if (method === "GET" && p0 === "payments" && p1 && p2 === "voucher.pdf") {
+    return authedRead((sql, user) => deskH.refundVoucherPdf(sql, p1, request, user));
+  }
   // POST /v1/payments/:id/reject-refund: Quản lý từ chối yêu cầu hoàn tiền kèm lý do
   if (method === "POST" && p0 === "payments" && p1 && p2 === "reject-refund") {
     return authed((sql, user) => deskH.paymentsRejectRefund(sql, p1, request, user));
@@ -720,6 +724,10 @@ async function dispatch(request: Request): Promise<Response | Result> {
     // Tách bỏ phần mở rộng .xml để lấy id hóa đơn cần truy vấn trong cơ sở dữ liệu
     const id = p1.replace(/.xml$/, "");
     return authedRead((sql, user) => xH.invoiceXmlOne(sql, id, user));
+  }
+  // GET /v1/refunds/mine: Các khoản hoàn tiền của hội viên và trạng thái (chờ nhận / đã nhận / bị từ chối)
+  if (method === "GET" && p0 === "refunds" && p1 === "mine") {
+    return authedRead((sql, user) => deskH.refundsMine(sql, user));
   }
   // GET /v1/invoices: Danh sách hóa đơn của người dùng hiện tại hoặc toàn bộ hóa đơn quầy thu ngân
   if (method === "GET" && p0 === "invoices" && !p1) {

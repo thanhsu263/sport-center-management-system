@@ -21,6 +21,7 @@ import { requireRole, type PublicUser } from "../session";
 import { addDays, ictClock, ictDateString, ictDateTime, ictMinutes, ictStamp, roundVnd } from "../../../shared/arena3/time";
 import { one } from "../tx";
 import { getActiveSportCodes } from "./sports";
+import { blockCourtCommitments } from "./court-block";
 
 /**
  * Làm gì: Truy vấn thông tin chi tiết của một sân thể thao từ bảng courts theo mã định danh (id).
@@ -917,6 +918,12 @@ async function patchCourtStatus(sql: Sql, id: string, user: PublicUser, b: Recor
   }
 
   // Bước 3: Lấy lý do thay đổi trạng thái (nếu có) và cập nhật trạng thái mới của sân vào bảng courts.
+  // Taking an open court out of service frees what was on it, exactly as a blocking work order does:
+  // bookings are cancelled with a full refund, and coach, managers and students hear about the sessions.
+  // Without confirm the manager first gets the list of what would be affected (409, requires_confirm).
+  if (cur.status === "ready" && status !== "ready") {
+    await blockCourtCommitments(sql, id, b.confirm === true, user);
+  }
   const reason = str(b.reason) ?? null;
   await sql.query(`update courts set status = $2 where id = $1`, [id, status]);
   // Bước 4: Đếm số lượng lịch chiếm sân (occupancies) trong tương lai bị ảnh hưởng bởi việc đổi trạng thái này.

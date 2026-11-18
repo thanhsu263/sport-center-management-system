@@ -552,6 +552,73 @@ async function checkClassScheduleClash(
   }
 }
 
+/** Số tuần tối đa dời lịch khi tìm ngày bắt đầu gợi ý cho lớp bị trùng đặt sân. */
+const CLASS_SHIFT_WEEKS = 8;
+
+/**
+ * Làm gì: tính các khung giờ giữ sân (đã làm tròn theo slot) của mọi buổi trong khoảng ngày của lớp.
+ * Được gọi ở: checkClassBookingClash, cho lịch gốc và cho từng lịch dời tuần.
+ */
+function classCourtSpans(form: CompleteClassForm, startOn: string, endOn: string, slotMinutes: number): ClassSessionTime[] {
+  return expandWeekly(form.rrule, form.duration_min, ictDateTime(startOn, "00:00"), ictDateTime(endOn, "23:59")).map(
+    (occurrence) => slotSpan(occurrence.start, occurrence.end, slotMinutes),
+  );
+}
+
+/**
+ * Làm gì: tìm buổi đầu tiên của lớp đụng lịch chiếm sân (đặt sân, buổi học, bảo trì) trên cùng sân.
+ *   Bỏ qua 'hold' vì giữ chỗ chỉ sống vài phút trong lúc khách thanh toán.
+ * @returns Giờ bắt đầu (ISO) của buổi đụng đầu tiên, hoặc null nếu sân trống mọi buổi.
+ */
+async function firstCourtBookingClash(sql: Sql, courtId: string, spans: ClassSessionTime[]): Promise<string | null> {
+  if (!spans.length) return null;
+  const row = await one<{ clash_at: string }>(
+    sql,
+    `select s.a as clash_at
+       from unnest($2::timestamptz[], $3::timestamptz[]) as s(a, b)
+      where exists (
+        select 1 from occupancies o
+         where o.court_id = $1 and o.kind <> 'hold'
+           and tstzrange(o.start_at, o.end_at, '[)') && tstzrange(s.a, s.b, '[)'))
+      order by s.a
+      limit 1`,
+    [courtId, spans.map((span) => span.start.toISOString()), spans.map((span) => span.end.toISOString())],
+  );
+  return row ? new Date(row.clash_at).toISOString() : null;
+}
+
+/**
+ * Làm gì: chặn tạo lớp nếu có buổi nào rơi vào giờ sân đã có người đặt (hoặc đang bảo trì).
+ *   Kèm gợi ý: dời cả lớp lùi từng tuần (từ 1 tuần) tới khi không còn buổi nào trùng, giữ nguyên độ dài lớp.
+ * Được gọi ở: classesCreate, bước 5, sau checkClassScheduleClash.
+ * @throws Lỗi 409 kèm clash_at, suggested_start_on, suggested_end_on (hai ô sau vắng nếu 8 tuần vẫn trùng).
+ */
+async function checkClassBookingClash(sql: Sql, form: CompleteClassForm): Promise<void> {
+  const { slot_minutes: slotMinutes } = await getSettings(sql);
+  const clashAt = await firstCourtBookingClash(
+    sql,
+    form.court_id,
+    classCourtSpans(form, form.start_on, form.end_on, slotMinutes),
+  );
+  if (!clashAt) return;
+
+  // Dời cả ngày đầu và ngày cuối cùng một số tuần để lớp giữ nguyên số buổi và thứ trong tuần.
+  for (let week = 1; week <= CLASS_SHIFT_WEEKS; week++) {
+    const startOn = addDays(form.start_on, week * 7);
+    const endOn = addDays(form.end_on, week * 7);
+    const shifted = await firstCourtBookingClash(sql, form.court_id, classCourtSpans(form, startOn, endOn, slotMinutes));
+    if (!shifted) {
+      throw err.conflict("This court is already booked at some of this class's hours.", {
+        field: "start_on",
+        clash_at: clashAt,
+        suggested_start_on: startOn,
+        suggested_end_on: endOn,
+      });
+    }
+  }
+  throw err.conflict("This court is already booked at some of this class's hours.", { field: "start_on", clash_at: clashAt });
+}
+
 /**
  * Làm gì: lưu lớp vào bảng classes với trạng thái 'draft' (nháp) và trả về dòng vừa lưu.
  *   Vì sao là nháp: tạo buổi học và mở đăng ký là việc của bước publish, một request riêng.
@@ -625,6 +692,8 @@ export async function classesCreate(sql: Sql, request: Request, user: PublicUser
 
   // Bước 5: lịch mới không được đụng lớp khác cùng sân hoặc cùng người dạy.
   await checkClassScheduleClash(sql, form, assistantId);
+  // Bước 5b: không buổi nào được rơi vào giờ sân đã có người đặt; nếu trùng thì gợi ý dời lớp theo tuần.
+  await checkClassBookingClash(sql, form);
 
   // Bước 6: lưu nháp, ghi lại ai đã tạo, trả lớp vừa tạo để màn hình gọi publish tiếp.
   const row = await insertDraftClass(sql, form);
@@ -1497,7 +1566,14 @@ export async function enrollmentDelete(sql: Sql, id: string, user: PublicUser) {
   // Bước 3B: Xử lý hủy suất trong danh sách chờ ('waitlisted') -> đánh dấu hủy và dồn lại thứ tự hàng đợi (compactWaitlist).
   if (enr.status === "waitlisted") {
     await sql.query(`update enrollments set status = 'cancelled', waitlist_pos = null where id = $1`, [id]);
+    // A member who leaves while holding an offer gives that offer up: withdraw it so it stops showing
+    // and stops counting against the open seat, then pass the seat to the next person in line.
+    await sql.query(
+      `update waitlist_offers set status = 'expired' where enrollment_id = $1 and status = 'pending'`,
+      [id],
+    );
     await compactWaitlist(sql, enr.class_id);
+    await inviteWaitlist(sql, enr.class_id);
     return { status: 200, body: { ok: true } };
   }
   // Bước 3C: Xử lý hủy suất đã xác nhận ('confirmed') -> bắt buộc phải hủy trước buổi học kế tiếp ít nhất cancel_class_hours tiếng (BR-24).

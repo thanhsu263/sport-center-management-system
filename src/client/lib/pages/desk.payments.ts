@@ -6,7 +6,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { money, useSessionUser } from "@/client/components/shell";
-import { apiGet, apiPost, openInvoice } from "@/client/arena3/client";
+import { apiGet, apiPost, openInvoice, openRefundVoucher } from "@/client/arena3/client";
 import type { PaymentCreateResponse, TransferConfirmResponse, TransferRejectResponse } from "@/shared/arena3/contracts";
 import { t, tk, tServer } from "@/client/lib/i18n";
 import { usePageState } from "@/client/lib/use-page-state";
@@ -426,6 +426,8 @@ export function useDeskPayments() {
       await apiPost(`/payments/${r.id}/pay-out-refund`);
       toast.success(t("Refund paid out"));
       refresh();
+      // Bước 3: Mở phiếu chi để in cho khách ký nhận tiền. Lỗi in không làm hỏng việc chi đã xong.
+      openRefundVoucher(r.id).catch(() => toast.error(t("Could not open the payment voucher")));
     } catch (e) {
       toast.error(e instanceof Error ? tServer(e.message) : t("Something went wrong"));
     } finally {

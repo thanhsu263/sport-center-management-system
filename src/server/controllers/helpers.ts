@@ -358,6 +358,95 @@ export async function issueInvoice(
   return inv!.id;
 }
 
+/**
+ * Write the adjustment invoice (hóa đơn điều chỉnh giảm) for a refund the desk
+ * has just paid out.
+ *
+ * The original invoice is never edited: it states what was sold on the day.
+ * The reduction is a second invoice, tied to the refund payment, that names the
+ * invoice it adjusts and carries negative amounts, so a period's invoices add
+ * up to the revenue the centre kept. The VAT rate is the original's, because
+ * the refund row is often written with 0% and the tax being reversed is the
+ * tax that was charged.
+ *
+ * Idempotent per refund payment: a second call returns the invoice already written.
+ */
+export async function issueAdjustmentInvoice(sql: Sql, refundPaymentId: string): Promise<string | null> {
+  // Bước 1: Nếu khoản hoàn này đã có hóa đơn điều chỉnh thì trả lại luôn.
+  const existing = await one<{ id: string }>(sql, `select id from invoices where payment_id = $1`, [refundPaymentId]);
+  if (existing) return existing.id;
+  const refund = await one<{ amount_vnd: number; vat_rate: string | number; ref_type: string; ref_id: string; user_id: string | null }>(
+    sql,
+    `select amount_vnd, vat_rate, ref_type, ref_id, user_id from payments where id = $1`,
+    [refundPaymentId],
+  );
+  if (!refund || refund.amount_vnd >= 0) return null;
+  // Bước 2: Tìm hóa đơn bán gốc của cùng đơn (đặt sân, ghi danh, gói), mới nhất trước.
+  const orig = await one<{
+    id: string; code: string; issued_at: string; buyer_name: string; buyer_phone: string | null;
+    buyer_tax_code: string | null; buyer_address: string | null; vat_rate: string | number | null;
+  }>(
+    sql,
+    `select i.id, i.code, i.issued_at::text as issued_at, i.buyer_name, i.buyer_phone, i.buyer_tax_code, i.buyer_address, i.vat_rate
+       from invoices i join payments p on p.id = i.payment_id
+      where p.ref_type = $1 and p.ref_id = $2 and p.amount_vnd > 0 and i.kind = 'sale'
+      order by i.issued_at desc limit 1`,
+    [refund.ref_type, refund.ref_id],
+  );
+  const firstLine = orig
+    ? await one<{ description: string; unit: string | null }>(
+        sql,
+        `select description, unit from invoice_lines where invoice_id = $1 order by id limit 1`,
+        [orig.id],
+      )
+    : undefined;
+  const buyer = orig
+    ? null
+    : await one<{ full_name: string }>(sql, `select full_name from users where id = $1`, [refund.user_id]);
+  const settings = await getSettings(sql);
+  // Bước 3: Tính phần giảm. Giá đã gồm thuế, nên tiền hàng làm tròn về 0 và thuế là phần còn lại, để tiền hàng + thuế = tổng.
+  const total = refund.amount_vnd;
+  const rate = Number(orig?.vat_rate ?? refund.vat_rate ?? 0);
+  const subtotal = Math.trunc(total / (1 + rate / 100));
+  const code = await nextCode(sql, "INV");
+  const inv = await one<{ id: string }>(
+    sql,
+    `insert into invoices
+       (code, payment_id, kind, adjusts_invoice_id, buyer_name, buyer_phone, buyer_tax_code, buyer_address,
+        form_no, serial_no, seller_legal_name, seller_tax_code, seller_address,
+        subtotal_vnd, vat_rate, vat_vnd, total_vnd)
+     values ($1,$2,'adjustment',$3,$4,$5,$6,$7,'1',$8,$9,$10,$11,$12,$13,$14,$15) returning id`,
+    [
+      code,
+      refundPaymentId,
+      orig?.id ?? null,
+      orig?.buyer_name ?? buyer?.full_name ?? "Khách lẻ",
+      orig?.buyer_phone ?? null,
+      orig?.buyer_tax_code ?? null,
+      orig?.buyer_address ?? null,
+      `A3${new Date().getFullYear().toString().slice(2)}E`,
+      settings.legal_name,
+      settings.tax_code,
+      settings.address,
+      subtotal,
+      rate,
+      total - subtotal,
+      total,
+    ],
+  );
+  // Bước 4: Một dòng hàng ghi rõ điều chỉnh giảm cho hóa đơn nào, số tiền âm.
+  const what = firstLine?.description ?? "Dịch vụ tại trung tâm";
+  // The header of the PDF and the XML's TTHDLQuan block already name the invoice being reduced,
+  // so the line says what was handed back, short enough to fit the column.
+  const description = `Hoàn tiền ${what}`;
+  await sql.query(
+    `insert into invoice_lines (invoice_id, description, unit, qty, unit_vnd, amount_vnd)
+     values ($1,$2,$3,1,$4,$4)`,
+    [inv!.id, description, firstLine?.unit ?? "lượt", total],
+  );
+  return inv!.id;
+}
+
 type InFlightIdem = {
   hash: string;
   promise: Promise<{ status: number; body: unknown }>;

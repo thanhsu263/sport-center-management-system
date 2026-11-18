@@ -313,6 +313,9 @@ export const member: Record<string, string> = {
   "{n}% off court rental": "Giảm {n}% tiền thuê sân",
   "Placing order…": "Đang đặt…",
   "Ordered: pay at the desk": "Đã đặt, thanh toán tại quầy",
+  "Order placed, valid through {date}. Pay online now or at the desk.": "Đã đặt gói, có hiệu lực đến {date}. Thanh toán online ngay hoặc tại quầy.",
+  "Or pay at the desk": "Hoặc thanh toán tại quầy",
+  "Paid: plan active": "Đã thanh toán, gói đã kích hoạt",
   "Valid through {date}": "Có hiệu lực đến {date}",
   // app.train
   "Goal saved": "Đã lưu mục tiêu",

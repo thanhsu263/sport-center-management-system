@@ -27,6 +27,7 @@ import {
   getSettings,
   isUuid,
   issueInvoice,
+  issueAdjustmentInvoice,
   nextCode,
   num,
   pageOf,
@@ -842,11 +843,13 @@ export async function paymentsPayOutRefund(sql: Sql, id: string, user: PublicUse
   // Bước 4: Chuyển trạng thái sang posted, gán shift_id, hoàn trả mã khuyến mãi nếu hoàn tiền toàn phần (BR-41), ghi nhật ký kiểm toán và gửi thông báo inapp
   await sql.query(`update payments set status = 'posted', shift_id = $2 where id = $1`, [id, shiftId]);
   await restoreIfFullyRefunded(sql, p.ref_type, p.ref_id);
-  await audit(sql, user.id, "refund_paid_out", "payment", id, { status: "refund_pending", amount_vnd: p.amount_vnd }, { status: "posted", shift_id: shiftId });
+  // Hóa đơn điều chỉnh giảm cho hóa đơn gốc: doanh thu và thuế giảm đúng bằng số tiền đã trả lại.
+  const invoiceId = await issueAdjustmentInvoice(sql, id);
+  await audit(sql, user.id, "refund_paid_out", "payment", id, { status: "refund_pending", amount_vnd: p.amount_vnd }, { status: "posted", shift_id: shiftId, invoice_id: invoiceId });
   if (p.user_id) {
-    await enqueue(sql, "inapp", "refund_approved", p.user_id, { payment_id: p.id, code: p.code, amount_vnd: Math.abs(p.amount_vnd) }, `refund_approved|${p.id}`);
+    await enqueue(sql, "inapp", "refund_approved", p.user_id, { payment_id: p.id, code: p.code, amount_vnd: Math.abs(p.amount_vnd), invoice_id: invoiceId }, `refund_approved|${p.id}`);
   }
-  return { status: 200, body: { status: "posted" } };
+  return { status: 200, body: { status: "posted", invoice_id: invoiceId } };
 }
 
 /** How many receipts the reconciliation list will show at once. */
@@ -1334,11 +1337,12 @@ export async function invoicesMine(sql: Sql, request: Request, user: PublicUser)
   const { limit, offset } = pageParams(req, { def: 30, max: 100 });
   // Bước 4: Truy vấn danh sách hóa đơn theo user_id qua bảng payments (hóa đơn gắn với thanh toán), dùng count(*) over() để tính tổng số dòng.
   const rows = await sql.query<{ total: number } & Record<string, unknown>>(
-    `select i.id, i.code, i.issued_at::text as issued_at,
+    `select i.id, i.code, i.issued_at::text as issued_at, i.kind, i.total_vnd, o.code as adjusts_code,
             p.code as payment_code, p.method, p.amount_vnd, p.status, p.ref_type,
             count(*) over ()::int as total
        from invoices i
        join payments p on p.id = i.payment_id
+       left join invoices o on o.id = i.adjusts_invoice_id
       where p.user_id = $1
       order by i.issued_at desc
       limit $2 offset $3`,
@@ -1392,12 +1396,17 @@ export async function invoicePdf(sql: Sql, id: string, request: Request, user: P
     vat_vnd: number | null;
     total_vnd: number | null;
     issued_at: string;
+    kind: "sale" | "adjustment";
+    adjusts_code: string | null;
+    adjusts_issued_at: string | null;
   }>(
     sql,
-    `select id, code, payment_id, buyer_name, buyer_phone, buyer_tax_code, buyer_address,
-            form_no, serial_no, seller_legal_name, seller_tax_code, seller_address,
-            subtotal_vnd, vat_rate, vat_vnd, total_vnd, issued_at::text
-       from invoices where id = $1`,
+    `select i.id, i.code, i.payment_id, i.buyer_name, i.buyer_phone, i.buyer_tax_code, i.buyer_address,
+            i.form_no, i.serial_no, i.seller_legal_name, i.seller_tax_code, i.seller_address,
+            i.subtotal_vnd, i.vat_rate, i.vat_vnd, i.total_vnd, i.issued_at::text, i.kind,
+            o.code as adjusts_code, o.issued_at::text as adjusts_issued_at
+       from invoices i left join invoices o on o.id = i.adjusts_invoice_id
+      where i.id = $1`,
     [id],
   );
   // Không tìm thấy hóa đơn khớp với ID yêu cầu thì báo lỗi 404 Not Found.
@@ -1450,6 +1459,8 @@ export async function invoicePdf(sql: Sql, id: string, request: Request, user: P
       vat_rate: vatRate,
       vat_vnd: inv.vat_vnd ?? total - subtotal,
       total_vnd: total,
+      kind: inv.kind ?? "sale",
+      adjusts: inv.adjusts_code && inv.adjusts_issued_at ? { code: inv.adjusts_code, issued_at: inv.adjusts_issued_at } : null,
     },
     format,
   );
@@ -1462,6 +1473,74 @@ export async function invoicePdf(sql: Sql, id: string, request: Request, user: P
     },
   });
 }
+
+/**
+ * GET /v1/payments/:id/voucher.pdf: the phiếu chi for a refund paid out.
+ *
+ * Handing cash back needs a paper the customer signs, the same way taking it
+ * needs an invoice: it is the centre's proof the money left the till and to
+ * whom. Staff only, and only once the refund is actually posted, so a voucher
+ * never exists for money that has not moved.
+ */
+export async function refundVoucherPdf(sql: Sql, id: string, request: Request, user: PublicUser) {
+  requireRole(user, ["manager", "receptionist"]);
+  const format = new URL(request.url).searchParams.get("format") === "80mm" ? "80mm" : "a5";
+  const p = await one<{
+    code: string; method: string; amount_vnd: number; status: string; ref_type: string;
+    buyer_name: string | null; buyer_phone: string | null;
+  }>(
+    sql,
+    `select p.code, p.method, p.amount_vnd, p.status, p.ref_type, u.full_name as buyer_name, u.phone as buyer_phone
+       from payments p left join users u on u.id = p.user_id
+      where p.id = $1`,
+    [id],
+  );
+  if (!p || p.amount_vnd >= 0) throw err.notFound();
+  if (p.status !== "posted") throw err.conflict("Khoản hoàn chưa được chi, chưa in phiếu chi được.");
+  // Ngày chi là lúc thu ngân bấm chi tiền, lấy từ nhật ký; lý do chi là lý do lễ tân ghi khi tạo yêu cầu hoàn.
+  const paidAt = await one<{ at: string }>(
+    sql,
+    `select at::text as at from audit_logs where action = 'refund_paid_out' and entity_id = $1 order by at desc limit 1`,
+    [id],
+  );
+  const asked = await one<{ reason: string | null }>(
+    sql,
+    `select after->>'reason' as reason from audit_logs where action = 'refund_pending' and entity_id = $1 order by at limit 1`,
+    [id],
+  );
+  const settings = await getSettings(sql);
+  const amount = Math.abs(p.amount_vnd);
+  const reason = asked?.reason || `Hoàn tiền ${REFUND_FOR[p.ref_type] ?? "dịch vụ"}`;
+  const bytes = await renderInvoicePdf(
+    {
+      kind: "voucher",
+      code: p.code,
+      form_no: "02-TT",
+      serial_no: null,
+      issued_at: paidAt?.at ?? new Date().toISOString(),
+      seller: { legal_name: settings.legal_name ?? "Lê Long Sport", tax_code: settings.tax_code, address: settings.address },
+      buyer: { name: p.buyer_name ?? "Khách lẻ", phone: p.buyer_phone, tax_code: null, address: null },
+      pay_code: p.code,
+      method_label: methodLabelVi(p.method),
+      lines: [{ description: `Lý do chi: ${reason}`, unit: null, qty: 1, unit_vnd: amount, amount_vnd: amount }],
+      subtotal_vnd: amount,
+      vat_rate: 0,
+      vat_vnd: 0,
+      total_vnd: amount,
+    },
+    format,
+  );
+  return new Response(Buffer.from(bytes), {
+    status: 200,
+    headers: { "content-type": "application/pdf", "content-disposition": `inline; filename="PC-${p.code}.pdf"` },
+  });
+}
+
+const REFUND_FOR: Record<string, string> = {
+  booking: "đặt sân",
+  enrollment: "học phí lớp",
+  subscription: "gói hội viên",
+};
 
 /** A report day, checked. Anything else used to reach the SQL cast and come back as a 500. */
 /**
@@ -2293,4 +2372,32 @@ async function subscriptionPaymentPromo(sql: Sql, sub: DeskSubscription, b: Reco
     promoId = quote.promo_id;
   }
   return { basePrice, discount, promoId };
+}
+
+/**
+ * GET /v1/refunds/mine: the member's own refunds and where each one stands.
+ *
+ * A refund is its own payment row with a negative amount. Until it is paid out
+ * at the till it sits as `refund_pending`; the member needs to know that money
+ * is waiting for them, then that it was handed over (with the adjustment
+ * invoice that reduced the original), or why it was declined.
+ */
+export async function refundsMine(sql: Sql, user: PublicUser) {
+  requireRole(user, ["member"]);
+  const items = await sql.query(
+    `select p.id, p.code, abs(p.amount_vnd)::int as amount_vnd, p.status::text as status, p.ref_type,
+            p.created_at::text as created_at, i.id as invoice_id, i.code as invoice_code,
+            (select a.at::text from audit_logs a
+              where a.entity_id = p.id and a.action in ('refund_paid_out', 'refund_rejected')
+              order by a.at desc limit 1) as decided_at,
+            (select a.after->>'note' from audit_logs a
+              where a.entity_id = p.id and a.action = 'refund_rejected'
+              order by a.at desc limit 1) as note
+       from payments p
+       left join invoices i on i.payment_id = p.id
+      where p.user_id = $1 and p.amount_vnd < 0
+      order by p.created_at desc limit 20`,
+    [user.id],
+  );
+  return { status: 200, body: { items } };
 }

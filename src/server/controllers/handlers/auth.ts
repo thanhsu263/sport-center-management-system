@@ -559,7 +559,7 @@ export async function meGet(sql: Sql, user: PublicUser) {
          from waitlist_offers o
          join enrollments e on e.id = o.enrollment_id
          join classes cl on cl.id = e.class_id
-        where e.user_id = $1 and o.status = 'pending' and o.expires_at > now()`,
+        where e.user_id = $1 and e.status = 'waitlisted' and o.status = 'pending' and o.expires_at > now()`,
       [user.id],
     ),
     // Truy vấn 7: Lấy toàn bộ danh sách cờ tính năng (feature_flags) đang được bật/tắt trong hệ thống.

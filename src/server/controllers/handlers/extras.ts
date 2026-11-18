@@ -7,8 +7,7 @@
  * - Xuất dữ liệu hóa đơn điện tử (e-invoice export) phục vụ kế toán.
  * Mọi luồng tiền tệ đều được ghi nhận vào bảng payments và xuất hóa đơn tương ứng.
  */
-import { loyaltyBalance, reconcileLoyaltyRefund } from "../../services/loyalty";
-import { restoreIfFullyRefunded } from "../../services/promos";
+import { loyaltyBalance } from "../../services/loyalty";
 /**
  * Làm gì: Tái xuất (re-export) hàm loyaltyBalance từ service loyalty để các module khác dễ dàng tra cứu số dư điểm thưởng của hội viên.
  * Được gọi ở: Các handler và router cần kiểm tra điểm thưởng của người dùng.
@@ -37,6 +36,7 @@ import { ictClock, ictDateString, ictDateTime, ictStamp, roundVnd } from "../../
 import { one } from "../tx";
 import { pageParams } from "../validate";
 import { bookingsCancel, hasCourtOverlap } from "./bookings";
+import { blockCourtCommitments } from "./court-block";
 
 /**
  * The extras the scope benchmark asked for: fixed weekly bookings,
@@ -1228,87 +1228,6 @@ export async function coachEarnings(sql: Sql, request: Request, user: PublicUser
 const WO_PRIORITY = ["low", "normal", "urgent"];
 const WO_STATUS = ["open", "in_progress", "done", "cancelled"];
 
-/** Runs in the work-order transaction: a refusal leaves no ticket or side effects. */
-/**
- * Làm gì: Xử lý giải phóng các cam kết sử dụng sân (lịch đặt sân và buổi dạy lớp) khi đóng sân để bảo trì.
- * Nếu chưa xác nhận (confirm = false), ném lỗi 409 cảnh báo số lượng lịch bị ảnh hưởng kèm chi tiết.
- * Khi đã xác nhận, tự động hủy lịch đặt sân, hoàn tiền 100% bằng tiền mặt tại quầy, thu hồi điểm thưởng và gửi thông báo in-app.
- * Được gọi ở:
- * - Trong extras.ts: hàm workOrdersCreate và workOrdersPatch (khi phiếu bảo trì có cờ blocks_court = true).
- * @param sql Kết nối database trong transaction; rollback toàn bộ nếu có lỗi xảy ra.
- * @param courtId ID của sân thể thao bị đóng để bảo trì.
- * @param confirm Cờ xác nhận từ người dùng (true nếu đã đồng ý hủy các lịch bị ảnh hưởng).
- * @param user Thông tin nhân viên thực hiện thao tác.
- * @returns Không trả về giá trị (Promise<void>).
- * @throws Lỗi 409 yêu cầu xác nhận kèm danh sách lịch đặt và buổi học bị ảnh hưởng nếu confirm = false.
- */
-async function blockCourtCommitments(sql: Sql, courtId: string, confirm: boolean, user: PublicUser) {
-  // Bước 1: Khóa dòng sân và tìm tất cả lượt đặt sân ('hold', 'confirmed') cùng các buổi học sắp tới chưa diễn ra.
-  await sql.query(`select id from courts where id = $1 for update`, [courtId]);
-  const bookings = await sql.query<{ id: string; code: string; start_at: string; user_id: string; paid_vnd: number }>(
-    `select id, code, start_at, user_id, paid_vnd from court_bookings
-      where court_id = $1 and status in ('hold','confirmed') and start_at >= now()
-      order by start_at, id for update`, [courtId],
-  );
-  const sessions = await sql.query<{ id: string; class_id: string; start_at: string; coach_id: string }>(
-    `select s.id, s.class_id, s.start_at, c.coach_id from sessions s join classes c on c.id = s.class_id
-      where s.court_id = $1 and s.status = 'scheduled' and s.start_at >= now()
-      order by s.start_at, s.id for update of s`, [courtId],
-  );
-  // Bước 2: Nếu phát hiện lịch bị ảnh hưởng mà client chưa xác nhận (confirm = false), chặn lại và trả danh sách để người dùng xác nhận.
-  if (!confirm && (bookings.length || sessions.length)) {
-    throw err.conflictState("This court has upcoming bookings or class sessions. Confirm before blocking it.", {
-      requires_confirm: true,
-      affected: {
-        booking_count: bookings.length, session_count: sessions.length,
-        bookings: bookings.slice(0, 5).map(({ id, code, start_at }) => ({ id, code, start_at })),
-        sessions: sessions.slice(0, 5).map(({ id, start_at }) => ({ id, start_at })),
-      },
-    });
-  }
-  // Bước 3: Hủy từng lượt đặt sân bị ảnh hưởng: hoàn 100% tiền mặt không thu phí vì lỗi xuất phát từ phía cơ sở vật chất.
-  for (const booking of bookings) {
-    // Include earlier desk refunds in the cap, including cash still awaiting collection.
-    await sql.query(`select id from users where id = $1 for update`, [booking.user_id]);
-    const returned = await one<{ amount: number }>(sql,
-      `select coalesce(-sum(amount_vnd), 0)::int as amount from payments
-        where ref_type = 'booking' and ref_id = $1 and amount_vnd < 0 and status in ('posted','refund_pending')`, [booking.id]);
-    // Trừ đi số tiền đã hoàn trước đó (nếu có) để tính số tiền hoàn trả còn lại chính xác.
-    const refund = Math.max(0, booking.paid_vnd - (returned?.amount ?? 0));
-    // Giải phóng trạng thái giữ chỗ (occupancy) của sân và cập nhật chính sách hoàn 100% (không tính phí hủy).
-    await sql.query(`select occupancy_release_booking($1::uuid, 'cancelled'::booking_status)`, [booking.id]);
-    await sql.query(`update court_bookings set cancel_refund_pct = 100, cancel_fee_vnd = 0 where id = $1`, [booking.id]);
-    // Tạo giao dịch hoàn tiền mặt ở trạng thái 'refund_pending' (số tiền âm) để khách đến quầy nhận lại tiền.
-    if (refund > 0) {
-      await sql.query(
-        `insert into payments (code,user_id,method,amount_vnd,vat_rate,status,ref_type,ref_id,created_by)
-         values ($1,$2,'cash',$3,0,'refund_pending','booking',$4,$5)`,
-        [await nextCode(sql, "PAY"), booking.user_id, -refund, booking.id, user.id],
-      );
-      // Thu hồi điểm thưởng tương ứng và khôi phục voucher/mã giảm giá nếu đơn được hoàn đủ 100%.
-      await reconcileLoyaltyRefund(sql, booking.user_id);
-      await restoreIfFullyRefunded(sql, "booking", booking.id);
-    }
-    // Gửi thông báo in-app cho khách hàng và ghi nhật ký kiểm toán với lý do 'court_maintenance'.
-    await enqueue(sql, "inapp", "booking_cancelled", booking.user_id,
-      { id: booking.id, fee_vnd: 0, refund_vnd: refund }, `booking_cancelled|${booking.id}`);
-    await audit(sql, user.id, "cancel_booking", "booking", booking.id, null,
-      { refund_pct: 100, fee_vnd: 0, refund_vnd: refund, reason: "court_maintenance" });
-  }
-  // Bước 4: Đối với các buổi học lớp, gửi thông báo in-app đến HLV phụ trách và tất cả quản lý để kịp thời sắp xếp đổi sân.
-  if (sessions.length) {
-    const managers = await sql.query<{ id: string }>(`select id from users where role = 'manager' and status = 'active'`);
-    const activation = crypto.randomUUID();
-    for (const session of sessions) {
-      for (const recipient of new Set([...managers.map((m) => m.id), session.coach_id])) {
-        await enqueue(sql, "inapp", "maintenance_session", recipient,
-          { session_id: session.id, class_id: session.class_id, court_id: courtId, start_at: session.start_at },
-          `maintenance_session|${activation}|${session.id}|${recipient}`);
-      }
-    }
-  }
-}
-
 /**
  * Làm gì: Đồng bộ trạng thái của sân (courts.status) theo các phiếu bảo trì đang hoạt động.
  * Nếu còn ít nhất một phiếu 'open' hoặc 'in_progress' có blocks_court = true thì chuyển sân sang 'maintenance', ngược lại trả về 'ready'.
@@ -1528,13 +1447,20 @@ type InvoiceExportRow = {
   amount_vnd: number;
   payment_code: string;
   status: string;
+  kind: "sale" | "adjustment";
+  adj_code: string | null;
+  adj_form_no: string | null;
+  adj_serial_no: string | null;
+  adj_issued_at: string | null;
 };
 
 const EXPORT_SELECT = `select i.id, i.code, i.issued_at::text as issued_at, i.form_no, i.serial_no, i.buyer_name, i.buyer_tax_code,
         i.buyer_address, i.buyer_phone, i.seller_legal_name, i.seller_tax_code, i.seller_address,
         i.subtotal_vnd, i.vat_rate, i.vat_vnd, i.total_vnd,
-        p.method::text as method, p.amount_vnd, p.code as payment_code, p.status::text as status
-   from invoices i join payments p on p.id = i.payment_id`;
+        p.method::text as method, p.amount_vnd, p.code as payment_code, p.status::text as status,
+        i.kind, o.code as adj_code, o.form_no as adj_form_no, o.serial_no as adj_serial_no, o.issued_at::text as adj_issued_at
+   from invoices i join payments p on p.id = i.payment_id
+   left join invoices o on o.id = i.adjusts_invoice_id`;
 
 /**
  * An invoice as the structured data Vietnamese e-invoice providers import.
@@ -1568,6 +1494,12 @@ function invoiceXml(inv: InvoiceExportRow, lines: { description: string; unit: s
     `      <NLap>${esc(inv.issued_at.slice(0, 10))}</NLap>`,
     `      <DVTTe>VND</DVTTe>`,
     `      <HTTToan>${esc(inv.method === "cash" ? "TM" : inv.method === "transfer" ? "CK" : inv.method === "card" ? "TM/CK" : "Khác")}</HTTToan>`,
+    // Hóa đơn điều chỉnh (TCHDon 2) phải dẫn chiếu hóa đơn bị điều chỉnh: mẫu số, ký hiệu, số, ngày lập.
+    ...(inv.kind === "adjustment"
+      ? [
+          `      <TTHDLQuan><TCHDon>2</TCHDon><LHDCLQuan>1</LHDCLQuan><KHMSHDCLQuan>${esc(inv.adj_form_no ?? "")}</KHMSHDCLQuan><KHHDCLQuan>${esc(inv.adj_serial_no ?? "")}</KHHDCLQuan><SHDCLQuan>${esc(inv.adj_code ?? "")}</SHDCLQuan><NLHDCLQuan>${esc(inv.adj_issued_at?.slice(0, 10) ?? "")}</NLHDCLQuan></TTHDLQuan>`,
+        ]
+      : []),
     `    </TTChung>`,
     `    <NDHDon>`,
     `      <NBan><Ten>${esc(inv.seller_legal_name)}</Ten><MST>${esc(inv.seller_tax_code)}</MST><DChi>${esc(inv.seller_address)}</DChi></NBan>`,
@@ -1684,8 +1616,10 @@ export async function invoiceExportList(sql: Sql, request: Request, user: Public
   // Bước 2: Truy vấn danh sách hóa đơn có phân trang, chuyển múi giờ ngày phát hành sang 'Asia/Ho_Chi_Minh'.
   const items = await sql.query(
     `select i.id, i.code, i.issued_at::text as issued_at, i.buyer_name, i.buyer_tax_code, i.total_vnd, i.vat_vnd,
-            i.exported_at::text as exported_at, p.status::text as status
+            i.exported_at::text as exported_at, p.status::text as status,
+            i.kind, o.code as adj_code
        from invoices i join payments p on p.id = i.payment_id
+       left join invoices o on o.id = i.adjusts_invoice_id
       where (i.issued_at at time zone 'Asia/Ho_Chi_Minh')::date between $1::date and $2::date
       order by i.issued_at desc limit $3 offset $4`,
     [from, to, limit, offset],
@@ -1741,7 +1675,7 @@ export async function invoiceExport(sql: Sql, request: Request, user: PublicUser
     return xmlResponse(`hoa-don-${from}_${to}.xml`, body);
   }
   // Bước 5: Xử lý xuất định dạng CSV: tạo tiêu đề cột và chuyển đổi từng dòng hóa đơn qua hàm csvCell an toàn.
-  const head = ["So_hoa_don", "Ngay_lap", "Mau_so", "Ky_hieu", "Ten_nguoi_mua", "MST_nguoi_mua", "Tien_truoc_thue", "Thue_suat_%", "Tien_thue", "Tong_tien", "Hinh_thuc_TT", "Ma_thanh_toan", "Trang_thai"];
+  const head = ["So_hoa_don", "Ngay_lap", "Mau_so", "Ky_hieu", "Ten_nguoi_mua", "MST_nguoi_mua", "Tien_truoc_thue", "Thue_suat_%", "Tien_thue", "Tong_tien", "Hinh_thuc_TT", "Ma_thanh_toan", "Trang_thai", "Loai", "HD_goc"];
   const out = [head.join(",")];
   for (const r of rows) {
     out.push(
@@ -1759,6 +1693,8 @@ export async function invoiceExport(sql: Sql, request: Request, user: PublicUser
         r.method,
         r.payment_code,
         r.status,
+        r.kind === "adjustment" ? "dieu_chinh_giam" : "ban_hang",
+        r.adj_code ?? "",
       ]
         .map(csvCell)
         .join(","),

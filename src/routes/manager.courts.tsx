@@ -7,7 +7,7 @@
  */
 import { createFileRoute } from "@tanstack/react-router";
 import { AlertTriangle, Plus, RefreshCw } from "lucide-react";
-import { Shell } from "@/client/components/shell";
+import { Shell, when } from "@/client/components/shell";
 import { PageHero } from "@/client/components/page-hero";
 import { StatStrip } from "@/client/components/stat-strip";
 import { RowActions } from "@/client/components/row-actions";
@@ -42,7 +42,7 @@ function Page() {
     createName, setCreateName, createSortOrder, setCreateSortOrder, createSubmitting, editing,
     setEditing, editCode, setEditCode, editName, setEditName, editSortOrder, setEditSortOrder,
     editSport, setEditSport, editSubmitting, retiring, setRetiring, retireSubmitting,
-    blockedRetire, setBlockedRetire, actionBusy, total, filtered, pagedItems, handleCreate,
+    blockedRetire, setBlockedRetire, blockConfirm, setBlockConfirm, actionBusy, total, filtered, pagedItems, handleCreate,
     startEdit, handleEdit, handleStatusChange, handleRetire, handleRestore, statItems,
   } = useManagerCourts();
 
@@ -352,6 +352,43 @@ function Page() {
             </Button>
           </div>
         </div>
+      </Modal>
+
+      {/* Court going out of service with bookings or class sessions ahead (409, requires_confirm) */}
+      <Modal
+        open={!!blockConfirm}
+        onClose={() => { if (!actionBusy) setBlockConfirm(null); }}
+        title={t("Block this court?")}
+      >
+        {blockConfirm ? (
+          <div className="grid gap-4">
+            <p className="text-sm">
+              {t("{bookings} bookings will be cancelled. Refunds are collected in cash at the front desk. {sessions} class sessions need moving or cancelling by the manager and coach.", {
+                bookings: blockConfirm.affected.booking_count, sessions: blockConfirm.affected.session_count,
+              })}
+            </p>
+            {blockConfirm.affected.session_count > 0 ? (
+              <p className="text-xs text-muted">{t("Students in those classes are told their court is under maintenance.")}</p>
+            ) : null}
+            <p className="text-xs font-semibold text-fg">{t("First affected start times")}</p>
+            <ul className="grid gap-1.5 text-sm">
+              {blockConfirm.affected.bookings.map((b) => <li key={b.id}>{t("Booking")} {b.code} · {when(b.start_at)}</li>)}
+              {blockConfirm.affected.sessions.map((s) => <li key={s.id}>{t("Class session")} · {when(s.start_at)}</li>)}
+            </ul>
+            <div className="mt-2 flex justify-end gap-2">
+              <Button variant="ghost" type="button" disabled={!!actionBusy} onClick={() => setBlockConfirm(null)}>
+                {t("Back")}
+              </Button>
+              <Button
+                variant="danger"
+                disabled={!!actionBusy}
+                onClick={() => void handleStatusChange(blockConfirm.court, blockConfirm.status, true)}
+              >
+                {t("Confirm court closure")}
+              </Button>
+            </div>
+          </div>
+        ) : null}
       </Modal>
 
       {/* Blocked Retire Modal (409) */}

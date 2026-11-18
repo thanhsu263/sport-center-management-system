@@ -152,6 +152,10 @@ export type ApiErrorBody = {
   /** Set when a bulk save names the row that was refused. */
   index?: number;
   requires_confirm?: boolean;
+  /** Set when a new class clashes with a court booking: the first clashing session, and a later start that is free. */
+  clash_at?: string;
+  suggested_start_on?: string;
+  suggested_end_on?: string;
   affected?: {
     booking_count: number;
     session_count: number;
@@ -477,8 +481,17 @@ export async function downloadReport(path: string, fallbackName: string): Promis
  * which is a far better outcome than silence at the till.
  */
 export async function openInvoice(id: string): Promise<"opened" | "downloaded"> {
-  // Bước 1: Tải file PDF hóa đơn qua apiBlob và tạo Object URL trong bộ nhớ
-  const { blob, filename } = await apiBlob(`/invoices/${id}.pdf`);
+  return openPdf(`/invoices/${id}.pdf`, `receipt-${id}.pdf`);
+}
+
+/** The phiếu chi for a refund just paid out, for the customer to sign at the till. */
+export async function openRefundVoucher(paymentId: string): Promise<"opened" | "downloaded"> {
+  return openPdf(`/payments/${paymentId}/voucher.pdf`, `phieu-chi-${paymentId}.pdf`);
+}
+
+async function openPdf(path: string, fallbackName: string): Promise<"opened" | "downloaded"> {
+  // Bước 1: Tải file PDF qua apiBlob và tạo Object URL trong bộ nhớ
+  const { blob, filename } = await apiBlob(path);
   const url = URL.createObjectURL(blob);
   try {
     // Bước 2: Thử mở trực tiếp trong tab mới bằng window.open
@@ -487,7 +500,7 @@ export async function openInvoice(id: string): Promise<"opened" | "downloaded"> 
     // Bước 3: Nếu trình duyệt chặn mở tab mới (popup blocker), chuyển sang phương án tải thẳng file về máy
     const a = document.createElement("a");
     a.href = url;
-    a.download = filename ?? `receipt-${id}.pdf`;
+    a.download = filename ?? fallbackName;
     a.rel = "noopener";
     document.body.append(a);
     a.click();

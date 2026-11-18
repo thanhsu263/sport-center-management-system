@@ -64,7 +64,21 @@ export type InvoiceDoc = {
   vat_rate: number;
   vat_vnd: number;
   total_vnd: number;
+  /**
+   * `sale` (default) is the invoice for money taken. `adjustment` is the
+   * hóa đơn điều chỉnh giảm written when a refund is paid out; it names the
+   * invoice it reduces. `voucher` is the phiếu chi the customer signs at the
+   * till when they take the cash back.
+   */
+  kind?: "sale" | "adjustment" | "voucher";
+  adjusts?: { code: string; issued_at: string } | null;
 };
+
+const TITLES = {
+  sale: "HÓA ĐƠN BÁN HÀNG",
+  adjustment: "HÓA ĐƠN ĐIỀU CHỈNH GIẢM",
+  voucher: "PHIẾU CHI",
+} as const;
 
 /** `data:font/ttf;base64,…` → the bytes pdf-lib embeds. */
 /**
@@ -268,8 +282,17 @@ function drawHead(c: Cursor, doc: InvoiceDoc, wide: boolean) {
   c.gap(8);
 
   // Bước 2: Vẽ tiêu đề "HÓA ĐƠN BÁN HÀNG" căn giữa và ngày phát hành định dạng tiếng Việt
-  c.line("HÓA ĐƠN BÁN HÀNG", { size: wide ? 14 : 11, bold: true, align: "centre" });
+  c.line(TITLES[doc.kind ?? "sale"], { size: wide ? 14 : 11, bold: true, align: "centre" });
   c.line(longDate(doc.issued_at), { size: 8, align: "centre", grey: true });
+  // Hóa đơn điều chỉnh phải ghi rõ nó điều chỉnh hóa đơn nào.
+  if (doc.kind === "adjustment") {
+    c.line(
+      doc.adjusts
+        ? `Điều chỉnh giảm cho hóa đơn số ${doc.adjusts.code}, ${longDate(doc.adjusts.issued_at).toLowerCase()}`
+        : "Điều chỉnh giảm (không tìm thấy hóa đơn gốc trên hệ thống)",
+      { size: 8, align: "centre", bold: true },
+    );
+  }
   c.gap(2);
 
   // Bước 3: Ghép các thông tin định danh (Mẫu số, Ký hiệu, Số) và vẽ đường kẻ ngang kết thúc phần đầu
@@ -297,11 +320,12 @@ function drawHead(c: Cursor, doc: InvoiceDoc, wide: boolean) {
  */
 function drawBuyer(c: Cursor, doc: InvoiceDoc) {
   // Bước 1: Vẽ lần lượt các thông tin cá nhân của người mua hàng và phương thức thanh toán
-  c.line(`Họ tên người mua: ${doc.buyer.name}`, { size: 8.5 });
+  const voucher = doc.kind === "voucher";
+  c.line(`${voucher ? "Họ tên người nhận tiền" : "Họ tên người mua"}: ${doc.buyer.name}`, { size: 8.5 });
   if (doc.buyer.phone) c.line(`Điện thoại: ${doc.buyer.phone}`, { size: 8 });
   if (doc.buyer.address) c.line(`Địa chỉ: ${doc.buyer.address}`, { size: 8 });
-  c.line(`MST người mua: ${doc.buyer.tax_code ?? "-"}`, { size: 8 });
-  c.line(`Hình thức thanh toán: ${doc.method_label}    Chứng từ: ${doc.pay_code}`, { size: 8 });
+  if (!voucher) c.line(`MST người mua: ${doc.buyer.tax_code ?? "-"}`, { size: 8 });
+  c.line(`${voucher ? "Hình thức chi" : "Hình thức thanh toán"}: ${doc.method_label}    Chứng từ: ${doc.pay_code}`, { size: 8 });
   c.gap(6);
 }
 
@@ -340,7 +364,7 @@ function drawLines(c: Cursor, doc: InvoiceDoc, wide: boolean) {
 
   // Bước 2: Vẽ tiêu đề các cột và đường kẻ ngang ngăn cách tiêu đề với dữ liệu
   c.text("STT", { size: 7, bold: true, x: col.no });
-  c.text("Tên hàng hóa, dịch vụ", { size: 7, bold: true, x: col.desc });
+  c.text(doc.kind === "voucher" ? "Nội dung chi" : "Tên hàng hóa, dịch vụ", { size: 7, bold: true, x: col.desc });
   c.text("ĐVT", { size: 7, bold: true, x: col.unit });
   c.text("SL", { size: 7, bold: true, x: col.qty });
   if (wide) c.text("Đơn giá", { size: 7, bold: true, xRight: col.priceRight });
@@ -387,19 +411,29 @@ function drawTotals(c: Cursor, doc: InvoiceDoc) {
     c.y -= size + 5;
   };
   // Bước 1: Vẽ tiền hàng trước thuế và thuế suất GTGT kèm tiền thuế tương ứng
-  row("Cộng tiền hàng:", money(doc.subtotal_vnd));
-  // A 0% rate is a real configuration, not a missing one; label it as such so
-  // nobody reads the blank as "VAT was forgotten".
-  row(
-    `Thuế suất GTGT: ${doc.vat_rate > 0 ? `${doc.vat_rate}%` : "Không chịu thuế"}`,
-    money(doc.vat_vnd),
-  );
-  c.gap(1);
+  // A payment voucher moves cash, not goods: it carries no subtotal or VAT rows.
+  if (doc.kind !== "voucher") {
+    row("Cộng tiền hàng:", money(doc.subtotal_vnd));
+    // A 0% rate is a real configuration, not a missing one; label it as such so
+    // nobody reads the blank as "VAT was forgotten".
+    row(
+      `Thuế suất GTGT: ${doc.vat_rate > 0 ? `${doc.vat_rate}%` : "Không chịu thuế"}`,
+      money(doc.vat_vnd),
+    );
+    c.gap(1);
+  }
   // Bước 2: Vẽ tổng cộng tiền thanh toán nổi bật với cỡ chữ 10pt in đậm
-  row("TỔNG CỘNG TIỀN THANH TOÁN:", money(doc.total_vnd), true, 10);
+  const label =
+    doc.kind === "voucher" ? "SỐ TIỀN CHI:" : doc.kind === "adjustment" ? "TỔNG TIỀN ĐIỀU CHỈNH GIẢM:" : "TỔNG CỘNG TIỀN THANH TOÁN:";
+  row(label, money(doc.total_vnd), true, 10);
   c.gap(2);
-  // Bước 3: Chuyển đổi tổng tiền thanh toán thành chữ tiếng Việt qua hàm vndInWords
-  c.line(`Số tiền bằng chữ: ${vndInWords(doc.total_vnd)}`, { size: 8 });
+  // Bước 3: Chuyển đổi tổng tiền thanh toán thành chữ tiếng Việt qua hàm vndInWords.
+  // Hóa đơn điều chỉnh đọc "Giảm ..." thay vì "Âm ...", đúng cách ghi trên chứng từ.
+  const words =
+    doc.kind === "adjustment" && doc.total_vnd < 0
+      ? `Giảm ${lowerFirst(vndInWords(-doc.total_vnd))}`
+      : vndInWords(doc.total_vnd);
+  c.line(`Số tiền bằng chữ: ${words}`, { size: 8 });
   c.gap(6);
 }
 
@@ -412,16 +446,25 @@ function drawTotals(c: Cursor, doc: InvoiceDoc) {
  * @returns void.
  * @throws Không ném lỗi.
  */
-function drawFoot(c: Cursor, wide: boolean) {
-  // Bước 1: Vẽ phần chữ ký — khổ A5 hiển thị 2 cột (Người mua hàng & Người bán hàng), khổ 80mm chỉ hiển thị 1 cột người bán để tiết kiệm diện tích
+function drawFoot(c: Cursor, wide: boolean, kind: InvoiceDoc["kind"] = "sale") {
+  // Bước 1: Vẽ phần chữ ký — khổ A5 hiển thị 2 cột, khổ 80mm 1 cột. Phiếu chi: người nhận tiền ký
+  // ngay cả trên khổ 80mm, vì chữ ký đó là bằng chứng khách đã cầm tiền.
+  const voucher = kind === "voucher";
+  const left = voucher ? "Người nhận tiền" : "Người mua hàng";
+  const right = voucher ? "Thủ quỹ" : "Người bán hàng";
   if (wide) {
     const mid = (c.left + c.right) / 2;
-    c.text("Người mua hàng", { size: 8, x: c.left + 24, bold: true });
-    c.text("Người bán hàng", { size: 8, x: mid + 34, bold: true });
+    c.text(left, { size: 8, x: c.left + 24, bold: true });
+    c.text(right, { size: 8, x: mid + 34, bold: true });
     c.y -= 12;
     c.text("(Ký, ghi rõ họ tên)", { size: 6.5, x: c.left + 22, grey: true });
-    c.text("(Ký, đóng dấu, ghi rõ họ tên)", { size: 6.5, x: mid + 16, grey: true });
+    c.text(voucher ? "(Ký, ghi rõ họ tên)" : "(Ký, đóng dấu, ghi rõ họ tên)", { size: 6.5, x: mid + 16, grey: true });
     c.y -= 44;
+  } else if (voucher) {
+    c.line("Người nhận tiền (Ký, ghi rõ họ tên)", { size: 7.5, align: "centre", grey: true });
+    c.y -= 34;
+    c.line("Thủ quỹ (Ký, ghi rõ họ tên)", { size: 7.5, align: "centre", grey: true });
+    c.y -= 34;
   } else {
     c.line("Người bán hàng (Ký, ghi rõ họ tên)", { size: 7.5, align: "centre", grey: true });
     c.y -= 34;
@@ -457,7 +500,7 @@ export async function renderInvoicePdf(doc: InvoiceDoc, format: InvoiceFormat = 
   const bold = await pdf.embedFont(bytes.bold, { subset: true });
 
   // Bước 3: Thiết lập metadata tài liệu PDF (tiêu đề theo mã hóa đơn, người tạo Arena3)
-  pdf.setTitle(`Hóa đơn ${doc.code}`);
+  pdf.setTitle(`${doc.kind === "voucher" ? "Phiếu chi" : "Hóa đơn"} ${doc.code}`);
   pdf.setProducer("Arena3");
   pdf.setCreator("Arena3");
 
@@ -470,8 +513,13 @@ export async function renderInvoicePdf(doc: InvoiceDoc, format: InvoiceFormat = 
   drawBuyer(c, doc);
   drawLines(c, doc, wide);
   drawTotals(c, doc);
-  drawFoot(c, wide);
+  drawFoot(c, wide, doc.kind);
 
   // Bước 6: Lưu và xuất toàn bộ nội dung PDF ra mảng byte nhị phân Uint8Array
   return pdf.save();
+}
+
+/** "Năm mươi nghìn đồng./." → "năm mươi nghìn đồng./.", to follow a prefix. */
+function lowerFirst(s: string): string {
+  return `${s.charAt(0).toLowerCase()}${s.slice(1)}`;
 }

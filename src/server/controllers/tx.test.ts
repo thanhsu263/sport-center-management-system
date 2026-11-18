@@ -30,7 +30,7 @@ const authH = await import("./handlers/auth.ts");
 const { readJson, withIdempotency } = await import("./helpers.ts");
 const opsH = await import("./handlers/ops.ts");
 const { classesCreate, enrollmentDelete, classesEnroll, sessionReschedule, sessionCancel, classDetail, classRoster, classesPatch, classQuote } = await import("./handlers/classes.ts");
-const { bookingGet, bookingsReschedule, walkIn, bookingsHold, bookingsConfirm, bookingsCancel } = await import("./handlers/bookings.ts");
+const { bookingGet, bookingsReschedule, walkIn, bookingsHold, bookingsConfirm, bookingsCancel, courtsPatch } = await import("./handlers/bookings.ts");
 const { shiftClose, paymentsCreate, shiftCurrent, paymentsRefund, paymentsApproveRefund, paymentsRejectRefund, paymentsPayOutRefund } = await import("./handlers/desk.ts");
 const { waitlistAccept, inviteWaitlist, sessionAttendancePost } = await import("./handlers/ops.ts");
 const { waitlistExpire, notifyClassMinimums, notifyOverdueShifts } = await import("../data/jobs.ts");
@@ -587,6 +587,82 @@ describe("G6 maintenance commitments", () => {
   }
 });
 
+// Suite G6b: Quản lý đổi trạng thái sân ngay trên trang sân (không qua lệnh bảo trì).
+describe("G6b direct court status change", () => {
+  /**
+   * Làm gì: Chuyển sân từ ready sang maintenance qua courtsPatch phải hỏi xác nhận như lệnh bảo trì,
+   * rồi hủy booking tương lai (hoàn tiền), giữ buổi học và báo cho học viên của lớp trên sân đó.
+   */
+  it("asks first, then cancels bookings and tells the class's students", async () => {
+    const rollback = new Error("Roll back G6b fixtures");
+    await assert.rejects(withTx(async (sql) => {
+      const users = await sql.query<any>(
+        `insert into users (full_name,name_normalized,role,password_hash,phone)
+         select 'G6b ' || role,'g6b ' || role,role::user_role,'hash',substr(gen_random_uuid()::text,1,16)
+         from unnest(array['manager','coach','member']) role returning *`,
+      );
+      const manager = users.find((u) => u.role === "manager");
+      const coach = users.find((u) => u.role === "coach");
+      const member = users.find((u) => u.role === "member");
+      const court = (await sql.query<{ id: string }>(
+        `insert into courts (court_code,sport,status)
+         values ('GB-' || substr(gen_random_uuid()::text,1,5),'badminton','ready') returning id`,
+      ))[0];
+      const cls = (await sql.query<{ id: string }>(
+        `insert into classes (sport,level,coach_id,court_id,capacity,rrule,duration_min,start_on,end_on,status)
+         values ('badminton','beginner',$1,$2,10,'FREQ=WEEKLY;BYDAY=MO;BYHOUR=10',60,
+                 current_date - 7,current_date + 30,'open') returning id`, [coach.id, court.id],
+      ))[0];
+      await sql.query(`insert into enrollments (class_id,user_id,status) values ($1,$2,'confirmed')`, [cls.id, member.id]);
+      const booking = (await sql.query<{ id: string }>(
+        `with occupied as (
+           insert into occupancies (court_id,start_at,end_at,kind,ref_id)
+           values ($1,now() + interval '3 hours',now() + interval '4 hours','booking',gen_random_uuid()) returning *
+         ) insert into court_bookings (id,court_id,user_id,start_at,end_at,status,price_vnd,deposit_vnd,paid_vnd,code,channel,occupancy_id)
+           select ref_id,$1,$2,start_at,end_at,'confirmed',100000,0,0,'GB-' || substr(ref_id::text,1,20),'app',id from occupied returning id`,
+        [court.id, member.id],
+      ))[0];
+      for (const days of [2, 9]) {
+        await sql.query(
+          `with occupied as (
+             insert into occupancies (court_id,start_at,end_at,kind,ref_id)
+             values ($2,now() + $3 * interval '1 day',now() + $3 * interval '1 day' + interval '1 hour','session',gen_random_uuid()) returning *
+           ) insert into sessions (id,class_id,court_id,start_at,end_at,status,occupancy_id)
+             select ref_id,$1,$2,start_at,end_at,'scheduled',id from occupied`, [cls.id, court.id, days],
+        );
+      }
+      const request = (body: object) => new Request("http://test/courts", {
+        method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(body),
+      });
+      // Không confirm: 409 kèm danh sách, chưa đổi gì.
+      await assert.rejects(courtsPatch(sql, court.id, request({ status: "maintenance" }), manager), (error: any) => {
+        assert.equal(error.status, 409);
+        assert.equal(error.extra.requires_confirm, true);
+        assert.equal(error.extra.affected.booking_count, 1);
+        assert.equal(error.extra.affected.session_count, 2);
+        return true;
+      });
+      assert.equal((await sql.query<any>(`select status from courts where id = $1`, [court.id]))[0].status, "ready");
+      assert.equal((await sql.query<any>(`select status from court_bookings where id = $1`, [booking.id]))[0].status, "confirmed");
+      // Có confirm: sân bảo trì, booking hủy, học viên nhận 1 thông báo cho cả lớp.
+      await courtsPatch(sql, court.id, request({ status: "maintenance", confirm: true }), manager);
+      assert.equal((await sql.query<any>(`select status from courts where id = $1`, [court.id]))[0].status, "maintenance");
+      assert.equal((await sql.query<any>(`select status from court_bookings where id = $1`, [booking.id]))[0].status, "cancelled");
+      assert.equal((await sql.query<any>(`select count(*)::int n from outbox where template = 'booking_cancelled' and payload->>'id' = $1`, [booking.id]))[0].n, 1);
+      const notes = await sql.query<any>(`select user_id,payload from outbox where template = 'class_court_maintenance' and payload->>'class_id' = $1`, [cls.id]);
+      assert.equal(notes.length, 1);
+      assert.equal(notes[0].user_id, member.id);
+      assert.equal(notes[0].payload.session_count, 2);
+      assert.equal(notes[0].payload.sport, "badminton");
+      // Buổi học vẫn giữ nguyên, chờ quản lý và HLV dời hoặc hủy.
+      assert.equal((await sql.query<any>(`select count(*)::int n from sessions where class_id = $1 and status = 'scheduled'`, [cls.id]))[0].n, 2);
+      // Đưa sân về ready rồi đóng sân hẳn: không còn gì để hủy nên không hỏi lại.
+      await courtsPatch(sql, court.id, request({ status: "ready" }), manager);
+      throw rollback;
+    }), (error) => error === rollback);
+  });
+});
+
 // Suite G5: Cảnh báo không đạt sĩ số tối thiểu cho lớp học sắp diễn ra.
 describe("G5 class minimum warnings", () => {
   /**
@@ -783,6 +859,50 @@ describe("G4 voluntary class departure", () => {
         `select enrollment_id, status::text as status from waitlist_offers
           where enrollment_id in ($1,$2)`, [seat.id, queued.id],
       ), [{ enrollment_id: queued.id, status: "pending" }]);
+      throw rollback;
+    }), (error) => error === rollback);
+  });
+  /**
+   * Làm gì: Học viên đang giữ lời mời nhận chỗ mà rời hàng chờ thì lời mời bị thu hồi và người kế tiếp được mời.
+   * Được gọi ở: test runner (node --test)
+   * @returns {Promise<void>} Hoàn tất kiểm thử hoặc ném lỗi nếu sai kết quả
+   */
+  it("withdraws a pending offer when its holder leaves the waitlist and invites the next in line", async () => {
+    const rollback = new Error("Roll back G4 waitlist-leave fixtures");
+    await assert.rejects(withTx(async (sql) => {
+      const users = await sql.query<any>(
+        `insert into users (full_name, name_normalized, role, password_hash, phone)
+         select 'G4W ' || role, 'g4w ' || role, role::user_role, 'hash', substr(gen_random_uuid()::text, 1, 16)
+           from unnest(array['coach','member','member']) role returning *`,
+      );
+      const coach = users.find((u) => u.role === "coach");
+      const [first, second] = users.filter((u) => u.role === "member");
+      const court = (await sql.query<{ id: string }>(
+        `insert into courts (court_code, sport, status)
+         values ('GW-' || substr(gen_random_uuid()::text, 1, 5), 'badminton', 'ready') returning id`,
+      ))[0];
+      // One open seat, nobody seated: the first in line has been offered it.
+      const cls = (await sql.query<{ id: string }>(
+        `insert into classes (sport, level, coach_id, court_id, capacity, enrolled_count,
+                              rrule, duration_min, start_on, end_on, status)
+         values ('badminton','beginner',$1,$2,1,0,'FREQ=WEEKLY;BYDAY=MO;BYHOUR=10',60,
+                 '2099-01-01','2099-02-01','open') returning id`, [coach.id, court.id],
+      ))[0];
+      const [a, b] = await sql.query<{ id: string }>(
+        `insert into enrollments (class_id, user_id, status, waitlist_pos)
+         values ($1,$2,'waitlisted',1), ($1,$3,'waitlisted',2) returning id`, [cls.id, first.id, second.id],
+      );
+      await inviteWaitlist(sql, cls.id);
+      assert.deepEqual(await sql.query(
+        `select enrollment_id from waitlist_offers where enrollment_id in ($1,$2) and status = 'pending'`, [a.id, b.id],
+      ), [{ enrollment_id: a.id }]);
+      // The first member leaves the waitlist instead of claiming the seat.
+      const result = await enrollmentDelete(sql, a.id, toPublic(first));
+      assert.equal(result.status, 200);
+      assert.deepEqual(await sql.query(
+        `select enrollment_id, status::text as status from waitlist_offers
+          where enrollment_id in ($1,$2) order by status`, [a.id, b.id],
+      ), [{ enrollment_id: a.id, status: "expired" }, { enrollment_id: b.id, status: "pending" }]);
       throw rollback;
     }), (error) => error === rollback);
   });
@@ -2177,6 +2297,10 @@ describe("Round 5: Money & Cashier Shift unit tests (F-17, F-12, F-13, F-09)", (
       values ('PAY-RF-100K', $1, 'cash', 100000, 8, 'posted', 'booking', $2)
       returning id
     `, [shift.id, testBookingId])).rows[0];
+    const origInv = (await db.query<{ id: string }>(
+      "insert into invoices (code, payment_id, buyer_name, vat_rate, subtotal_vnd, vat_vnd, total_vnd) values ('INV-RF-100K', $1, 'Khách test', 8, 92592, 7408, 100000) returning id",
+      [pay.id]
+    )).rows[0];
 
     // Direct refund 40,000 cash by receptionist
     // Bước 3: Lễ tân tạo yêu cầu hoàn 40.000đ tiền mặt -> tạo giao dịch âm (-40.000đ) trạng thái refund_pending
@@ -2192,7 +2316,16 @@ describe("Round 5: Money & Cashier Shift unit tests (F-17, F-12, F-13, F-09)", (
 
     assert.equal((resRefund.body as any).payment.status, "refund_pending");
     // Bước 4: Thực hiện chi tiền hoàn từ két (paymentsPayOutRefund) và kiểm tra tổng tiền mặt ca trực giảm xuống còn 60.000đ (100k - 40k)
-    await withTx((sql) => paymentsPayOutRefund(sql, (resRefund.body as any).payment.id, receptionistUser));
+    const payOut = await withTx((sql) => paymentsPayOutRefund(sql, (resRefund.body as any).payment.id, receptionistUser));
+    // Chi xong phải có hóa đơn điều chỉnh giảm -40.000đ trỏ về hóa đơn gốc
+    const adj = (await db.query<{ kind: string; adjusts_invoice_id: string; total_vnd: number; subtotal_vnd: number; vat_vnd: number }>(
+      "select kind, adjusts_invoice_id, total_vnd, subtotal_vnd, vat_vnd from invoices where id = $1",
+      [(payOut.body as any).invoice_id]
+    )).rows[0];
+    assert.equal(adj?.kind, "adjustment");
+    assert.equal(adj?.adjusts_invoice_id, origInv.id);
+    assert.equal(adj?.total_vnd, -40000);
+    assert.equal(adj.subtotal_vnd + adj.vat_vnd, -40000);
     // Verify shift totals after cash payout: 100k - 40k = 60k
     const reqCurrent = new Request("http://localhost/v1/shifts/current");
     const cur = await withTx(async (sql) => shiftCurrent(sql, receptionistUser, reqCurrent));
@@ -3913,6 +4046,8 @@ describe("Round 10: Two-way Chat unit tests", () => {
      */
     async function setupA2() {
       // Bước 1: Xóa các bản ghi payments, cashier_shifts và users liên quan đến fixture A2 để tránh xung đột dữ liệu
+      await db.query("delete from invoice_lines where invoice_id in (select i.id from invoices i join payments p on p.id = i.payment_id where p.ref_id = $1)", [bookingId]);
+      await db.query("delete from invoices where payment_id in (select id from payments where ref_id = $1)", [bookingId]);
       await db.query("delete from payments where ref_id = $1", [bookingId]);
       await db.query("delete from cashier_shifts where receptionist_id in ($1, $2)", [receptionistUser.id, managerUser.id]);
       await db.query("delete from users where id in ($1, $2) or phone in ('+84999999002', '+84999999003')", [receptionistUser.id, managerUser.id]);
@@ -4919,6 +5054,8 @@ describe("Round 10: Two-way Chat unit tests", () => {
       await db.query("delete from enrollments where class_id in ($1, $2) or user_id in ($3, $4)", [classM1, classM2, memM1.id, memM2.id]);
       await db.query("delete from classes where id in ($1, $2)", [classM1, classM2]);
       await db.query("delete from subscriptions where user_id in ($1, $2)", [memM1.id, memM2.id]);
+      await db.query("delete from invoice_lines where invoice_id in (select i.id from invoices i join payments p on p.id = i.payment_id where p.user_id in ($1, $2))", [memM1.id, memM2.id]);
+      await db.query("delete from invoices where payment_id in (select id from payments where user_id in ($1, $2))", [memM1.id, memM2.id]);
       await db.query("delete from payments where user_id in ($1, $2)", [memM1.id, memM2.id]);
       await db.query("delete from users where id in ($1, $2, $3, $4, $5)", [memM1.id, memM2.id, coachM.id, mgrM.id, recM.id]);
     }
