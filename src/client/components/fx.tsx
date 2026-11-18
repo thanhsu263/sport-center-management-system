@@ -263,6 +263,7 @@ export function GlareHover({
  * @param radius Bán kính vùng cảm ứng từ tính tính bằng pixel (mặc định 130px).
  * @param pull Tỉ lệ dịch chuyển theo khoảng cách con trỏ (0 đến 1, mặc định 0.32 = dịch 32% khoảng cách).
  * @param wrapperClassName Lớp CSS cho thẻ span bao ngoài cố định vị trí.
+ * @param off Tắt lực hút (ví dụ khi nút đang bị khóa) và đưa phần tử về chỗ cũ.
  * @returns Thẻ JSX bao quanh phần tử với hiệu ứng dịch chuyển tọa độ phản hồi theo chuột.
  */
 export function Magnet({
@@ -271,9 +272,12 @@ export function Magnet({
   radius = 130,
   pull = 0.32,
   wrapperClassName,
+  off = false,
 }: {
   children: ReactNode;
   className?: string;
+  /** A disabled button has nothing to offer the pointer, so it stays where it is. */
+  off?: boolean;
   /** How close the pointer must get, in px, before the child reacts. */
   radius?: number;
   /** Fraction of the pointer offset the child travels. */
@@ -291,6 +295,11 @@ export function Magnet({
   // Bước 2: Đăng ký sự kiện pointermove trên window để đón đầu chuyển động trước khi chuột chạm vào phần tử.
   useEffect(() => {
     if (reduced) return;
+    if (off) {
+      x.set(0);
+      y.set(0);
+      return;
+    }
     // Tracked on the window, not the element: the point of a magnet is that it
     // reacts *before* the pointer arrives.
     const onMove = (e: PointerEvent) => {
@@ -311,7 +320,7 @@ export function Magnet({
     };
     window.addEventListener("pointermove", onMove, { passive: true });
     return () => window.removeEventListener("pointermove", onMove);
-  }, [radius, pull, reduced, x, y]);
+  }, [radius, pull, reduced, off, x, y]);
 
   // Bước 3: Trả về thẻ tĩnh nếu người dùng bật giảm chuyển động để tránh gây chóng mặt/mất tập trung.
   if (reduced) return <span className={wrapperClassName}>{children}</span>;
