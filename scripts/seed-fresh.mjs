@@ -271,6 +271,7 @@ export async function populate(db, asOf) {
   // ---- payments
   const shifts = new Map();
   let payN = 0;
+  const saleInvoice = new Map();
   const deskFor = date => desks[Math.abs(off(date)) % desks.length];
   function payment(refType, refId, user, amount, time, label, { method = null, unit = 'gói' } = {}) {
     if (+time > +now) throw new Error(`Payment in the future: ${label}`);
@@ -291,12 +292,16 @@ export async function populate(db, asOf) {
       capture_mode: m === 'gateway' ? 'auto' : 'manual', provider: m === 'gateway' ? 'payos' : null,
       provider_txn_id: m === 'gateway' ? `FT${ymd(time)}${String(n).padStart(6, '0')}` : null, discount_vnd: 0 });
     const net = Math.round(amount / (1 + vat / 100));
+    // A refund gets an adjustment invoice (hóa đơn điều chỉnh giảm) tied to the sale it reduces, as the desk issues it.
+    const adjusts = amount < 0 ? saleInvoice.get(`${refType}:${refId}`) ?? null : null;
     const inv = add('invoices', { id: id(`invoice:${n}`), code: code('INV', time), payment_id: pid,
+      kind: amount < 0 ? 'adjustment' : 'sale', adjusts_invoice_id: adjusts,
       buyer_name: user?.full_name ?? label.guest ?? 'Khách lẻ', buyer_phone: user?.phone ?? null, issued_at: time, form_no: '1',
       serial_no: `C${String(new Date(time).getUTCFullYear()).slice(2)}TAA`, seller_legal_name: settings.legal_name,
       seller_tax_code: settings.tax_code, seller_address: settings.address,
       subtotal_vnd: net, vat_rate: vat, vat_vnd: amount - net, total_vnd: amount });
-    add('invoice_lines', { id: id(`line:${n}`), invoice_id: inv.id, description: label.text ?? label, qty: 1, unit,
+    if (amount > 0) saleInvoice.set(`${refType}:${refId}`, inv.id);
+    add('invoice_lines', { id: id(`line:${n}`), invoice_id: inv.id, description: amount < 0 && !String(label.text ?? label).startsWith('Hoàn') ? `Hoàn tiền ${label.text ?? label}` : label.text ?? label, qty: 1, unit,
       unit_vnd: amount, amount_vnd: amount });
     if (user && amount > 0) add('outbox', { id: id(`receipt:${pid}`), channel: 'inapp', template: 'payment_receipt', user_id: user.id,
       payload: { payment_id: pid, invoice_id: inv.id, amount_vnd: amount, method: m }, dedupe_key: `receipt:${pid}`,
@@ -841,6 +846,7 @@ export async function verify(db, asOf) {
     memberPricing: "select count(*) n from court_bookings b where exists(select 1 from subscriptions s where s.user_id=b.user_id and (b.start_at at time zone 'Asia/Ho_Chi_Minh')::date between s.start_on and s.end_on) and b.price_vnd<>(select member_court_fee_vnd from center_settings limit 1)",
     listPricing: "select count(*) n from court_bookings b join courts c on c.id=b.court_id where not exists(select 1 from subscriptions s where s.user_id=b.user_id and (b.start_at at time zone 'Asia/Ho_Chi_Minh')::date between s.start_on and s.end_on) and not exists(select 1 from price_rules r where r.sport=c.sport and r.court_id is null and r.day_kind=case when extract(isodow from b.start_at at time zone 'Asia/Ho_Chi_Minh') in (6,7) then 'weekend' else 'weekday' end and r.start_local<=(b.start_at at time zone 'Asia/Ho_Chi_Minh')::time and r.end_local>=(b.end_at at time zone 'Asia/Ho_Chi_Minh')::time and r.price_vnd=b.price_vnd)",
     missingInvoices: "select count(*) n from payments p left join invoices i on i.payment_id=p.id where p.status='posted' and (i.id is null or i.total_vnd<>p.amount_vnd or i.subtotal_vnd+i.vat_vnd<>i.total_vnd)",
+    adjustmentInvoices: "select count(*) n from invoices i join payments p on p.id=i.payment_id where (p.amount_vnd<0)<>(i.kind='adjustment') or (i.kind='adjustment' and i.adjusts_invoice_id is null)",
     missingLines: "select count(*) n from invoices i where i.total_vnd<>(select sum(l.amount_vnd) from invoice_lines l where l.invoice_id=i.id)",
     enrollmentCounts: "select count(*) n from classes c where c.enrolled_count<>(select count(*) from enrollments e where e.class_id=c.id and e.status in ('confirmed','hold')) or c.enrolled_count>c.capacity",
     rosterSize: "select count(*) n from classes c where c.enrolled_count not between 6 and 9",
