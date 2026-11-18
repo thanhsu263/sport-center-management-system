@@ -6,7 +6,7 @@
  * cài đặt, ảnh trang. Xóa: mọi hoạt động và mọi tài khoản khác. Dựng lại: 6 môn, sân, bảng giá,
  * huấn luyện viên, lễ tân, ~32 lớp (6–9 học viên/lớp), hội viên, đặt sân, thanh toán, hóa đơn,
  * ca thu ngân, điểm danh, bảo trì sân, phiếu hỗ trợ, tin nhắn, nhật ký liên hệ, danh sách chờ, audit.
- * Hai lớp mới khai giảng sáng mai (07:00 và 08:00) để thử luồng điểm danh trực tiếp.
+ * Hai lớp đang học có buổi sáng mai (07:00 và 08:00) để thử luồng điểm danh trực tiếp.
  *
  * Xem trước (chỉ đọc): DATABASE_URL=... node scripts/seed-fresh.mjs
  * PGlite mới:          node scripts/seed-fresh.mjs --apply --data-dir .cache/fresh
@@ -92,12 +92,54 @@ const MALE_MID = ['Văn', 'Minh', 'Đức', 'Quốc', 'Hoàng', 'Thanh', 'Gia', 
 const FEMALE_MID = ['Thị', 'Ngọc', 'Thu', 'Thanh', 'Bảo', 'Minh', 'Phương', 'Kim', 'Hồng', 'Mỹ'];
 const SURNAMES = ['Nguyễn', 'Trần', 'Lê', 'Phạm', 'Hoàng', 'Huỳnh', 'Phan', 'Vũ', 'Võ', 'Đặng', 'Bùi', 'Đỗ', 'Hồ', 'Ngô', 'Dương', 'Lý', 'Trương', 'Đinh', 'Mai', 'Tạ'];
 
-const SLOTS = [
-  { days: ['MO', 'TH'], hour: 18 }, { days: ['TU', 'FR'], hour: 18 }, { days: ['WE', 'SA'], hour: 8 },
-  { days: ['MO', 'TH'], hour: 19 }, { days: ['TU', 'FR'], hour: 19 }, { days: ['WE', 'SA'], hour: 17 },
-];
+// Days, hour, opening date, weeks, level, audience/course title.
+const COURSES = {
+  badminton: [
+    ['MO,WE', 19, '2026-08-03', 8, 'beginner', 'Người lớn nhập môn'],
+    ['MO,WE,FR', 20, '2026-08-31', 16, 'advanced', 'Đội tuyển phong trào'],
+    ['SA,SU', 9, '2026-09-19', 12, 'beginner', 'Gia đình cuối tuần'],
+    ['TU,FR', 19, '2026-10-06', 12, 'intermediate', 'Đánh đôi công sở'],
+    ['WE,SA', 18, '2026-11-04', 8, 'intermediate', 'Nữ phong trào'],
+    ['TU,TH', 7, '2026-09-22', 16, 'beginner', 'Cầu lông ban mai'],
+  ],
+  basketball: [
+    ['TU,TH', 17, '2026-08-04', 8, 'beginner', 'Thiếu nhi 9–12 tuổi'],
+    ['MO,WE,FR', 18, '2026-08-24', 16, 'intermediate', 'Thiếu niên 13–16 tuổi'],
+    ['SA,SU', 10, '2026-09-12', 12, 'beginner', 'Gia đình cùng bóng rổ'],
+    ['TU,TH,SA', 19, '2026-10-13', 12, 'advanced', 'Chuẩn bị giải 3x3'],
+    ['MO,FR', 17, '2026-11-23', 8, 'beginner', 'Thiếu nhi khóa mùa đông'],
+  ],
+  volleyball: [
+    ['MO,TH', 20, '2026-08-10', 8, 'beginner', 'Công sở nhập môn'],
+    ['TU,WE,FR', 19, '2026-08-25', 16, 'advanced', 'Đội tuyển doanh nghiệp'],
+    ['WE,FR', 20, '2026-09-16', 12, 'intermediate', 'Bóng chuyền nữ'],
+    ['SA,SU', 8, '2026-10-03', 8, 'beginner', 'Nhóm bạn cuối tuần'],
+    ['TU,TH', 21, '2026-11-03', 12, 'intermediate', 'Phối hợp đội hình'],
+  ],
+  pickleball: [
+    ['MO,WE,FR', 6, '2026-08-03', 8, 'beginner', 'Khởi động ngày mới'],
+    ['TU,FR', 6, '2026-08-25', 16, 'intermediate', 'Đánh đôi buổi sớm'],
+    ['SA,SU', 7, '2026-09-05', 12, 'beginner', 'Gia đình làm quen sân'],
+    ['MO,TH', 18, '2026-09-28', 12, 'intermediate', 'Chiến thuật vùng bếp'],
+    ['WE,FR,SU', 19, '2026-10-21', 8, 'advanced', 'Chuẩn bị giải đôi'],
+    ['TU,TH', 20, '2026-12-01', 8, 'beginner', 'Công sở khóa tháng mười hai'],
+  ],
+  tennis: [
+    ['MO,FR', 6, '2026-08-07', 8, 'beginner', 'Quần vợt người lớn'],
+    ['WE,SA', 6, '2026-08-26', 16, 'intermediate', 'Giao bóng buổi sớm'],
+    ['SA,SU', 9, '2026-09-26', 12, 'beginner', 'Gia đình cuối tuần'],
+    ['MO,WE,FR', 19, '2026-10-05', 12, 'advanced', 'Luyện giải đơn'],
+    ['TU,TH', 8, '2026-10-06', 12, 'beginner', 'Quần vợt ban mai'],
+  ],
+  table_tennis: [
+    ['MO,WE', 17, '2026-08-03', 8, 'beginner', 'Thiếu nhi 8–11 tuổi'],
+    ['TU,TH,FR', 18, '2026-08-25', 16, 'intermediate', 'Thiếu niên 12–16 tuổi'],
+    ['SA,SU', 10, '2026-09-19', 12, 'beginner', 'Cha mẹ và con'],
+    ['MO,WE,FR', 20, '2026-10-12', 12, 'advanced', 'Đội tuyển bóng bàn'],
+    ['TU,SA', 17, '2026-11-03', 8, 'beginner', 'Thiếu nhi sau giờ học'],
+  ],
+};
 const DOW = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'];
-const LEVELS = ['beginner', 'intermediate', 'advanced'];
 const LEVEL_VI = { beginner: 'Cơ bản', intermediate: 'Trung cấp', advanced: 'Nâng cao' };
 
 // ---------------------------------------------------------------- wipe
@@ -169,7 +211,7 @@ export async function populate(db, asOf) {
     await db.query(`insert into sports (code,name_en,name_vi,court_prefix,color_key,glyph_key,is_scope_all,max_players,slot_duration_min,sort_order,enabled,retired_at)
       values ($1,$2,$3,$4,$5,$6,false,$7,60,$8,true,null)
       on conflict (code) do update set name_en=excluded.name_en, name_vi=excluded.name_vi, court_prefix=excluded.court_prefix,
-        color_key=excluded.color_key, max_players=excluded.max_players, sort_order=excluded.sort_order, enabled=true, retired_at=null`,
+        color_key=excluded.color_key, max_players=excluded.max_players, slot_duration_min=60, sort_order=excluded.sort_order, enabled=true, retired_at=null`,
       [s.code, s.name_en, s.name_vi, s.prefix, s.color, ['badminton', 'basketball', 'volleyball'].includes(s.code) ? s.code : 'generic', s.max, (i + 1) * 10]);
     for (let c = 1; c <= s.courts; c++) {
       const courtCode = `${s.prefix}-${String(c).padStart(2, '0')}`;
@@ -270,10 +312,10 @@ export async function populate(db, asOf) {
   const usedNames = new Set(users.map(u => u.full_name));
   const usedPhones = new Set(users.map(u => u.phone));
   let nameSeed = 0;
-  const makeName = () => {
+  const makeName = (femaleOnly = false) => {
     for (;;) {
       const k = nameSeed++;
-      const female = random(`gender:${k}`) < 0.5;
+      const female = femaleOnly || random(`gender:${k}`) < 0.5;
       const name = `${pick(SURNAMES, `sur:${k}`)} ${pick(female ? FEMALE_MID : MALE_MID, `mid:${k}`)} ${pick(female ? FEMALE : MALE, `given:${k}`)}`;
       if (!usedNames.has(name)) { usedNames.add(name); return name; }
     }
@@ -283,8 +325,8 @@ export async function populate(db, asOf) {
     return `${parts.slice(1).join('')}.${parts[0]}${n % 97}@example.com`;
   };
   let memberN = 100;
-  const newMember = (key, joined) => {
-    const name = makeName();
+  const newMember = (key, joined, femaleOnly = false) => {
+    const name = makeName(femaleOnly);
     const n = ++memberN;
     let phone;
     for (let k = 0; ; k++) { phone = `+849${String(Math.floor(random(`phone:${key}:${k}`) * 1e8)).padStart(8, '0')}`; if (!usedPhones.has(phone)) break; }
@@ -298,7 +340,6 @@ export async function populate(db, asOf) {
   };
   const existingMembers = users.filter(u => u.role === 'member').sort((a, b) => a.id.localeCompare(b.id));
   const subs = [];
-  const subOf = new Map();
   const endOf = (start, months) => {
     const d = new Date(`${start}T00:00:00Z`);
     const target = d.getUTCMonth() + months;
@@ -311,7 +352,6 @@ export async function populate(db, asOf) {
     const s = add('subscriptions', { id: id(`sub:${user.id}:${start}`), user_id: user.id, plan_id: plan.id, start_on: start, end_on: end,
       status: end < today ? 'expired' : 'active', price_vnd: plan.price_vnd, promo_discount_vnd: 0 });
     subs.push(s);
-    subOf.set(user.id, s);
     const paidAt = atDate(start, hour, Math.floor(random(`buy:${s.id}`) * 50));
     payment('subscription', s.id, user, plan.price_vnd, +paidAt > +now ? new Date(+now - 3600000) : paidAt, `Gói hội viên ${months} tháng`);
     return s;
@@ -322,16 +362,15 @@ export async function populate(db, asOf) {
   const classes = [];
   const plan = [];
   for (const s of SPORTS) {
-    const regular = { badminton: 5, basketball: 5, volleyball: 5, pickleball: 6, tennis: 4, table_tennis: 5 }[s.code];
     const pool = courts.filter(c => c.sport === s.code && !MAINTENANCE.includes(c.court_code));
-    for (let k = 0; k < regular; k++) plan.push({ sport: s, k, slot: SLOTS[k], coach: coachesOf(s.code)[k % 2], court: pool[k % pool.length],
-      level: LEVELS[[0, 1, 0, 2, 1, 0][k]], start_on: '2026-09-14', end_on: '2026-12-20' });
+    for (const [k, [days, hour, start_on, weeks, level, title]] of COURSES[s.code].entries()) {
+      const morning = (s.code === 'badminton' && hour === 7) || (s.code === 'tennis' && hour === 8);
+      plan.push({ sport: s, k, slot: { days: days.split(','), hour },
+        coach: morning ? findCoach(s.code === 'badminton' ? 'Trần Thị Lan' : 'Ngô Mỹ Linh') : coachesOf(s.code)[k % 2],
+        court: morning ? courtBy[s.code === 'badminton' ? 'CL-05' : 'TN-01'] : pool[k % pool.length],
+        level, title, start_on, end_on: day(off(start_on) + weeks * 7 - 1), fresh: start_on > today });
+    }
   }
-  // Hai lớp khai giảng sáng mai.
-  plan.push({ sport: SPORTS[0], k: 'morning', slot: { days: ['TU', 'TH'], hour: 7 }, coach: findCoach('Trần Thị Lan'),
-    court: courtBy['CL-05'], level: 'beginner', start_on: day(1), end_on: '2026-12-31', fresh: true });
-  plan.push({ sport: SPORTS[4], k: 'morning', slot: { days: ['TU', 'TH'], hour: 8 }, coach: findCoach('Ngô Mỹ Linh'),
-    court: courtBy['TN-01'], level: 'beginner', start_on: day(1), end_on: '2026-12-31', fresh: true });
   if (plan.some(p => !p.coach || !p.court)) throw new Error('Class plan is missing a coach or a court');
 
   const busy = new Set();
@@ -350,44 +389,51 @@ export async function populate(db, asOf) {
   };
   for (const [ci, p] of plan.entries()) {
     const s = p.sport;
-    const size = p.fresh ? 7 + (ci % 2) : 6 + Math.floor(random(`size:${ci}`) * 4);
+    const size = p.fresh ? 9 : 6 + Math.floor(random(`size:${ci}`) * 4);
     const full = ci === 2 || ci === 12;
     const nearlyFull = ci === 7;
     const capacity = full ? size : nearlyFull ? size + 1 : Math.max(10, size + 2);
     const price = s.tuition + (p.level === 'advanced' ? 300000 : p.level === 'intermediate' ? 150000 : 0);
     const cls = { id: id(`class:${s.code}:${p.k}`), sport: s.code, level: p.level, coach_id: p.coach.id, court_id: p.court.id,
       capacity, enrolled_count: size, rrule: `FREQ=WEEKLY;BYDAY=${p.slot.days.join(',')};BYHOUR=${p.slot.hour}`, duration_min: 60,
-      start_on: p.start_on, end_on: p.end_on, status: 'open', price_vnd: price, min_enrolled: 4,
-      description: descriptions[s.code][0], syllabus: descriptions[s.code][1],
-      who_for: p.level === 'beginner' ? 'Người mới bắt đầu hoặc chơi phong trào muốn học lại nền tảng.' : 'Hội viên đã chơi đều, muốn nâng kỹ thuật và thi đấu.',
+      start_on: p.start_on, end_on: p.end_on, status: p.end_on < today ? 'closed' : 'open', price_vnd: price, min_enrolled: 4,
+      description: `${p.title}. ${descriptions[s.code][0]}`, syllabus: descriptions[s.code][1],
+      who_for: `${p.title} — ${LEVEL_VI[p.level]}.`,
       bring: 'Giày thể thao đế mềm, nước uống, khăn; dụng cụ có thể thuê tại quầy.' };
     add('classes', cls);
     classes.push({ ...cls, plan: p, roster: [] });
-    const created = p.fresh ? at(-12, 10) : atDate('2026-08-20', 10);
+    const created = at(Math.max(first - 10, Math.min(off(p.start_on) - 14, -12)), 10);
     audit(created, manager, 'create_class', 'class', cls.id, { sport: s.code, level: p.level, rrule: cls.rrule });
     const cl = classes[classes.length - 1];
     for (let j = 0; j < size; j++) {
-      let u;
-      if (p.fresh) {
-        const joined = at(-10 + j, 9, 10 + j * 3);
-        u = newMember(`fresh:${ci}:${j}`, joined);
-        buy(u, 3, day(-10 + j), 9);
-      } else if (existingIdx < existingMembers.length) {
-        u = existingMembers[existingIdx++];
-        const start = u.id.endsWith('0004') ? '2026-08-05' : day(first + Math.floor(random(`join:${u.id}`) * 38));
-        u.created_at = atDate(start, 8, 30);
-        buy(u, u.id.endsWith('0004') || random(`len:${u.id}`) < 0.35 ? 12 : 6, start);
-      } else {
-        const start = day(first + Math.floor(random(`join:${joinSeq}`) * 38));
-        u = newMember(`class:${joinSeq++}`, atDate(start, 8, Math.floor(random(`jm:${joinSeq}`) * 50)));
-        buy(u, random(`len:${u.id}`) < 0.35 ? 12 : 6, start);
-      }
-      const e = add('enrollments', { id: id(`enroll:${cls.id}:${u.id}`), class_id: cls.id, user_id: u.id, status: 'confirmed',
-        prepaid_sessions: 0, price_vnd: price, extension_vnd: 0, promo_discount_vnd: 0 });
-      const sub = subOf.get(u.id);
-      const enrolDay = p.fresh ? sub.start_on : day(Math.max(off(sub.start_on), off('2026-09-01') + j));
+      // Membership precedes the course; the last two students enrol during it.
+      const start = day(Math.max(first, Math.min(off(p.start_on) - 3 - j % 7, -14 + j)));
+      const enrolDay = day(Math.min(-1, p.fresh ? off(start) + Math.floor(j / 2) : Math.max(off(start), off(p.start_on) + (j >= size - 2 ? 7 + (j % 3) * 7 : -3 + j % 3))));
       const enrolAt = atDate(enrolDay, 10, 5 + j * 4);
-      payment('enrollment', e.id, u, price, enrolAt, `Học phí lớp ${s.name_vi} ${LEVEL_VI[p.level]}`, { unit: 'khóa' });
+      let u;
+      if (existingIdx < existingMembers.length) {
+        u = existingMembers[existingIdx++];
+        u.created_at = atDate(start, 8, 30);
+      } else u = newMember(`class:${joinSeq++}`, atDate(start, 8, j * 5), /nữ/i.test(p.title));
+      if (/Thiếu nhi/.test(p.title)) u.date_of_birth = `${(s.code === 'table_tennis' ? 2015 : 2014) + j % 3}-05-12`;
+      else if (/Thiếu niên/.test(p.title)) u.date_of_birth = `${2010 + j % 4}-09-08`;
+      buy(u, random(`len:${u.id}`) < 0.35 ? 12 : 6, start);
+      const dropout = !p.fresh && p.end_on >= today && off(p.start_on) < -42 && p.k === 1 && ['badminton', 'basketball', 'pickleball'].includes(s.code) && j === size - 1 && size > 6;
+      const pending = p.fresh && j >= size - 2;
+      const overdue = pending && j === size - 2;
+      const leftAt = dropout ? at(-18, 12) : null;
+      const e = add('enrollments', { id: id(`enroll:${cls.id}:${u.id}`), class_id: cls.id, user_id: u.id,
+        status: dropout ? 'cancelled' : pending ? 'hold' : 'confirmed',
+        hold_until: pending ? new Date(+now + (overdue ? -120 : 120) * 60000) : null,
+        transfer_requested_at: pending ? new Date(+now - 20 * 60000) : null,
+        prepaid_sessions: 0, price_vnd: price, extension_vnd: 0, promo_discount_vnd: 0 });
+      if (dropout) { cls.enrolled_count--; cl.enrolled_count--; }
+      if (!pending) payment('enrollment', e.id, u, price, enrolAt, `Học phí ${p.title} — ${s.name_vi}`, { unit: 'khóa' });
+      audit(enrolAt, deskFor(enrolDay), 'enroll_class', 'enrollment', e.id, { class_id: cls.id, status: pending ? 'hold' : 'confirmed' });
+      if (leftAt) audit(leftAt, deskFor(localDate(leftAt)), 'cancel_enrollment', 'enrollment', e.id, { reason: 'Đổi lịch làm việc, dừng học giữa khóa' });
+      u.enrolledAt = enrolAt;
+      u.leftAt = leftAt;
+      u.pending = pending;
       add('member_levels', { user_id: u.id, sport: s.code, level: p.level, assessed_by: p.coach.id, updated_at: enrolAt });
       if (!rows.training_profiles?.some(t => t.user_id === u.id))
         add('training_profiles', { user_id: u.id, goal: ['technique', 'fun', 'weight', 'compete'][j % 4], updated_at: enrolAt });
@@ -399,7 +445,8 @@ export async function populate(db, asOf) {
       if (!p.slot.days.includes(DOW[dow(day(n))])) continue;
       const start = at(n, p.slot.hour), end = at(n, p.slot.hour + 1);
       const sid = id(`session:${cls.id}:${day(n)}`);
-      const done = +start <= +now;
+      const done = +end <= +now;
+      if (+start <= +now && !done) continue;
       const ses = { id: sid, class_id: cls.id, court_id: p.court.id, start_at: start, end_at: end, status: done ? 'done' : 'scheduled', occupancy_id: null };
       if (!done) {
         const occ = add('occupancies', { id: id(`occ:${sid}`), court_id: p.court.id, start_at: start, end_at: end, kind: 'session', ref_id: sid });
@@ -409,7 +456,9 @@ export async function populate(db, asOf) {
       add('coach_occupancies', { id: id(`coach-occ:${sid}`), coach_id: p.coach.id, session_id: sid, start_at: start, end_at: end });
       if (busy.has(key(p.coach.id, start))) throw new Error(`Coach clash ${p.coach.full_name} ${day(n)} ${p.slot.hour}h`);
       busy.add(key(p.coach.id, start));
+      if (courtBusy.has(key(p.court.id, start))) throw new Error(`Court clash ${p.court.court_code} ${day(n)}`);
       courtBusy.add(key(p.court.id, start));
+      // Reserve the whole course for confirmed members, matching verify() and app booking rules.
       for (const u of cl.roster) busy.add(key(u.id, start));
       list.push(ses);
     }
@@ -445,9 +494,9 @@ export async function populate(db, asOf) {
   }
 
   // ---- attendance, results, at-risk members
-  const regular = classes.filter(c => !c.plan.fresh);
-  const idleRisk = new Set(regular.slice(0, 5).map(c => c.roster[c.roster.length - 1].id));
-  const streakRisk = new Set(regular.slice(5, 9).map(c => c.roster[c.roster.length - 1].id));
+  const regular = classes.filter(c => !c.plan.fresh && c.end_on >= today && off(c.start_on) < -42);
+  const idleRisk = new Set(regular.slice(0, 5).map(c => c.roster.filter(u => !u.leftAt).at(-1).id));
+  const streakRisk = new Set(regular.slice(5, 9).map(c => c.roster.filter(u => !u.leftAt).at(-1).id));
   const sessionNotes = ['Bước chân nhanh hơn, cần giữ trọng tâm thấp.', 'Kỹ thuật ổn định, tăng tốc độ ra đòn.', 'Cần khởi động kỹ hơn trước bài tốc độ.', 'Phối hợp tốt với bạn tập, giữ nhịp thở đều.'];
   const corrected = [];
   for (const cl of classes) {
@@ -456,6 +505,7 @@ export async function populate(db, asOf) {
     for (const ses of sessionsOf.get(cl.id).filter(s => s.status === 'done')) {
       const age = off(localDate(ses.start_at));
       for (const [j, u] of cl.roster.entries()) {
+        if (u.pending || +ses.start_at < +u.enrolledAt || (u.leftAt && +ses.start_at >= +u.leftAt)) continue;
         let result;
         if ((idleRisk.has(u.id) && age >= -22) || (streakRisk.has(u.id) && age >= -12)) result = 'absent';
         else {
@@ -470,7 +520,7 @@ export async function populate(db, asOf) {
           row.checked_by = manager.id; row.reason = 'Quản lý sửa theo xác nhận của huấn luyện viên'; corrected.push(row);
         }
         if (result === 'present' || result === 'late') add('session_results', { id: id(`res:${ses.id}:${u.id}`), session_id: ses.id, user_id: u.id,
-          plan_pct: 60 + Math.floor(random(`pct:${ses.id}:${u.id}`) * 40), metrics: { practice_minutes: 45 + (j % 3) * 5 },
+          plan_pct: Math.min(98, 50 + Math.floor((+ses.start_at - +u.enrolledAt) / DAY / 3) + Math.floor(random(`pct:${ses.id}:${u.id}`) * 18)), metrics: { practice_minutes: 45 + (j % 3) * 5 },
           note: pick(sessionNotes, `note:${ses.id}:${u.id}`), recorded_by: coach.id, recorded_at: ses.end_at });
       }
     }
@@ -486,22 +536,24 @@ export async function populate(db, asOf) {
     if (cl.plan.fresh) continue;
     const coach = coaches.find(c => c.id === cl.coach_id);
     const [title, body, checklist] = hwTitles[ci % 3];
-    const hw = add('homework', { id: id(`hw:${cl.id}`), coach_id: coach.id, class_id: cl.id, title, body, checklist, due_on: day(4), created_at: at(-3, 21) });
-    for (const [j, u] of cl.roster.entries()) {
+    const reviewDay = Math.min(-6, off(cl.end_on) - 6);
+    const activeRoster = cl.roster.filter(u => !u.pending && !u.leftAt && +u.enrolledAt <= +at(reviewDay, 0));
+    const hw = add('homework', { id: id(`hw:${cl.id}`), coach_id: coach.id, class_id: cl.id, title, body, checklist, due_on: day(reviewDay + 6), created_at: at(reviewDay, 21) });
+    for (const [j, u] of activeRoster.entries()) {
       const done = j % 3 === 0;
-      add('homework_recipients', { homework_id: hw.id, user_id: u.id, done_items: done ? checklist : j % 3 === 1 ? checklist.slice(0, 1) : [], completed_at: done ? at(-1, 20) : null });
+      add('homework_recipients', { homework_id: hw.id, user_id: u.id, done_items: done ? checklist : j % 3 === 1 ? checklist.slice(0, 1) : [], completed_at: done ? at(reviewDay + 2, 20) : null });
     }
-    const target = cl.roster[ci % cl.roster.length];
+    const target = activeRoster[ci % activeRoster.length];
     add('coach_notes', { id: id(`cnote:${cl.id}`), user_id: target.id, coach_id: coach.id,
-      body: pick(['Tiến bộ rõ ở bước chân, cần thêm sức bền cho hiệp cuối.', 'Hay vội khi bóng nhanh, nhắc giữ nhịp và nhìn bóng.', 'Thái độ tập tốt, có thể lên nhóm trung cấp sau khóa.'], `cn:${ci}`), created_at: at(-4, 20) });
-    for (const [j, u] of cl.roster.slice(0, 3).entries()) {
+      body: pick(['Tiến bộ rõ ở bước chân, cần thêm sức bền cho hiệp cuối.', 'Hay vội khi bóng nhanh, nhắc giữ nhịp và nhìn bóng.', 'Thái độ tập tốt, có thể lên nhóm trung cấp sau khóa.'], `cn:${ci}`), created_at: at(reviewDay + 1, 20) });
+    for (const [j, u] of activeRoster.slice(0, 3).entries()) {
       add('progress_reviews', { id: id(`review:${cl.id}:${u.id}`), user_id: u.id, sport: cl.sport, coach_id: coach.id, period_weeks: 4,
         technique: 2 + ((ci + j) % 4), fitness: 2 + ((ci + j + 1) % 4), attitude: 3 + ((ci + j) % 3),
-        comment: pick(['Kỹ thuật ổn định hơn tháng trước.', 'Cần tập thêm thể lực ngoài giờ lớp.', 'Tham gia đều, phối hợp tốt với nhóm.'], `rv:${ci}:${j}`), created_at: at(-6 + j, 21) });
+        comment: pick(['Kỹ thuật ổn định hơn tháng trước.', 'Cần tập thêm thể lực ngoài giờ lớp.', 'Tham gia đều, phối hợp tốt với nhóm.'], `rv:${ci}:${j}`), created_at: at(reviewDay + j, 21) });
     }
     if (ci % 4 === 0) {
       const u = cl.roster[2];
-      audit(at(-5, 21), coach, 'student_level', 'user', u.id, { sport: cl.sport, level: cl.level });
+      audit(at(reviewDay + 1, 21), coach, 'student_level', 'user', u.id, { sport: cl.sport, level: cl.level });
     }
   }
 
@@ -533,7 +585,7 @@ export async function populate(db, asOf) {
   const perDay = new Map();
   const guestNames = () => makeName();
   let bn = 0;
-  const bookingStart = off('2026-10-05');
+  const bookingStart = first;
   for (let n = bookingStart; n <= 6; n++) {
     const date = day(n);
     const weekend = [0, 6].includes(dow(date));
@@ -543,7 +595,7 @@ export async function populate(db, asOf) {
         if (courtBusy.has(key(court.id, start))) continue;
         if (+start <= +now && +end > +now) continue;
         if (n >= -2 && MAINTENANCE.includes(court.court_code)) continue;
-        const base = hour >= 17 ? 0.55 : hour <= 7 ? 0.28 : 0.1;
+        const base = hour >= 17 ? 0.55 : weekend && hour <= 11 ? 0.42 : hour <= 7 ? 0.28 : 0.1;
         const load = base * (weekend ? 1.35 : 1) * (court.sport === 'badminton' || court.sport === 'pickleball' ? 1.1 : 0.7) * (n > 0 ? 0.55 : 1);
         if (random(`slot:${date}:${court.court_code}:${hour}`) >= load) continue;
         const future = +start > +now;
@@ -708,9 +760,9 @@ export async function populate(db, asOf) {
   };
   for (const [i, cl] of classes.entries()) {
     const coach = coaches.find(c => c.id === cl.coach_id);
-    for (const u of cl.roster.slice(0, 3)) writeConversation(u, coach, coachTopics, `${cl.id}:${u.id}`, cl.plan.fresh ? -8 : -40);
+    for (const u of cl.roster.slice(0, 3)) writeConversation(u, coach, coachTopics, `${cl.id}:${u.id}`, Math.max(off(localDate(u.enrolledAt)), -60));
     const u = cl.roster[3 + (i % 3)];
-    if (u) writeConversation(u, desks[i % desks.length], deskTopics, `desk:${u.id}`, -40);
+    if (u) writeConversation(u, desks[i % desks.length], deskTopics, `desk:${u.id}`, Math.max(off(localDate(u.enrolledAt)), -60));
   }
   for (const [i, { user }] of courtOnly.slice(0, 12).entries()) {
     const joined = off(subs.find(s => s.user_id === user.id).start_on);
@@ -739,12 +791,12 @@ export async function populate(db, asOf) {
     audit(at(Math.min(joined + 20, -1), 11, i % 50), deskFor(day(Math.min(joined + 20, -1))), 'update_member', 'user', u.id, { health_notes: 'Đã cập nhật số điện thoại người thân' });
   }
   for (const n of [-60, -38, -17, -3]) audit(at(n, 8, 30), manager, 'patch_settings', 'settings', null, { book_ahead_days: 7 }, { book_ahead_days: 6 });
-  for (const cl of classes.filter((c, i) => i % 7 === 3)) audit(at(-20, 15), manager, 'edit_class', 'class', cl.id, { description: 'Cập nhật giáo trình' });
+  for (const cl of classes.filter((c, i) => i % 7 === 3)) audit(at(Math.max(-20, Math.min(-1, off(cl.start_on))), 15), manager, 'edit_class', 'class', cl.id, { description: 'Cập nhật giáo trình' });
 
   // ---- write
   // Ngày tham gia của hội viên có sẵn.
-  for (const u of existingMembers) if (u.created_at) await db.query('update users set created_at=$2, pii_consent_at=coalesce(pii_consent_at,$2) where id=$1', [u.id, u.created_at]);
-  rows.users = rows.users.map(({ sport, ...u }) => u);
+  for (const u of existingMembers) if (u.created_at) await db.query('update users set created_at=$2, pii_consent_at=$2, date_of_birth=$3 where id=$1', [u.id, u.created_at, u.date_of_birth]);
+  rows.users = rows.users.map(({ sport, enrolledAt, leftAt, pending, ...u }) => u);
   const order = ['users', 'coach_sports', 'coach_rates', 'subscriptions', 'training_profiles', 'member_levels', 'classes', 'enrollments',
     'waitlist_offers', 'occupancies', 'sessions', 'coach_occupancies', 'court_bookings', 'cashier_shifts', 'payments', 'invoices',
     'invoice_lines', 'attendance', 'session_results', 'homework', 'homework_recipients', 'coach_notes', 'progress_reviews', 'contact_log',
@@ -765,6 +817,15 @@ export async function populate(db, asOf) {
 export async function verify(db, asOf) {
   const W = `'${WINDOW_START}T00:00:00+07:00'::timestamptz`;
   const checks = {
+    staffCounts: "select case when count(*) filter(where role='manager')=1 and count(*) filter(where role='coach')=12 and count(*) filter(where role='receptionist')=3 then 0 else 1 end n from users",
+    sportClassCounts: "select count(*) n from (select sport from classes group by sport having count(*) not between 5 and 6) q",
+    durations: "select (select count(*) from classes where duration_min<>60) + (select count(*) from sports where enabled and slot_duration_min<>60) + (select count(*) from sessions where end_at-start_at<>interval '60 minutes') + (select count(*) from court_bookings where end_at-start_at<>interval '60 minutes') n",
+    courseLengths: "select count(*) n from classes where end_on-start_on+1 not in (56,84,112)",
+    sessionCourseWindow: "select count(*) n from sessions s join classes c on c.id=s.class_id where (s.start_at at time zone 'Asia/Ho_Chi_Minh')::date not between c.start_on and c.end_on",
+    attendanceEnrollmentWindow: "select count(*) n from attendance a join sessions s on s.id=a.session_id join enrollments e on e.class_id=s.class_id and e.user_id=a.user_id where not exists(select 1 from audit_logs l where l.entity_id=e.id and l.action='enroll_class' and l.at<=s.start_at) or exists(select 1 from audit_logs l where l.entity_id=e.id and l.action='cancel_enrollment' and l.at<=s.start_at)",
+    completedResults: "select count(*) n from attendance a join sessions s on s.id=a.session_id where s.status='done' and a.result in ('present','late') and not exists(select 1 from session_results r where r.session_id=s.id and r.user_id=a.user_id)",
+    missingAttendance: "select count(*) n from sessions s join enrollments e on e.class_id=s.class_id where s.status='done' and e.status in ('confirmed','cancelled') and exists(select 1 from audit_logs l where l.entity_id=e.id and l.action='enroll_class' and l.at<=s.start_at) and not exists(select 1 from audit_logs l where l.entity_id=e.id and l.action='cancel_enrollment' and l.at<=s.start_at) and not exists(select 1 from attendance a where a.session_id=s.id and a.user_id=e.user_id)",
+    morningHistory: "select count(*) n from classes c join users u on u.id=c.coach_id where ((c.sport='badminton' and u.full_name='Trần Thị Lan' and c.rrule='FREQ=WEEKLY;BYDAY=TU,TH;BYHOUR=7') or (c.sport='tennis' and u.full_name='Ngô Mỹ Linh' and c.rrule='FREQ=WEEKLY;BYDAY=TU,TH;BYHOUR=8')) and (not exists(select 1 from sessions s join attendance a on a.session_id=s.id join session_results r on r.session_id=s.id and r.user_id=a.user_id where s.class_id=c.id and s.status='done') or not exists(select 1 from progress_reviews r where r.coach_id=c.coach_id and r.sport=c.sport))",
     staleBookings: "select count(*) n from court_bookings where status in ('hold','confirmed','in_use') and start_at <= $1",
     futureCompletedBookings: "select count(*) n from court_bookings where status in ('completed','no_show') and end_at > $1",
     staleSessions: "select count(*) n from sessions where status='scheduled' and start_at <= $1",
@@ -783,6 +844,7 @@ export async function verify(db, asOf) {
     missingLines: "select count(*) n from invoices i where i.total_vnd<>(select sum(l.amount_vnd) from invoice_lines l where l.invoice_id=i.id)",
     enrollmentCounts: "select count(*) n from classes c where c.enrolled_count<>(select count(*) from enrollments e where e.class_id=c.id and e.status in ('confirmed','hold')) or c.enrolled_count>c.capacity",
     rosterSize: "select count(*) n from classes c where c.enrolled_count not between 6 and 9",
+    confirmedRosterSize: "select count(*) n from classes c where (select count(*) from enrollments e where e.class_id=c.id and e.status='confirmed') not between 6 and 9",
     futurePayments: "select count(*) n from payments where created_at>$1",
     memberOverlaps: "select count(*) n from court_bookings a join court_bookings b on a.id<b.id and a.user_id=b.user_id and a.start_at<b.end_at and b.start_at<a.end_at where a.status<>'cancelled' and b.status<>'cancelled'",
     memberClassOverlaps: "select count(*) n from court_bookings b join enrollments e on e.user_id=b.user_id and e.status='confirmed' join sessions s on s.class_id=e.class_id and b.start_at<s.end_at and s.start_at<b.end_at where b.status<>'cancelled' and s.status<>'cancelled'",
