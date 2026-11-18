@@ -6,7 +6,19 @@
 import { useCallback, useEffect, useState } from "react";
 
 /** One line of the assistant conversation as both the widget and the full page keep it. */
-export type ChatMsg = { role: "me" | "bot"; text: string; source?: "gemini" | "xai" | "rules" };
+export type ChatMsg = { role: "me" | "bot"; text: string; source?: "gemini" | "xai" | "rules"; sig?: string };
+
+/**
+ * The thread as the server takes it back: the member's turns, and the assistant's
+ * turns with the seal the server put on them. The server drops a bot turn whose
+ * seal does not match, so an edited log cannot put words in the assistant's mouth.
+ */
+export function historyFor(log: ChatMsg[]): Array<{ role: ChatMsg["role"]; text: string; sig?: string }> {
+  return log
+    .filter((m) => m.role === "me" || typeof m.sig === "string")
+    .slice(-16)
+    .map((m) => (m.role === "me" ? { role: m.role, text: m.text } : { role: m.role, text: m.text, sig: m.sig }));
+}
 
 /** Enough for a conversation to survive a reload without the key growing for ever. */
 const LIMIT = 50;
@@ -60,6 +72,8 @@ function write(userId: string, log: ChatMsg[]) {
     window.localStorage.setItem(keyFor(userId), JSON.stringify(log.slice(-LIMIT)));
   } catch {
     // Private mode or a full quota: the conversation still works, it just won't survive a reload.
+    // No event either: every view would re-read the empty storage and wipe the thread it holds.
+    return;
   }
   // Bước 2: Bắn CustomEvent trên window mang theo userId để các component khác cùng tab (như widget góc màn hình và trang /app/assistant) cập nhật kịp thời
   try {
@@ -67,6 +81,15 @@ function write(userId: string, log: ChatMsg[]) {
   } catch {
     /* no window events */
   }
+}
+
+/**
+ * Làm gì: Thêm một tin nhắn vào lịch sử đã lưu của người dùng và báo cho mọi khung chat đang mở cùng tab.
+ * Chạy được cả khi component gửi câu hỏi đã bị gỡ (ví dụ widget góc màn hình khi mở trang /app/assistant).
+ * Được gọi ở: useChatLog (hàm append).
+ */
+export function saveChatMessage(userId: string, msg: ChatMsg): void {
+  write(userId, [...read(userId), msg].slice(-LIMIT));
 }
 
 /**
@@ -107,17 +130,15 @@ export function useChatLog(userId: string | null | undefined) {
   }, [userId]);
 
   /**
-   * Appends to the thread. Other mounted views follow through the same-tab event, so each view's
-   * state is current; writing from it (not a fresh read) keeps history alive when storage is off.
+   * Appends to the thread. The stored log, not this view's state, is what gets extended, so a
+   * reply still lands after the view is gone; other mounted views follow through the same-tab event.
    */
   const append = useCallback(
     (msg: ChatMsg) => {
-      setLogState((l) => {
-        const next = [...l, msg].slice(-LIMIT);
-        // Idempotent, so a doubled updater call in strict mode writes the same value twice.
-        if (userId) queueMicrotask(() => write(userId, next));
-        return next;
-      });
+      setLogState((l) => [...l, msg].slice(-LIMIT));
+      // Saved outside the updater: the widget unmounts when /app/assistant opens, and React
+      // never runs an unmounted component's updater, so a reply that landed after that was lost.
+      if (userId) saveChatMessage(userId, msg);
     },
     [userId],
   );
