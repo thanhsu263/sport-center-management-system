@@ -7,7 +7,7 @@
  * - Quản lý chi tiết từng lớp học (danh sách buổi học, học viên ghi danh) qua ClassDetailModal.
  */
 import { Link, createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Shell, money } from "@/client/components/shell";
 import { PageHero } from "@/client/components/page-hero";
@@ -114,6 +114,7 @@ function Page() {
   const [detail, setDetail] = useState<string | null>(null);
   // Bước 3: Khởi tạo state cho form tạo mới lớp học với các thông số mặc định (lặp thứ Ba/Năm lúc 19:00, thời lượng 60 ngày).
   const [creating, setCreating] = useState(false);
+  const createRef = useRef<HTMLDetailsElement>(null);
   const [days, setDays] = useState<string[]>(["TU", "TH"]);
   const [hour, setHour] = useState(19);
   const { sports } = useSports();
@@ -237,7 +238,7 @@ function Page() {
         className="mb-6"
       />
 
-      <details className="group mb-6 rounded-[var(--radius-xl)] border border-line bg-surface">
+      <details ref={createRef} className="group mb-6 rounded-[var(--radius-xl)] border border-line bg-surface">
         <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-3 rounded-[var(--radius-xl)] p-4 font-semibold text-fg focus-visible:outline-2 focus-visible:outline-accent">
           {t("Create class")}
           <span aria-hidden="true" className="text-xl text-accent group-open:rotate-45">+</span>
@@ -441,6 +442,7 @@ function Page() {
                 toast.success(t("Published {n} sessions", { n: pub.sessions.length }));
                 // Bước 4: Tải lại danh sách lớp học (classesRead.reload) để cập nhật giao diện hiển thị lớp mới vừa xuất bản.
                 load();
+                if (createRef.current) createRef.current.open = false;
               } catch (e) {
                 // Bước 5: Bắt lỗi nếu gọi API thất bại và hiển thị thông báo lỗi từ máy chủ qua toast.error.
                 // A clash with a court booking stays on the form with a later start to apply.
