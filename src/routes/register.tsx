@@ -137,6 +137,7 @@ function Register() {
   // Kiểm tra độ mạnh mật khẩu: tối thiểu 8 ký tự, phải gồm cả chữ cái và chữ số để đảm bảo an toàn tài khoản.
   const tooWeak =
     form.password.length > 0 && !(form.password.length >= 8 && /[A-Za-z]/.test(form.password) && /\d/.test(form.password));
+  const cannotSend = busy || !form.email || !form.dob || !form.pii_consent || mismatch || tooWeak || !form.password;
 
   /**
    * Làm gì: Xử lý gửi form đăng ký tài khoản tới API /auth/register, kèm thông tin người giám hộ (nếu chưa thành niên) và captcha; sau đó chuyển sang bước xác thực OTP.
@@ -384,16 +385,10 @@ function Register() {
                   {error.message}
                 </p>
               ) : null}
-              <Magnet radius={140} pull={0.22} wrapperClassName="w-full" className="w-full">
+              <Magnet radius={80} pull={0.05} off={cannotSend} wrapperClassName="w-full" className="w-full">
                 <Button
                   type="submit"
-                  disabled={
-                    busy ||
-                    !form.email ||
-                    !form.dob ||
-                    !form.pii_consent ||
-                    mismatch || tooWeak || !form.password
-                  }
+                  disabled={cannotSend}
                   className="w-full"
                 >
                   {busy ? t("Sending…") : t("Send the code")}
@@ -429,7 +424,7 @@ function Register() {
                   {error.message}
                 </p>
               ) : null}
-              <Magnet radius={140} pull={0.22} wrapperClassName="w-full" className="w-full">
+              <Magnet radius={80} pull={0.05} off={busy} wrapperClassName="w-full" className="w-full">
                 <Button type="submit" disabled={busy} className="w-full">
                   {t("Verify")}
                 </Button>
