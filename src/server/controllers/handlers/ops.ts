@@ -18,7 +18,8 @@ import { ATTENDANCE_LOCK_HOURS, PLAN_PHASES, INTENSITIES, attendanceLocked, isAt
 import { checkAbsentStreaks, sessionScope } from "./training";
 import { openShift, pickMethod } from "./extras";
 import { addDays, ictDateString } from "../../../shared/arena3/time";
-import { one } from "../tx";
+import { one, withTx } from "../tx";
+import { MAX_BOT_TURN, MAX_QUESTION, parseHistory, signReply } from "../../services/assistant-thread";
 import { payosConfigured } from "../../integrations/payos";
 import { centreBank } from "../../integrations/bank";
 import { pageParams, parseInteger } from "../validate";
@@ -1011,235 +1012,102 @@ export { ticketBody };
  * unlucky write.
  */
 function ticketQuota(userId: string): void {
-  // Áp dụng giới hạn tần suất tạo ticket: theo phút (chống spam) và theo giờ (ngăn quá tải bộ phận tiếp nhận)
   limit(`ticket:${userId}`, RULES.ticketCreate, "requests");
   limit(`ticket:${userId}:hour`, RULES.ticketCreateHourly, "requests");
 }
 
-// Dữ liệu đầu vào của hội viên gửi tới AI trợ lý sau khi bóc tách
-type AssistantChatParsedInput = {
-  message: string;
-  rawHistory: unknown;
-};
-
-// Thông tin lớp học đang mở để đưa vào ngữ cảnh cho AI tư vấn
-type AssistantChatOpenClass = {
-  sport: string;
-  level: string;
-  rrule: string;
-  enrolled_count: number;
-  capacity: number;
-  coach_name: string | null;
-  price_vnd: number | null;
-};
-
-// Lớp học có niêm yết giá bán để AI gợi ý đăng ký
-type AssistantChatClassOnSale = AssistantChatOpenClass & {
-  price_vnd: number;
-};
-
-// Lịch đặt sân trong ngày hôm nay của hội viên
-type AssistantChatTodayBooking = {
-  court_code: string;
-  start_at: string;
-  status: string;
-};
-
-// Thông tin gói hội viên và quyền lợi còn lại của người dùng
-type AssistantChatSubscription = {
-  plan: string;
-  start_on: string;
-  end_on: string;
-  status: string;
-  court_hours_left: string;
-  session_left: number | null;
-  days_left: number;
-};
-
-type AssistantChatEnrolledClass = {
-  sport: string;
-  level: string;
-  status: string;
-  waitlist_pos: number | null;
-  next_at: string | null;
-};
-
-type AssistantChatRecentAttendance = {
-  kind: string;
-  result: string | null;
-  at: string;
-  label: string | null;
-};
-
-type AssistantChatContextData = {
-  settings: Awaited<ReturnType<typeof getSettings>>;
-  classes: AssistantChatOpenClass[];
-  onSale: AssistantChatClassOnSale[];
-  todayBookings: AssistantChatTodayBooking[];
-  subs: AssistantChatSubscription[];
-  myClasses: AssistantChatEnrolledClass[];
-  recentAtt: AssistantChatRecentAttendance[];
-};
-
-type AssistantChatResponse = {
-  status: 200;
-  body: {
-    reply: string;
-    source: string;
-  };
-};
-
 /**
- * Làm gì: đọc dữ liệu từ request, cắt khoảng trắng và giới hạn độ dài câu hỏi tối đa 800 ký tự,
- *   đồng thời kiểm tra câu hỏi có đạt độ dài tối thiểu (ít nhất 2 ký tự) hay không.
- *   Vì sao: tin nhắn dưới 2 ký tự hoặc chỉ gồm khoảng trắng không đủ thông tin để trợ lý trả lời.
- * Được gọi ở: assistantChat, bước 2.
- * @param request Request POST /v1/assistant gửi lên từ giao diện chat của người dùng.
- * @returns Object AssistantChatParsedInput gồm câu hỏi đã làm sạch (message) và lịch sử chat thô (rawHistory).
- * @throws Lỗi 422 (validation) "Type a question first." nếu câu hỏi rỗng hoặc ngắn hơn 2 ký tự.
+ * Làm gì: Trợ lý AI trả lời câu hỏi của hội viên (POST /v1/assistant). Tin nhắn bắt đầu bằng "ticket:" thì mở phiếu hỗ trợ cho lễ tân
+ * (phiếu và audit ghi chung một transaction ngắn); câu hỏi thường thì gửi DATA BLOCK cùng lịch sử đã ký cho model,
+ * model không trả lời được thì dùng câu trả lời theo quy tắc (ruleReply).
+ * Được gọi ở: src/server/controllers/router.ts, route POST /v1/assistant qua `authedRead`, nên không giữ transaction trong lúc chờ model.
+ * @returns { reply, source, sig? }: sig là chữ ký HMAC của câu trả lời từ model, để lần hỏi sau gửi lại làm ngữ cảnh.
  */
-async function readAssistantChatMessage(
-  request: Request,
-): Promise<AssistantChatParsedInput> {
-  // Bước 1: Đọc body JSON và làm sạch câu hỏi (cắt khoảng trắng, giới hạn tối đa 800 ký tự để tránh vượt hạn mức token của mô hình AI).
-  const requestBody = await readJson(request);
-  const rawMessageText = str(requestBody.message) ?? "";
-  const sanitizedMessage = rawMessageText.trim().slice(0, 800);
-
-  // Bước 2: Kiểm tra độ dài tối thiểu (ít nhất 2 ký tự), báo lỗi 422 nếu câu hỏi rỗng hoặc quá ngắn.
-  const isMessageTooShort = sanitizedMessage.length < 2;
-  if (isMessageTooShort) {
-    throw err.validation("Type a question first.");
-  }
-
-  // Bước 3: Trả về câu hỏi đã được làm sạch cùng dữ liệu lịch sử chat thô nhận từ client.
-  return {
-    message: sanitizedMessage,
-    rawHistory: requestBody.history,
-  };
-}
-
-/**
- * Làm gì: trừ hạn mức gọi trợ lý ảo của người dùng theo quy tắc giới hạn tần suất (FR-A03).
- *   Vì sao: mỗi lượt gọi đều tốn chi phí kiểm tra cờ tính năng dù có gửi đến mô hình AI hay không,
- *   nên hạn mức phải được trừ ngay trước khi phân nhánh sang xử lý ticket.
- * Được gọi ở: assistantChat, bước 3.
- * @param userId Mã định danh UUID của người dùng, lấy từ user.id.
- * @throws Lỗi 429 nếu người dùng gọi vượt quá số câu hỏi cho phép trong một khoảng thời gian.
- */
-function limitAssistantChatUsage(userId: string): void {
+export async function assistantChat(sql: Sql, request: Request, user: PublicUser) {
+  await requireFlag(sql, "F6");
+  const body = await readJson(request);
+  const message = (str(body.message) ?? "").trim().slice(0, MAX_QUESTION);
+  if (message.length < 2) throw err.validation("Type a question first.");
+  // Rule-based and desk replies follow the member's language, as the model's do:
+  // Vietnamese words in the message, or the app shown in Vietnamese.
+  const vi = VI_TEXT.test(message) || body.lang === "vi";
   // The ceiling on the endpoint itself (FR-A03), charged before the branch
   // below rather than inside it: every turn costs a `requireFlag` query whether
   // or not it reaches the model, so a turn that goes to the desk still has to
   // be counted somewhere. A `ticket:` turn pays this and the desk's own,
   // tighter budget.
-  limit(`ai:${userId}`, RULES.assistant, "questions");
-}
+  limit(`ai:${user.id}`, RULES.assistant, "questions");
 
-/**
- * Làm gì: xử lý khi tin nhắn bắt đầu bằng tiền tố "ticket:", chuyển tiếp yêu cầu đến quầy lễ tân.
- *   Nếu nội dung sau tiền tố dưới 2 ký tự thì nhắc người dùng nhập tiếp; nếu hợp lệ thì trừ hạn mức ticket,
- *   lưu vào bảng tickets, ghi nhật ký kiểm toán và trả về thông báo kèm mã ticket để theo dõi.
- *   Vì sao: quầy lễ tân xử lý yêu cầu thủ công trong giờ làm việc nên áp dụng hạn mức gửi nghiêm ngặt hơn AI.
- * Được gọi ở: assistantChat, bước 4.
- * @param sql Kết nối database trong transaction do router mở.
- * @param user Thông tin người dùng đang đăng nhập (PublicUser).
- * @param message Toàn bộ nội dung tin nhắn người dùng đã gửi.
- * @returns Object AssistantChatResponse chứa câu trả lời và nguồn "rules".
- * @throws Lỗi 429 nếu người dùng gửi vượt quá hạn mức tạo ticket (từ ticketQuota).
- */
-async function handleAssistantTicketMessage(
-  sql: Sql,
-  user: PublicUser,
-  message: string,
-): Promise<AssistantChatResponse> {
-  // Bước 1: Tách phần nội dung sau tiền tố "ticket:" và kiểm tra độ dài tối thiểu (ít nhất 2 ký tự).
-  const ticketNote = ticketBody(message);
-
-  // "ticket:" and nothing else. Opening a blank request would put a row at the
-  // desk that nobody can answer, so ask for the rest before writing anything.
-  const isTicketNoteTooShort = ticketNote.length < 2;
-  if (isTicketNoteTooShort) {
+  // Only a marker at the very start goes to the desk (FR-S01). Matching
+  // "complaint", "feedback", "khiếu nại" or "góp ý" anywhere in the message
+  // turned "Is there a feedback form?" into a support request, so the one
+  // question the assistant was asked went unanswered.
+  if (isTicketMessage(message)) {
+    const note = ticketBody(message);
+    // "ticket:" and nothing else. Opening a blank request would put a row at the
+    // desk that nobody can answer, so ask for the rest before writing anything.
+    if (note.length < 2) {
+      return {
+        status: 200,
+        body: {
+          reply: vi
+            ? "Hãy viết điều cần báo sau ticket: để tôi chuyển cho quầy lễ tân."
+            : "Tell me what happened after ticket: and I'll pass it to the front desk.",
+          source: "rules" as const,
+        },
+      };
+    }
+    // Twenty a minute is a model-call budget; reception reads these by hand.
+    // After the blank check, so asking for the rest of a sentence costs only
+    // the endpoint ceiling above, not a slot in the desk's queue.
+    ticketQuota(user.id);
+    // The route runs outside a transaction so the model call below holds no
+    // connection. The ticket and its audit row commit together here: had the
+    // audit failed after the ticket was saved, the member would see an error,
+    // send again, and the desk would get the same request twice.
+    const t = await withTx(async (tx) => {
+      const row = await one<{ id: string }>(
+        tx,
+        `insert into tickets (user_id, body) values ($1,$2) returning id`,
+        [user.id, note],
+      );
+      await audit(tx, user.id, "assistant", "chat", user.id, null, { q: note.slice(0, 200), source: "ticket" });
+      return row;
+    });
     return {
       status: 200,
       body: {
-        reply: "Tell me what happened after ticket: and I'll pass it to the front desk.",
+        // Where to read the answer, not just that one is coming: the request
+        // used to vanish into a confirmation, and Account › Support is the
+        // only screen that has it and its reply.
+        reply: vi
+          ? `Đã mở yêu cầu ${t!.id.slice(0, 8)} gửi quầy lễ tân. Lễ tân trả lời trong giờ mở cửa — bạn xem yêu cầu và câu trả lời ở Tài khoản › Hỗ trợ.`
+          : `Opened request ${t!.id.slice(0, 8)} for the front desk. Reception replies during opening hours — you will find it, and the reply, under Account › Support.`,
         source: "rules" as const,
       },
     };
   }
 
-  // Bước 2: Kiểm tra và trừ hạn mức gửi ticket của hội viên (chỉ trừ sau khi đã kiểm tra nội dung không rỗng để tránh lãng phí hạn mức).
-  // Twenty a minute is a model-call budget; reception reads these by hand.
-  // After the blank check, so asking for the rest of a sentence costs only
-  // the endpoint ceiling above, not a slot in the desk's queue.
-  ticketQuota(user.id);
+  const q = message.toLowerCase();
 
-  // Bước 3: Tạo bản ghi yêu cầu hỗ trợ mới trong bảng tickets để nhân viên quầy lễ tân xử lý thủ công.
-  const insertedTicket = await one<{ id: string }>(
-    sql,
-    `insert into tickets (user_id, body) values ($1,$2) returning id`,
-    [user.id, ticketNote],
-  );
-
-  // Bước 4: Ghi nhật ký kiểm toán (audit log) ghi nhận yêu cầu gửi đến quầy lễ tân qua kênh trợ lý.
-  await audit(sql, user.id, "assistant", "chat", user.id, null, {
-    q: ticketNote.slice(0, 200),
-    source: "ticket",
-  });
-
-  // Bước 5: Cắt 8 ký tự đầu của UUID làm mã ticket rút gọn và trả về thông báo hướng dẫn hội viên theo dõi tại mục Account › Support.
-  const ticketShortId = insertedTicket!.id.slice(0, 8);
-  return {
-    status: 200,
-    body: {
-      // Where to read the answer, not just that one is coming: the request
-      // used to vanish into a confirmation, and Account › Support is the
-      // only screen that has it and its reply.
-      reply: `Opened request ${ticketShortId} for the front desk. Reception replies during opening hours — you will find it, and the reply, under Account › Support.`,
-      source: "rules" as const,
-    },
-  };
-}
-
-/**
- * Làm gì: truy vấn toàn bộ dữ liệu thực tế từ cơ sở dữ liệu để làm cơ sở cho trợ lý ảo trả lời:
- *   cài đặt trung tâm, danh sách lớp đang mở (kèm lớp có giá bán), lịch đặt sân sắp tới,
- *   gói hội viên hiện tại, lớp học đã đăng ký và lịch sử điểm danh gần đây của người hỏi.
- *   Vì sao: trợ lý ảo bắt buộc phải trả lời dựa trên dữ liệu thực tế tại trung tâm (grounded data),
- *   không tự suy diễn thông tin chưa được kiểm chứng.
- * Được gọi ở: assistantChat, bước 5.
- * @param sql Kết nối database trong transaction do router mở.
- * @param userId Mã định danh UUID của hội viên đang hỏi, dùng để lọc thông tin cá nhân.
- * @returns Object AssistantChatContextData chứa toàn bộ dữ liệu đã tra cứu và sắp xếp.
- */
-async function fetchAssistantChatContext(
-  sql: Sql,
-  userId: string,
-): Promise<AssistantChatContextData> {
-  // Bước 1: Lấy cấu hình hệ thống (giờ mở/đóng cửa, thời gian giữ chỗ, quy định độ tuổi, phí sân hội viên).
   const settings = await getSettings(sql);
-
-  // Bước 2: Lấy danh sách các lớp học đang mở tuyển sinh (status = 'open') kèm thông tin lịch học, sĩ số và huấn luyện viên phụ trách.
-  const classes = await sql.query<AssistantChatOpenClass>(
+  const classes = await sql.query<{
+    sport: string;
+    level: string;
+    rrule: string;
+    enrolled_count: number;
+    capacity: number;
+    coach_name: string | null;
+    price_vnd: number | null;
+  }>(
     `select cl.sport, cl.level, cl.rrule, cl.enrolled_count, cl.capacity, cl.price_vnd, u.full_name as coach_name
        from classes cl
        left join users u on u.id = cl.coach_id
       where cl.status = 'open'
       order by cl.sport, cl.level`,
   );
-
-  // Bước 3: Lọc riêng các lớp có học phí (price_vnd khác null) và sắp xếp tăng dần theo giá để trợ lý tư vấn lớp phù hợp ngân sách.
-  const onSale: AssistantChatClassOnSale[] = [];
-  for (const openClass of classes) {
-    if (openClass.price_vnd !== null) {
-      onSale.push(openClass as AssistantChatClassOnSale);
-    }
-  }
-  onSale.sort((firstClass, secondClass) => firstClass.price_vnd - secondClass.price_vnd);
-
-  // Bước 4: Lấy tối đa 20 lượt đặt sân gần nhất của hội viên (từ 12 giờ trước đến 7 ngày tới) với trạng thái hold hoặc confirmed.
-  const todayBookings = await sql.query<AssistantChatTodayBooking>(
+  const onSale = classes.filter((c): c is typeof c & { price_vnd: number } => c.price_vnd !== null).sort((a, b) => a.price_vnd - b.price_vnd);
+  const todayBookings = await sql.query<{ court_code: string; start_at: string; status: string }>(
     `select c.court_code, b.start_at::text, b.status
        from court_bookings b join courts c on c.id = b.court_id
       where b.user_id = $1
@@ -1248,11 +1116,12 @@ async function fetchAssistantChatContext(
         and b.start_at < now() + interval '7 days'
       order by b.start_at
       limit 20`,
-    [userId],
+    [user.id],
   );
-
-  // Bước 5: Lấy thông tin tối đa 4 gói hội viên, tính số ngày còn lại (days_left) theo múi giờ ICT Asia/Ho_Chi_Minh.
-  const subs = await sql.query<AssistantChatSubscription>(
+  const subs = await sql.query<{
+    plan: string; start_on: string; end_on: string; status: string;
+    court_hours_left: string; session_left: number | null; days_left: number;
+  }>(
     `select p.name as plan, s.start_on::text, s.end_on::text, s.status::text,
             s.court_hours_left::text, s.session_left,
             (s.end_on - (now() at time zone 'Asia/Ho_Chi_Minh')::date)::int as days_left
@@ -1261,22 +1130,18 @@ async function fetchAssistantChatContext(
       -- Live plans first, then the latest expired one so "my plan ran out on…" can be answered.
       order by (s.status = 'expired'), s.end_on desc
       limit 4`,
-    [userId],
+    [user.id],
   );
-
-  // Bước 6: Lấy các lớp học hội viên đã đăng ký (confirmed) hoặc đang ở danh sách chờ (waitlisted), kèm lịch buổi học tiếp theo.
-  const myClasses = await sql.query<AssistantChatEnrolledClass>(
+  const myClasses = await sql.query<{ sport: string; level: string; status: string; waitlist_pos: number | null; next_at: string | null }>(
     `select cl.sport::text, cl.level::text, e.status::text, e.waitlist_pos,
             (select min(se.start_at)::text from sessions se
               where se.class_id = cl.id and se.status = 'scheduled' and se.start_at >= now()) as next_at
        from enrollments e join classes cl on cl.id = e.class_id
       where e.user_id = $1 and e.status in ('confirmed','waitlisted')
       order by cl.sport, cl.level`,
-    [userId],
+    [user.id],
   );
-
-  // Bước 7: Lấy 5 lần điểm danh gần nhất của hội viên (gồm điểm danh vào cổng hoặc điểm danh buổi học) để nắm lịch sử tập luyện.
-  const recentAtt = await sql.query<AssistantChatRecentAttendance>(
+  const recentAtt = await sql.query<{ kind: string; result: string | null; at: string; label: string | null }>(
     `select a.kind::text, a.result::text, a.at::text, cl.sport || ' ' || cl.level as label
        from attendance a
        left join sessions se on se.id = a.session_id
@@ -1284,324 +1149,59 @@ async function fetchAssistantChatContext(
       where a.user_id = $1
       order by a.at desc
       limit 5`,
-    [userId],
+    [user.id],
   );
 
-  // Bước 8: Đóng gói toàn bộ thông tin ngữ cảnh thực tế trả về cho quy trình xây dựng prompt.
-  return {
-    settings,
-    classes,
-    onSale,
-    todayBookings,
-    subs,
-    myClasses,
-    recentAtt,
-  };
-}
+  const facts = [
+    `Centre: ${centreName(settings)}. Open ${settings.open_time.slice(0, 5)}–${settings.close_time.slice(0, 5)} ICT every day.`,
+    `Court holds last ${settings.hold_minutes} minutes. A customer who cancels a court or a class, or does not show up, gets no refund. If the centre cancels, the money comes back in cash at the desk. One membership covers every sport; plans differ only by length. A member whose plan is active on the day of the booking pays ${settings.member_court_fee_vnd.toLocaleString("en-US")}đ an hour for a court at any time; with no active plan that day the court costs its list price. A class charges tuition, and can be joined only when the membership ends after the class ends; otherwise buy or extend a plan first.`,
+    `Waitlists are first-come; an offer stands for ${settings.waitlist_offer_hours}h. Under-${settings.minor_age}s cannot book or enrol on their own.`,
+    // The screens by the names the member actually sees. Without these the model
+    // made up steps and rules ("cancel at least 2 hours before") that the app does not have.
+    `How to, in the app (Vietnamese menu name in brackets):
+• Book a court: Book (Đặt sân) → pick a court and a free hour → hold → pay at the desk before the hold runs out.
+• Cancel a court booking: open it under Book (Đặt sân) or on Home (Trang chủ) → Cancel (Huỷ). Possible any time before it starts, never after; no refund.
+• Change the time of a court booking: Book (Đặt sân) → Change time (Đổi giờ) on that booking. Possible until ${settings.cancel_court_hours} hours before it starts, to a free slot of the same price, at no charge; closer to the start, or to a slot priced differently, the only way is to cancel (no refund) and book again.
+• Join or leave a class: Classes (Lớp học). Attendance is under Classes → Attendance.
+• Plans and their dates: Plans (Gói tập). Check-in QR code: Pass (Mã QR). Notifications: Notifications (Thông báo).
+• Support requests and the desk's replies: Account › Support (Tài khoản › Hỗ trợ).
+There is no cancellation deadline, fee or notice period other than what is written here.`,
+    `Classes on sale:\n${onSale.map((c) => `• ${c.sport} ${c.level} · coach ${c.coach_name ?? "—"} · ${c.price_vnd.toLocaleString("en-US")}đ`).join("\n") || "—"}`,
+    `Open classes:\n${classes.map((c) => `• ${c.sport} ${c.level} · coach ${c.coach_name ?? "—"} · ${c.enrolled_count}/${c.capacity}`).join("\n") || "No classes are open."}`,
+    `Coaches:\n${COACHES.map((c) => `• ${c.name} — ${c.title}. ${c.blurb}`).join("\n")}`,
+    `Member asking: ${user.full_name} (${user.member_code ?? "no member code yet"}).`,
+    `Today's date (ICT): ${ictDateString()}.`,
+    `Member's plans:\n${subs.map((s) => `• ${s.plan} · ${s.status} · ${s.start_on} → ${s.end_on} (${s.days_left} days left)`).join("\n") || "No plan ever bought."}`,
+    `Member's classes:\n${myClasses.map((c) => `• ${c.sport} ${c.level} · ${c.status}${c.waitlist_pos !== null ? ` #${c.waitlist_pos}` : ""} · next session ${c.next_at ?? "none scheduled"}`).join("\n") || "Not enrolled in any class."}`,
+    `Court bookings, next 7 days:\n${todayBookings.map((b) => `• ${b.court_code} ${b.start_at} (${b.status})`).join("\n") || "Nothing booked."}`,
+    `Recent attendance:\n${recentAtt.map((a) => `• ${a.at} ${a.kind}${a.label ? ` ${a.label}` : ""}${a.result ? ` · ${a.result}` : ""}`).join("\n") || "No records."}`,
+  ].join("\n\n");
 
-/**
- * Làm gì: tổng hợp các thông tin của trung tâm và dữ liệu cá nhân của hội viên thành khối dữ liệu sự thật (DATA BLOCK),
- *   sau đó lồng vào chỉ dẫn hệ thống (system prompt) cho mô hình AI.
- *   Vì sao: quy định nghiêm ngặt trợ lý chỉ được trả lời trong phạm vi DATA BLOCK, không đưa ra lời khuyên y tế,
- *   không tự tạo ưu đãi hoặc bịa đặt giờ sân trống.
- * Được gọi ở: assistantChat, bước 6.
- * @param context Ngữ cảnh dữ liệu thực tế tra cứu từ fetchAssistantChatContext.
- * @param user Thông tin tài khoản người dùng đang hỏi (PublicUser), để đưa tên và mã hội viên vào prompt.
- * @returns Chuỗi system prompt hoàn chỉnh hướng dẫn vai trò và chứa khối dữ liệu DATA BLOCK.
- */
-function buildAssistantSystemPrompt(
-  context: AssistantChatContextData,
-  user: PublicUser,
-): string {
-  const { settings, onSale, classes, subs, myClasses, todayBookings, recentAtt } = context;
-
-  // Bước 1: Chuẩn bị thông tin cơ bản về trung tâm (tên trung tâm, khung giờ mở/đóng cửa theo giờ ICT).
-  const centreInfoFact = `Centre: ${centreName(settings)}. Open ${settings.open_time.slice(0, 5)}–${settings.close_time.slice(0, 5)} ICT every day.`;
-
-  // Bước 2: Chuẩn bị thông tin về chính sách hoàn hủy (hủy sân/lớp không hoàn tiền), thời gian giữ chỗ và phí thuê sân ưu đãi của hội viên.
-  const cancellationPolicyFact = `Court holds last ${settings.hold_minutes} minutes. A customer who cancels a court or a class, or does not show up, gets no refund. If the centre cancels, the money comes back in cash at the desk. One membership covers every sport; plans differ only by length. Covered on the day, a court costs ${settings.member_court_fee_vnd.toLocaleString("en-US")}đ an hour at any time; otherwise the list price. A class charges tuition, and can be joined only when the membership ends after the class ends; otherwise buy or extend a plan first.`;
-
-  // Bước 3: Chuẩn bị quy định về danh sách chờ lớp học (waitlist) và điều kiện tuổi tối thiểu để tự đặt sân/đăng ký lớp.
-  const waitlistPolicyFact = `Waitlists are first-come; an offer stands for ${settings.waitlist_offer_hours}h. Under-${settings.minor_age}s cannot book or enrol on their own.`;
-
-  // Bước 4: Định dạng danh sách các lớp học đang mở bán kèm tên huấn luyện viên và mức học phí theo VND.
-  let classesOnSaleContent = "—";
-  if (onSale.length > 0) {
-    const saleLines: string[] = [];
-    for (const classItem of onSale) {
-      const coachDisplayName = classItem.coach_name ?? "—";
-      const formattedPrice = classItem.price_vnd.toLocaleString("en-US");
-      saleLines.push(`• ${classItem.sport} ${classItem.level} · coach ${coachDisplayName} · ${formattedPrice}đ`);
-    }
-    classesOnSaleContent = saleLines.join("\n");
-  }
-  const classesOnSaleFact = `Classes on sale:\n${classesOnSaleContent}`;
-
-  // Bước 5: Định dạng danh sách toàn bộ lớp học đang mở kèm số lượng học viên đã đăng ký trên sĩ số tối đa.
-  let openClassesContent = "No classes are open.";
-  if (classes.length > 0) {
-    const openLines: string[] = [];
-    for (const classItem of classes) {
-      const coachDisplayName = classItem.coach_name ?? "—";
-      openLines.push(`• ${classItem.sport} ${classItem.level} · coach ${coachDisplayName} · ${classItem.enrolled_count}/${classItem.capacity}`);
-    }
-    openClassesContent = openLines.join("\n");
-  }
-  const openClassesFact = `Open classes:\n${openClassesContent}`;
-
-  // Bước 6: Định dạng danh sách đội ngũ huấn luyện viên (từ COACHES) kèm chức danh và tóm tắt chuyên môn.
-  const coachLines: string[] = [];
-  for (const coach of COACHES) {
-    coachLines.push(`• ${coach.name} — ${coach.title}. ${coach.blurb}`);
-  }
-  const coachesFact = `Coaches:\n${coachLines.join("\n")}`;
-
-  // Bước 7: Chuẩn bị thông tin định danh của người dùng (tên, mã hội viên) và ngày hiện tại theo giờ ICT để AI đối chiếu thời gian.
-  const memberCodeDisplay = user.member_code ?? "no member code yet";
-  const memberAskingFact = `Member asking: ${user.full_name} (${memberCodeDisplay}).`;
-
-  const todayDateFact = `Today's date (ICT): ${ictDateString()}.`;
-
-  // Bước 8: Định dạng danh sách các gói hội viên của người dùng kèm trạng thái và số ngày còn lại để trả lời về hạn sử dụng.
-  let plansContent = "No plan ever bought.";
-  if (subs.length > 0) {
-    const planLines: string[] = [];
-    for (const subscription of subs) {
-      planLines.push(`• ${subscription.plan} · ${subscription.status} · ${subscription.start_on} → ${subscription.end_on} (${subscription.days_left} days left)`);
-    }
-    plansContent = planLines.join("\n");
-  }
-  const memberPlansFact = `Member's plans:\n${plansContent}`;
-
-  // Bước 9: Định dạng danh sách các lớp học người dùng đang tham gia hoặc nằm trong danh sách chờ, kèm lịch học tiếp theo.
-  let myClassesContent = "Not enrolled in any class.";
-  if (myClasses.length > 0) {
-    const enrolledLines: string[] = [];
-    for (const enrolledClass of myClasses) {
-      let waitlistPositionSuffix = "";
-      if (enrolledClass.waitlist_pos !== null) {
-        waitlistPositionSuffix = ` #${enrolledClass.waitlist_pos}`;
-      }
-      const nextSessionSchedule = enrolledClass.next_at ?? "none scheduled";
-      enrolledLines.push(`• ${enrolledClass.sport} ${enrolledClass.level} · ${enrolledClass.status}${waitlistPositionSuffix} · next session ${nextSessionSchedule}`);
-    }
-    myClassesContent = enrolledLines.join("\n");
-  }
-  const memberClassesFact = `Member's classes:\n${myClassesContent}`;
-
-  // Bước 10: Định dạng danh sách các lượt đặt sân trong 7 ngày tới của hội viên (mã sân, thời gian bắt đầu, trạng thái).
-  let bookingsContent = "Nothing booked.";
-  if (todayBookings.length > 0) {
-    const bookingLines: string[] = [];
-    for (const booking of todayBookings) {
-      bookingLines.push(`• ${booking.court_code} ${booking.start_at} (${booking.status})`);
-    }
-    bookingsContent = bookingLines.join("\n");
-  }
-  const courtBookingsFact = `Court bookings, next 7 days:\n${bookingsContent}`;
-
-  // Bước 11: Định dạng lịch sử điểm danh gần đây của hội viên (thời gian, hình thức điểm danh và kết quả).
-  let attendanceContent = "No records.";
-  if (recentAtt.length > 0) {
-    const attendanceLines: string[] = [];
-    for (const attendanceRecord of recentAtt) {
-      let labelText = "";
-      if (attendanceRecord.label) {
-        labelText = ` ${attendanceRecord.label}`;
-      }
-      let resultText = "";
-      if (attendanceRecord.result) {
-        resultText = ` · ${attendanceRecord.result}`;
-      }
-      attendanceLines.push(`• ${attendanceRecord.at} ${attendanceRecord.kind}${labelText}${resultText}`);
-    }
-    attendanceContent = attendanceLines.join("\n");
-  }
-  const recentAttendanceFact = `Recent attendance:\n${attendanceContent}`;
-
-  // Bước 12: Tập hợp toàn bộ dữ kiện thực tế thành danh sách factsList để chuẩn bị ghép vào khối DATA BLOCK.
-  const factsList = [
-    centreInfoFact,
-    cancellationPolicyFact,
-    waitlistPolicyFact,
-    classesOnSaleFact,
-    openClassesFact,
-    coachesFact,
-    memberAskingFact,
-    todayDateFact,
-    memberPlansFact,
-    memberClassesFact,
-    courtBookingsFact,
-    recentAttendanceFact,
-  ];
-
-  // Ghép tất cả các khối thông tin thực tế (facts) thành DATA BLOCK hoàn chỉnh.
-  const facts = factsList.join("\n\n");
-
-  // Trả về system prompt hoàn chỉnh: quy định vai trò trợ lý, phong cách trả lời ngắn gọn và khối DATA BLOCK làm căn cứ sự thật.
-  return `You are the ${centreName(settings)} front-desk assistant inside the member app. Reply in the language of the member's latest message (Vietnamese if they write in Vietnamese, otherwise English), keep it short (2–8 sentences), and stay strictly inside the DATA BLOCK.
+  const system = `You are the ${centreName(settings)} front-desk assistant inside the member app. Reply in the language of the member's latest message (Vietnamese if they write in Vietnamese, otherwise English), keep it short (2–8 sentences), and stay strictly inside the DATA BLOCK.
 No medical advice, no discounts beyond the listed prices, never invent a free slot.
 Only name coaches and classes that appear in the data block.
-If you do not know: tell them to ask the desk or start a message with "ticket:" followed by what happened.
-You can walk them through Book / Classes in the app. Payment is taken at the desk for each court booking or class they buy in the app.
+Never state a rule, deadline, fee or step that is not in the DATA BLOCK. If the answer is not there, say you do not know and tell them to ask the desk or start a message with "ticket:" followed by what happened.
+Walk them through the app with the screen names in "How to"; when replying in Vietnamese use the Vietnamese names. Payment is taken at the desk for each court booking or class they buy in the app.
+Answer only the member's latest message; earlier turns are context.
 
 DATA BLOCK:
 ${facts}`;
-}
 
-/**
- * Làm gì: gọi mô hình AI để sinh câu trả lời cho câu hỏi của hội viên; nếu AI không có phản hồi
- *   (ví dụ lỗi mạng, hết hạn mức hoặc chưa cấu hình API key), tự động chuyển sang câu trả lời theo quy tắc (ruleReply).
- *   Vì sao: đảm bảo hội viên luôn nhận được câu trả lời hữu ích ngay cả khi dịch vụ AI bên ngoài gặp sự cố.
- * Được gọi ở: assistantChat, bước 7.
- * @param systemPrompt Chỉ dẫn hệ thống và dữ liệu trung tâm đã xây dựng từ buildAssistantSystemPrompt.
- * @param rawHistory Dữ liệu lịch sử chat thô nhận từ client (chỉ giữ lại các lượt của người dùng qua parseHistory).
- * @param message Câu hỏi hiện tại của hội viên.
- * @param context Ngữ cảnh chứa thông tin cài đặt và lớp học dùng cho hàm ruleReply khi cần dự phòng.
- * @returns Object gồm nội dung câu trả lời (reply) và nguồn gốc phản hồi (source: "gemini" | "xai" | "rules").
- */
-async function generateAssistantChatResponse(
-  systemPrompt: string,
-  rawHistory: unknown,
-  message: string,
-  context: AssistantChatContextData,
-): Promise<{ reply: string; source: string }> {
-  // Bước 1: Chuẩn hóa lịch sử chat và ghép câu hỏi hiện tại của hội viên vào danh sách lượt hội thoại.
-  const historyTurns = parseHistory(rawHistory);
-  const currentTurn: ChatTurn = { role: "user", text: message };
-  const conversationTurns: ChatTurn[] = [...historyTurns, currentTurn];
+  const history = parseHistory(body.history, user.id);
+  const turns: ChatTurn[] = [...history, { role: "user", text: message }];
 
-  // Bước 2: Gọi mô hình AI (Gemini hoặc xAI) sinh câu trả lời từ system prompt và lịch sử hội thoại.
-  const aiReply = await generateAssistantReply(systemPrompt, conversationTurns);
+  const ai = await generateAssistantReply(system, turns);
+  const reply = (ai?.text ?? ruleReply(q, settings, onSale, classes, vi)).slice(0, MAX_BOT_TURN);
+  const source = ai?.source ?? "rules";
 
-  const lowerCaseQuestion = message.toLowerCase();
-  // Bước 3: Lấy câu trả lời từ AI; nếu AI không phản hồi (lỗi mạng hoặc hết quota), tự động fallback về bộ quy tắc (ruleReply).
-  const reply =
-    aiReply?.text ??
-    ruleReply(lowerCaseQuestion, context.settings, context.onSale, context.classes);
-  const source = aiReply?.source ?? "rules";
-
-  return { reply, source };
-}
-
-/**
- * Làm gì: ghi lại nhật ký kiểm toán (audit log) cho lượt chat của người dùng với trợ lý ảo.
- *   Lưu 200 ký tự đầu của câu hỏi và nguồn câu trả lời (gemini, xai hoặc rules).
- *   Vì sao: phục vụ theo dõi chất lượng câu trả lời của trợ lý và phát hiện các trường hợp lạm dụng.
- * Được gọi ở: assistantChat, bước 8.
- * @param sql Kết nối database trong transaction do router mở.
- * @param userId Mã định danh UUID của người dùng gửi câu hỏi.
- * @param message Câu hỏi người dùng đã gửi (lấy tối đa 200 ký tự đầu để lưu nhật ký).
- * @param source Nguồn gốc của câu trả lời đã gửi lại cho người dùng ("gemini", "xai", "rules").
- */
-async function recordAssistantChatAudit(
-  sql: Sql,
-  userId: string,
-  message: string,
-  source: string,
-): Promise<void> {
-  await audit(sql, userId, "assistant", "chat", userId, null, {
+  await audit(sql, user.id, "assistant", "chat", user.id, null, {
     q: message.slice(0, 200),
     source,
   });
-}
-
-/**
- * Làm gì: tiếp nhận câu hỏi của người dùng gửi đến trợ lý ảo của trung tâm thể thao.
- *   Đọc hàm này như mục lục: mỗi dòng là một bước, chi tiết nằm trong các hàm phụ phía trên.
- *   - Nếu người dùng gửi yêu cầu hỗ trợ (tin nhắn bắt đầu bằng "ticket:"), hàm sẽ tạo ticket để quầy lễ tân xử lý.
- *   - Nếu là câu hỏi thông thường, hàm thu thập dữ liệu trung tâm (giờ mở cửa, học phí, lịch sân, gói tập...),
- *     tạo prompt gửi đến mô hình AI để trả lời chính xác, hoặc dự phòng bằng bộ quy tắc nếu AI không phản hồi.
- * Được gọi ở:
- *   - Màn hình Trợ lý ảo /app/assistant (src/routes/app.assistant.tsx), nút Gửi hoặc khi chọn chip câu hỏi mẫu,
- *     gửi apiPost("/assistant", { message, history }) tức POST /v1/assistant.
- *   - Widget trợ lý góc màn hình (src/client/components/assistant-widget.tsx), ô chat và nút Gửi,
- *     gửi apiPost("/assistant", { message, history }) tức POST /v1/assistant.
- *   - src/server/controllers/router.ts nhận request POST /v1/assistant và gọi hàm này qua authed(...):
- *     authed kiểm tra xác thực người dùng và mở transaction database.
- * @param sql Kết nối database trong transaction do router mở.
- * @param request Request POST /v1/assistant chứa body JSON gồm { message: string, history?: unknown }.
- * @param user Thông tin người dùng đang đăng nhập (PublicUser); mã id được dùng để kiểm tra hạn mức, tra cứu dữ liệu cá nhân và ghi nhật ký kiểm toán.
- * @returns Object { status: 200, body: { reply: string, source: string } } chứa câu trả lời và nguồn phản hồi.
- * @throws Lỗi 403 nếu tính năng F6 bị tắt; Lỗi 422 nếu câu hỏi dưới 2 ký tự; Lỗi 429 nếu vượt hạn mức gọi trợ lý hoặc gửi ticket.
- */
-export async function assistantChat(sql: Sql, request: Request, user: PublicUser) {
-  // Bước 1: kiểm tra cờ tính năng F6, trợ lý chỉ hoạt động khi trung tâm bật tính năng này.
-  await requireFlag(sql, "F6");
-
-  // Bước 2: đọc câu hỏi từ request, chuẩn hóa chuỗi và kiểm tra độ dài tối thiểu.
-  const { message, rawHistory } = await readAssistantChatMessage(request);
-
-  // Bước 3: trừ hạn mức gọi trợ lý của người dùng trước khi phân nhánh xử lý.
-  limitAssistantChatUsage(user.id);
-
-  // Bước 4: nếu là yêu cầu hỗ trợ (bắt đầu bằng ticket:), chuyển tiếp đến quầy lễ tân.
-  // Only a marker at the very start goes to the desk (FR-S01). Matching
-  // "complaint", "feedback", "khiếu nại" or "góp ý" anywhere in the message
-  // turned "Is there a feedback form?" into a support request, so the one
-  // question the assistant was asked went unanswered.
-  if (isTicketMessage(message)) {
-    return handleAssistantTicketMessage(sql, user, message);
-  }
-
-  // Bước 5: thu thập toàn bộ dữ liệu thực tế từ cơ sở dữ liệu làm ngữ cảnh trả lời.
-  const context = await fetchAssistantChatContext(sql, user.id);
-
-  // Bước 6: xây dựng prompt hệ thống chứa khối dữ liệu (DATA BLOCK) cho mô hình AI.
-  const systemPrompt = buildAssistantSystemPrompt(context, user);
-
-  // Bước 7: gọi mô hình AI để trả lời câu hỏi, hoặc dùng câu trả lời theo quy tắc nếu AI không phản hồi.
-  const { reply, source } = await generateAssistantChatResponse(
-    systemPrompt,
-    rawHistory,
-    message,
-    context,
-  );
-
-  // Bước 8: ghi lại nhật ký kiểm toán để phục vụ tra cứu sau này và trả kết quả.
-  await recordAssistantChatAudit(sql, user.id, message, source);
-  return { status: 200, body: { reply, source } };
-}
-
-/**
- * The earlier turns the browser sends up with a question.
- *
- * Only the member's own turns are kept. The client used to be able to post
- * turns as `role: "model"` too, which is the browser telling the model what the
- * model supposedly already said — a free hand to write the assistant's past for
- * it, and from there to talk it past the system prompt into quoting a discount
- * or a free court that does not exist.
- *
- * The cost is real and worth naming: with no assistant turns to look back on, a
- * follow-up that leans on the last answer ("what about the other one?") has
- * less to go on. Fixing that properly means the server keeping the thread
- * itself, which needs a table it does not have — this is the honest version
- * until then, because a confident wrong answer the member themselves planted is
- * worse than a vaguer right one.
- */
-/**
- * Làm gì: Trích xuất và làm sạch lịch sử hội thoại từ client, chỉ giữ lại các câu hỏi của người dùng và giới hạn 8 lượt gần nhất.
- * Vì sao: Ngăn chặn prompt injection nếu client gửi giả mạo tin nhắn của bot (role "model") để lừa trợ lý xác nhận ưu đãi hoặc sân miễn phí.
- * Được gọi ở: ops.ts (trong generateAssistantChatResponse).
- * @param raw Dữ liệu lịch sử chat thô nhận từ request body của client.
- * @returns Mảng ChatTurn đã chuẩn hóa gồm tối đa 8 lượt hỏi gần nhất của người dùng.
- */
-function parseHistory(raw: unknown): ChatTurn[] {
-  // Bước 1: Kiểm tra tính hợp lệ của dữ liệu đầu vào; nếu không phải mảng thì trả về mảng rỗng.
-  if (!Array.isArray(raw)) return [];
-  const out: ChatTurn[] = [];
-  // Bước 2: Duyệt qua tối đa 8 lượt hội thoại gần nhất để tránh làm quá tải context window của mô hình AI.
-  for (const item of raw.slice(-8)) {
-    if (!item || typeof item !== "object") continue;
-    const rec = item as { role?: unknown; text?: unknown };
-    // Chỉ giữ lại lượt chat của người dùng ("me" hoặc "user"), bỏ qua các lượt giả mạo role của trợ lý.
-    if (rec.role !== "me" && rec.role !== "user") continue;
-    // Cắt khoảng trắng thừa và giới hạn độ dài mỗi tin nhắn tối đa 800 ký tự.
-    const text = typeof rec.text === "string" ? rec.text.trim().slice(0, 800) : "";
-    if (text.length < 1) continue;
-    out.push({ role: "user", text });
-  }
-  return out;
+  // Only a model's answer is sealed for the thread. A rule-based fallback fed
+  // back as the model's own words taught it to repeat the canned line.
+  const sig = ai ? signReply(user.id, message, reply) : undefined;
+  return { status: 200, body: { reply, source, ...(sig ? { sig } : {}) } };
 }
 
 /**
@@ -1615,7 +1215,7 @@ function parseHistory(raw: unknown): ChatTurn[] {
  */
 /**
  * Làm gì: Lấy tên hiển thị của trung tâm thể thao từ cấu hình hệ thống, dự phòng tên mặc định nếu chưa cấu hình.
- * Được gọi ở: ops.ts (trong buildAssistantSystemPrompt và ruleReply).
+ * Được gọi ở: ops.ts (trong assistantChat và ruleReply).
  * @param settings Đối tượng chứa tên pháp lý của trung tâm (legal_name).
  * @returns Tên trung tâm đã được cắt khoảng trắng thừa hoặc chuỗi mặc định "Lê Long Sport".
  */
@@ -1625,13 +1225,17 @@ function centreName(settings: { legal_name: string | null }): string {
   return settings.legal_name?.trim() || "Lê Long Sport";
 }
 
+/** Letters only Vietnamese uses (đ, ơ, ư, ă, â, ê, ô and the tone marks): a message with them is Vietnamese. */
+const VI_TEXT = /[đơưăâêô]|[̀-̣]|[Ạ-ỹ]|[àáãèéìíòóõùúýỳ]/i;
+
 /**
  * Làm gì: Trả lời câu hỏi theo tập luật từ khóa (fallback) khi mô hình AI bên ngoài không khả dụng hoặc lỗi.
- * Được gọi ở: ops.ts (trong generateAssistantChatResponse).
+ * Được gọi ở: ops.ts (trong assistantChat).
  * @param q Câu hỏi của hội viên đã được chuyển thành chữ thường.
  * @param settings Thông tin cài đặt trung tâm (giờ mở/đóng cửa, thời gian giữ sân, thời hạn ưu đãi waitlist).
  * @param onSale Danh sách lớp học đang mở bán kèm mức giá (VND).
  * @param classes Danh sách lớp học đang tuyển học viên kèm sĩ số đã ghi danh và sức chứa.
+ * @param vi Trả lời bằng tiếng Việt (hội viên viết tiếng Việt hoặc đang dùng giao diện tiếng Việt).
  * @returns Chuỗi văn bản trả lời phù hợp với nhóm chủ đề phát hiện được từ câu hỏi.
  */
 function ruleReply(
@@ -1639,33 +1243,46 @@ function ruleReply(
   settings: Awaited<ReturnType<typeof getSettings>>,
   onSale: Array<{ sport: string; level: string; price_vnd: number }>,
   classes: Array<{ sport: string; level: string; enrolled_count: number; capacity: number }>,
+  vi = false,
 ): string {
+  const centre = centreName(settings);
+  const open = `${settings.open_time.slice(0, 5)}–${settings.close_time.slice(0, 5)}`;
   // Bước 1: Khớp từ khóa hỏi về học phí, giá tiền -> Liệt kê danh sách lớp đang bán hoặc hướng dẫn hỏi quầy.
   if (/price|cost|how much|fee|giá/.test(q)) {
-    return onSale.length
-      ? `Classes on sale:\n${onSale.map((c) => `• ${c.sport} ${c.level}: ${c.price_vnd.toLocaleString("en-US")}đ`).join("\n")}\nPay at the desk after you enrol in the app.`
-      : "No class has a price listed right now — ask the desk.";
+    const list = onSale.map((c) => `• ${c.sport} ${c.level}: ${c.price_vnd.toLocaleString("en-US")}đ`).join("\n");
+    if (!onSale.length) return vi ? "Hiện chưa có lớp nào niêm yết giá — vui lòng hỏi quầy lễ tân." : "No class has a price listed right now — ask the desk.";
+    return vi
+      ? `Các lớp đang mở bán:\n${list}\nĐăng ký trong ứng dụng rồi thanh toán tại quầy.`
+      : `Classes on sale:\n${list}\nPay at the desk after you enrol in the app.`;
   }
   // Bước 2: Khớp từ khóa hỏi về giờ hoạt động -> Cung cấp giờ mở/đóng cửa, thời gian giữ sân và chính sách hủy sân.
   if (/hour|open|close|what time|giờ|mở cửa/.test(q)) {
-    return `${centreName(settings)} is open ${settings.open_time.slice(0, 5)}–${settings.close_time.slice(0, 5)} every day (ICT). Court holds last ${settings.hold_minutes} minutes. Cancelling a court gives no refund.`;
+    return vi
+      ? `${centre} mở cửa ${open} hằng ngày (giờ Việt Nam). Sân được giữ chỗ trong ${settings.hold_minutes} phút. Huỷ sân không được hoàn tiền.`
+      : `${centre} is open ${open} every day (ICT). Court holds last ${settings.hold_minutes} minutes. Cancelling a court gives no refund.`;
   }
   // Bước 3: Khớp từ khóa hỏi về lớp học, huấn luyện viên -> Cung cấp danh sách lớp mở và sĩ số hiện tại.
   if (/class|coach|lesson|lớp|hlv/.test(q)) {
-    return classes.length
-      ? `Open classes:\n${classes.map((c) => `• ${c.sport} ${c.level} (${c.enrolled_count}/${c.capacity})`).join("\n")}`
-      : "No classes are open right now — ask the desk.";
+    const list = classes.map((c) => `• ${c.sport} ${c.level} (${c.enrolled_count}/${c.capacity})`).join("\n");
+    if (!classes.length) return vi ? "Hiện chưa có lớp nào mở — vui lòng hỏi quầy lễ tân." : "No classes are open right now — ask the desk.";
+    return vi ? `Các lớp đang mở:\n${list}` : `Open classes:\n${list}`;
   }
   // Bước 4: Khớp từ khóa hỏi về đặt sân, giữ chỗ hoặc hủy lịch -> Giải thích quy định giữ chỗ và chính sách hoàn tiền.
-  if (/cancel|book|hold|hủy|đặt sân/.test(q)) {
-    return `Book in the app and the slot is held for ${settings.hold_minutes} minutes. Cancelling a court or a class gives no refund, so check the time first. If the centre cancels, you get the money back in cash at the desk. No-shows are not refunded.`;
+  if (/cancel|book|hold|hủy|huỷ|đặt sân/.test(q)) {
+    return vi
+      ? `Đặt sân trong ứng dụng thì chỗ được giữ ${settings.hold_minutes} phút. Huỷ sân hoặc lớp không được hoàn tiền, nên hãy kiểm tra giờ trước. Nếu trung tâm huỷ, bạn được hoàn tiền mặt tại quầy. Vắng mặt không được hoàn tiền.`
+      : `Book in the app and the slot is held for ${settings.hold_minutes} minutes. Cancelling a court or a class gives no refund, so check the time first. If the centre cancels, you get the money back in cash at the desk. No-shows are not refunded.`;
   }
   // Bước 5: Khớp từ khóa hỏi về danh sách chờ khi lớp đầy -> Hướng dẫn cơ chế xếp hàng và thời hạn nhận suất trống.
   if (/waitlist|full|queue|chờ|đầy/.test(q)) {
-    return `When a class is full you join a first-come waitlist. If a seat frees up you get an offer that stands for ${settings.waitlist_offer_hours}h — claim it in the app.`;
+    return vi
+      ? `Lớp đã đầy thì bạn vào danh sách chờ theo thứ tự đăng ký. Khi có chỗ trống, bạn nhận lời mời giữ trong ${settings.waitlist_offer_hours} giờ — xác nhận trong ứng dụng.`
+      : `When a class is full you join a first-come waitlist. If a seat frees up you get an offer that stands for ${settings.waitlist_offer_hours}h — claim it in the app.`;
   }
   // Bước 6: Phản hồi mặc định khi không khớp luật nào -> Tóm tắt các chủ đề hỗ trợ và gợi ý cú pháp "ticket:".
-  return `I can help with the timetable, classes, coaches, booking and cancelling, and waitlists at ${centreName(settings)}. Start a message with ticket: to send a note to the desk. I do not give medical advice.`;
+  return vi
+    ? `Tôi có thể giúp về lịch, lớp học, huấn luyện viên, đặt và huỷ sân, danh sách chờ tại ${centre}. Bắt đầu tin nhắn bằng ticket: để gửi ghi chú cho quầy lễ tân. Tôi không đưa lời khuyên y tế.`
+    : `I can help with the timetable, classes, coaches, booking and cancelling, and waitlists at ${centre}. Start a message with ticket: to send a note to the desk. I do not give medical advice.`;
 }
 
 

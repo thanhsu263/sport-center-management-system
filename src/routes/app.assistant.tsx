@@ -13,10 +13,10 @@ import { Button, LoadError } from "@/client/components/ui";
 import { AnimatePresence, motion } from "motion/react";
 import { GLBackground, Magnet, ShinyText } from "@/client/components/fx";
 import { apiPost } from "@/client/arena3/client";
-import { type ChatMsg, useChatLog } from "@/client/lib/chat-log";
+import { type ChatMsg, historyFor, useChatLog } from "@/client/lib/chat-log";
 import { cn } from "@/client/lib/cn";
 import { scrollBehavior } from "@/client/lib/calm";
-import { t, tk } from "@/client/lib/i18n";
+import { getLang, t, tk } from "@/client/lib/i18n";
 
 /**
  * Làm gì: Định nghĩa route cho trang Trợ lý AI (/app/assistant) trong TanStack Router, liên kết URL với component `Page`.
@@ -107,18 +107,15 @@ function Page() {
     setBusy(true);
     setFailure(null);
     try {
-      // Bước 2: Lọc các câu hỏi trước đó của hội viên để tạo mảng lịch sử (history) gửi kèm câu hỏi mới.
-      // Only what the member typed. The server drops anything else anyway —
-      // a browser must not get to write the assistant's side of the thread —
-      // so sending the bot's turns would just be bytes it throws away.
-      const history = thread
-        .filter((m) => m !== WELCOME && m.role === "me")
-        .slice(0, -1)
-        .map((m) => ({ role: m.role, text: m.text }));
+      // Bước 2: Gom lịch sử trước câu hỏi này: câu của hội viên và câu trả lời đã được server ký.
+      // Everything before this question: the member's turns and the
+      // assistant's sealed ones. The server checks each seal, so a browser
+      // still cannot write the assistant's side of the thread.
+      const history = historyFor(thread.filter((m) => m !== WELCOME).slice(0, -1));
       // Bước 3: Gửi HTTP POST tới endpoint /assistant với nội dung câu hỏi và lịch sử ngữ cảnh.
-      const r = await apiPost<{ reply: string; source?: Msg["source"] }>("/assistant", { message, history });
-      // Bước 4: Thêm phản hồi của bot vào lịch sử chat (lưu vào localStorage và cập nhật UI).
-      append({ role: "bot", text: r.reply, source: r.source });
+      const r = await apiPost<{ reply: string; source?: Msg["source"]; sig?: string }>("/assistant", { message, history, lang: getLang() });
+      // Bước 4: Thêm phản hồi của bot (kèm chữ ký sig) vào lịch sử chat (lưu vào localStorage và cập nhật UI).
+      append({ role: "bot", text: r.reply, source: r.source, sig: r.sig });
     } catch (e) {
       // Bước 5: Bắt lỗi kết nối hoặc server từ chối, lưu lại câu hỏi và lý do để hội viên có thể bấm thử lại (Retry).
       setFailure({ message, reason: e instanceof Error ? e.message : t("The assistant is switched off") });

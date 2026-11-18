@@ -6,7 +6,8 @@
  * language with useLang().
  *
  * DRAFT: written from what the app actually collects and does (SRS v2.3: UC-02, UC-05, BR-03,
- * BR-04, BR-05, BR-24, NFR-19 to NFR-25) and from Decree 13/2023/ND-CP. The centre has to review
+ * BR-04, BR-05, BR-24, NFR-19 to NFR-25) and from the Personal Data Protection Law 91/2025/QH15 and Decree 356/2025/ND-CP (which replaced
+ * Decree 13/2023/ND-CP on 1 January 2026). The centre has to review
  * it before it is final; until then the pages say so. Limits the manager can change (how long a
  * hold lasts, courts per day, cancellation windows) are described as "shown in the app" rather
  * than written in, so the text cannot drift from the settings.
@@ -29,7 +30,7 @@ export const LEGAL_DRAFT = true;
  * Làm gì: Ngày cập nhật hiệu lực gần nhất của các văn bản pháp lý (dạng chuỗi ISO 'YYYY-MM-DD').
  * Được gọi ở: src/client/components/legal-page.tsx (component LegalBody, hiển thị ở dòng thông tin "Last updated {date}").
  */
-export const LEGAL_UPDATED = "2026-10-15";
+export const LEGAL_UPDATED = "2026-11-10";
 
 /**
  * Làm gì: Lưu trữ nội dung văn bản Thông báo về dữ liệu cá nhân (Personal data notice) song ngữ Anh - Việt theo Nghị định 13/2023/NĐ-CP, quy định rõ dữ liệu thu thập, mục đích sử dụng, bên được tiếp cận, thời hạn lưu trữ và quyền của người dùng.
@@ -41,7 +42,7 @@ export const PRIVACY: Record<"en" | "vi", LegalDoc> = {
   en: {
     title: "Personal data notice",
     intro:
-      "How Lê Long Sport collects and uses your personal data when you use the app and the centre, under Decree 13/2023/ND-CP on personal data protection. You agree to it when you create an account; you can withdraw that consent at any time.",
+      "How Lê Long Sport collects and uses your personal data when you use the app and the centre, under the Personal Data Protection Law (91/2025/QH15) and Decree 356/2025/ND-CP. You agree to it when you create an account; you can withdraw that consent at any time.",
     sections: [
       {
         heading: "What we collect",
@@ -62,7 +63,7 @@ export const PRIVACY: Record<"en" | "vi", LegalDoc> = {
         heading: "Who sees it",
         body: [
           "You. Front desk staff and the manager, to serve you. Coaches see the students in their own classes, and health notes only where they need them.",
-          "Service providers that work for us: payOS for online payments, our email provider for codes and notices, and our hosting and database providers. The assistant's AI provider receives the centre's schedules and prices, never your personal data.",
+          "Service providers that work for us: payOS for online payments, our email provider for codes and notices, and our hosting and database providers. The assistant uses Google Gemini (and xAI as a backup, when the centre has set it up): when you ask it something, your question, your earlier turns in that conversation and what is needed to answer it (your name and member code, your plans, class enrolments, court bookings and recent attendance, plus the centre's schedules and prices) are sent to that provider to write the reply. Do not type health or other sensitive details into the assistant. The first 200 characters of each question are kept in the centre's activity log. The conversation itself is stored only in your browser (local storage on this device) until you press Clear or clear your browser data.",
           "Public authorities, only when the law requires it.",
         ],
       },
@@ -102,7 +103,7 @@ export const PRIVACY: Record<"en" | "vi", LegalDoc> = {
   vi: {
     title: "Thông báo về dữ liệu cá nhân",
     intro:
-      "Cách Lê Long Sport thu thập và sử dụng dữ liệu cá nhân của bạn khi bạn dùng app và đến trung tâm, theo Nghị định 13/2023/NĐ-CP về bảo vệ dữ liệu cá nhân. Bạn đồng ý với thông báo này khi tạo tài khoản, và có thể rút lại sự đồng ý bất cứ lúc nào.",
+      "Cách Lê Long Sport thu thập và sử dụng dữ liệu cá nhân của bạn khi bạn dùng app và đến trung tâm, theo Luật Bảo vệ dữ liệu cá nhân số 91/2025/QH15 và Nghị định 356/2025/NĐ-CP. Bạn đồng ý với thông báo này khi tạo tài khoản, và có thể rút lại sự đồng ý bất cứ lúc nào.",
     sections: [
       {
         heading: "Chúng tôi thu thập gì",
@@ -123,7 +124,7 @@ export const PRIVACY: Record<"en" | "vi", LegalDoc> = {
         heading: "Ai được xem",
         body: [
           "Bạn. Lễ tân và quản lý, để phục vụ bạn. Huấn luyện viên xem học viên trong lớp của mình, và chỉ xem ghi chú sức khoẻ khi cần.",
-          "Các nhà cung cấp dịch vụ làm việc cho chúng tôi: payOS cho thanh toán online, nhà cung cấp email để gửi mã và thông báo, cùng nhà cung cấp máy chủ và cơ sở dữ liệu. Nhà cung cấp AI của trợ lý chỉ nhận lịch và bảng giá của trung tâm, không bao giờ nhận dữ liệu cá nhân của bạn.",
+          "Các nhà cung cấp dịch vụ làm việc cho chúng tôi: payOS cho thanh toán online, nhà cung cấp email để gửi mã và thông báo, cùng nhà cung cấp máy chủ và cơ sở dữ liệu. Trợ lý dùng Google Gemini (và xAI làm dự phòng, nếu trung tâm bật): khi bạn hỏi, câu hỏi, các lượt trước trong cuộc trò chuyện đó và dữ liệu cần để trả lời (họ tên và mã hội viên, gói tập, lớp đã ghi danh, lịch đặt sân và lượt điểm danh gần đây, cùng lịch và bảng giá của trung tâm) được gửi tới nhà cung cấp đó để soạn câu trả lời. Đừng nhập thông tin sức khoẻ hay dữ liệu nhạy cảm khác vào trợ lý. 200 ký tự đầu của mỗi câu hỏi được lưu trong nhật ký hoạt động của trung tâm. Bản thân cuộc trò chuyện chỉ được lưu trong trình duyệt của bạn (bộ nhớ cục bộ trên thiết bị này) cho tới khi bạn bấm Xóa hoặc xóa dữ liệu trình duyệt.",
           "Cơ quan nhà nước, chỉ khi pháp luật yêu cầu.",
         ],
       },
