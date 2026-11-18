@@ -111,4 +111,6 @@ export const INVOICE_COLS = list<Invoice>({
   total_vnd: true,
   buyer_phone: true,
   exported_at: true,
+  kind: true,
+  adjusts_invoice_id: true,
 });

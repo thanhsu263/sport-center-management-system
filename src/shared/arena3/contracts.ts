@@ -132,6 +132,9 @@ export type Invoice = {
   total_vnd: number | null;
   buyer_phone: string | null;
   exported_at: Iso | null;
+  /** "sale" for money taken; "adjustment" for a refund that reduces an earlier invoice. */
+  kind: "sale" | "adjustment";
+  adjusts_invoice_id: string | null;
 };
 
 /**

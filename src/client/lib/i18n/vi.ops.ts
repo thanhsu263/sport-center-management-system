@@ -10,6 +10,9 @@ export const ops: Record<string, string> = {
   "Confirm court closure": "Xác nhận đóng sân",
   "Reopen ticket": "Mở lại phiếu",
   "Class session needs attention": "Buổi học cần xử lý",
+  "Your class court is under maintenance": "Sân của lớp bạn đang bảo trì",
+  "The court for your {sport} {level} class is closed for maintenance from {when} ({count} sessions). The centre will move or cancel these sessions and let you know.": "Sân của lớp {sport} {level} đóng để bảo trì từ {when} ({count} buổi). Trung tâm sẽ dời hoặc hủy các buổi này và báo lại cho bạn.",
+  "Students in those classes are told their court is under maintenance.": "Học viên của các lớp đó sẽ được báo sân đang bảo trì.",
   "The court for the session on {when} is closed for maintenance. Move or cancel this session; it is still scheduled.": "Sân của buổi học lúc {when} đóng để bảo trì. Hãy chuyển hoặc hủy buổi học này; lịch học vẫn được giữ nguyên.",
   // ── cancel dialog
   "Cancel this booking?": "Hủy lượt đặt này?",

@@ -242,6 +242,7 @@ export const VI_SERVER_EXACT: Record<string, string> = {
   "You have no sessions left.": "Bạn đã hết buổi tập.",
   "This clashes with another class you are in.": "Lịch này trùng với một lớp khác của bạn.",
   "A class cannot start or end in the past. Pick today or a later first day.": "Không được tạo lớp bắt đầu hoặc kết thúc trong quá khứ. Hãy chọn ngày đầu tiên từ hôm nay trở đi.",
+  "This court is already booked at some of this class's hours.":"Sân này đã có người đặt vào một số giờ của lớp.",
   "Another class already uses this court on those days and hours.":"Sân này đã có lớp khác vào cùng ngày và giờ đó.",
   "This coach already teaches another class on those days and hours.": "HLV này đã dạy lớp khác vào cùng ngày và giờ đó.",
   "Every date of this class clashes with a court booking or the coach's other classes.": "Mọi buổi của lớp này đều trùng với lượt đặt sân hoặc lớp khác của HLV.",

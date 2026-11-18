@@ -18,8 +18,9 @@ import { Lift, Reveal, Stagger, StaggerItem, motion } from "@/client/components/
 import { SpotlightCard } from "@/client/components/fx";
 import { ClassDetailModal } from "@/client/components/class-detail";
 import { MinSizeBadge } from "@/client/components/class-extras";
-import { apiPost } from "@/client/arena3/client";
-import { classSlotMatches, composeWeeklyRrule, levelLabel, rruleLabel, sportLabel, todayISO, addDaysISO } from "@/shared/arena3/labels";
+import { ApiClientError, apiPost } from "@/client/arena3/client";
+import { ictDateString } from "@/shared/arena3/time";
+import { classSlotMatches, composeWeeklyRrule, levelLabel, rruleLabel, sportLabel, todayISO, addDaysISO, formatDate } from "@/shared/arena3/labels";
 import { t, tk, tServer } from "@/client/lib/i18n";
 import { useRead } from "@/client/lib/use-read";
 import { useCentre } from "@/client/lib/use-centre";
@@ -128,6 +129,10 @@ function Page() {
     start_on: todayISO(),
     end_on: addDaysISO(todayISO(), 60),
   });
+  // A refused create because the court is booked: when, and the first later start that is free.
+  const [bookingClash, setBookingClash] = useState<{ clashAt?: string; start?: string; end?: string } | null>(null);
+  // Any change to the timetable makes the old refusal stale.
+  useEffect(() => setBookingClash(null), [form.court_id, form.start_on, form.duration_min, days, hour]);
   // Tự động gán môn thể thao mặc định là môn đầu tiên trong danh mục khi vừa mở form nếu chưa có môn nào được chọn.
   useEffect(() => {
     if (!form.sport && sports.length > 0) {
@@ -380,6 +385,27 @@ function Page() {
           />
         </Field>
         <div className="flex flex-col justify-end gap-1">
+          {bookingClash ? (
+            <div role="alert" className="space-y-1.5 rounded-md border border-danger/40 bg-danger/5 p-2 text-xs">
+              <p className="text-danger">
+                {t("The court is already booked on {date} at this class's hour.", {
+                  date: bookingClash.clashAt ? formatDate(ictDateString(new Date(bookingClash.clashAt))) : "",
+                })}
+              </p>
+              {bookingClash.start && bookingClash.end ? (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => setForm({ ...form, start_on: bookingClash.start!, end_on: bookingClash.end! })}
+                >
+                  {t("Start on {date} instead", { date: formatDate(bookingClash.start) })}
+                </Button>
+              ) : (
+                <p className="text-muted-foreground">{t("No free week found in the next two months. Pick another court or hour.")}</p>
+              )}
+            </div>
+          ) : null}
           {missing ? (
             <p className="text-xs text-danger">
               {missing}{" "}
@@ -417,6 +443,11 @@ function Page() {
                 load();
               } catch (e) {
                 // Bước 5: Bắt lỗi nếu gọi API thất bại và hiển thị thông báo lỗi từ máy chủ qua toast.error.
+                // A clash with a court booking stays on the form with a later start to apply.
+                if (e instanceof ApiClientError && e.body.clash_at) {
+                  setBookingClash({ clashAt: e.body.clash_at, start: e.body.suggested_start_on, end: e.body.suggested_end_on });
+                  return;
+                }
                 toast.error(e instanceof Error ? tServer(e.message) : t("Something went wrong"));
               } finally {
                 // Mở lại nút bấm tạo lớp sau khi tiến trình hoàn tất hoặc gặp lỗi.

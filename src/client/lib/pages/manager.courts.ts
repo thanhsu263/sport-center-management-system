@@ -6,7 +6,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useSports } from "@/client/components/sports-ui";
-import { ApiClientError, apiPatch, apiPost } from "@/client/arena3/client";
+import { ApiClientError, apiPatch, apiPost, type ApiErrorBody } from "@/client/arena3/client";
 import { t, tk, tServer } from "@/client/lib/i18n";
 import { useRead } from "@/client/lib/use-read";
 
@@ -92,6 +92,12 @@ export function useManagerCourts() {
   } | null>(null);
 
   const [actionBusy, setActionBusy] = useState<string | null>(null);
+  // Taking an open court out of service with bookings or class sessions on it: the server lists them first.
+  const [blockConfirm, setBlockConfirm] = useState<{
+    court: ManagerCourt;
+    status: string;
+    affected: NonNullable<ApiErrorBody["affected"]>;
+  } | null>(null);
 
   // Cập nhật danh sách sân vào state cục bộ khi API trả về dữ liệu mới
   useEffect(() => {
@@ -230,7 +236,7 @@ export function useManagerCourts() {
    * @returns Không trả về giá trị (Promise<void>).
    * @throws Bắt lỗi API nội bộ, hiển thị thông báo lỗi khi không thể cập nhật trạng thái.
    */
-  async function handleStatusChange(court: ManagerCourt, newStatus: string) {
+  async function handleStatusChange(court: ManagerCourt, newStatus: string, confirm = false) {
     // Bước 1: Bỏ qua nếu trạng thái không đổi hoặc đang có một thao tác khác đang được xử lý trên sân này
     if (court.status === newStatus || actionBusy) return;
     setActionBusy(court.id);
@@ -238,13 +244,20 @@ export function useManagerCourts() {
       // Bước 2: Gọi API PATCH /courts/:id để cập nhật trạng thái mới của sân
       const res = await apiPatch<{ court: ManagerCourt; upcoming: number }>(`/courts/${court.id}`, {
         status: newStatus,
+        confirm,
       });
+      setBlockConfirm(null);
       // Bước 3: Cập nhật trạng thái trực tiếp vào state local để giao diện phản hồi tức thì và đồng bộ lại qua read.reload()
       toast.success(t("{code} → {label}", { code: court.court_code, label: t(newStatus) }));
       setItems((prev) => (prev ? prev.map((c) => (c.id === court.id ? { ...c, status: res.court.status } : c)) : null));
       void read.reload();
     // Bước 4: Bắt lỗi nếu server từ chối và giải phóng khóa actionBusy
     } catch (err) {
+      // The court has bookings or class sessions ahead: show them and ask before cancelling anything.
+      if (err instanceof ApiClientError && err.body.requires_confirm && err.body.affected) {
+        setBlockConfirm({ court, status: newStatus, affected: err.body.affected });
+        return;
+      }
       toast.error(err instanceof Error ? tServer(err.message) : t("Cannot change court status"));
     } finally {
       setActionBusy(null);
@@ -326,7 +339,7 @@ export function useManagerCourts() {
     createName, setCreateName, createSortOrder, setCreateSortOrder, createSubmitting, editing,
     setEditing, editCode, setEditCode, editName, setEditName, editSortOrder, setEditSortOrder,
     editSport, setEditSport, editSubmitting, retiring, setRetiring, retireSubmitting,
-    blockedRetire, setBlockedRetire, actionBusy, total, filtered, pagedItems, handleCreate,
+    blockedRetire, setBlockedRetire, blockConfirm, setBlockConfirm, actionBusy, total, filtered, pagedItems, handleCreate,
     startEdit, handleEdit, handleStatusChange, handleRetire, handleRestore, statItems,
   };
 }

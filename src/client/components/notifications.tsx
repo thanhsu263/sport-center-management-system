@@ -129,6 +129,15 @@ export function notificationContent(n: Pick<Notification, "template" | "payload"
           when: sessionWhen(String(p.start_at)),
         }),
       };
+    // Sân của lớp học viên đang theo bị chuyển sang bảo trì: báo học viên trước khi trung tâm dời hoặc hủy buổi
+    case "class_court_maintenance":
+      return {
+        title: t("Your class court is under maintenance"),
+        body: t("The court for your {sport} {level} class is closed for maintenance from {when} ({count} sessions). The centre will move or cancel these sessions and let you know.", {
+          sport: sportLabel(String(p.sport ?? "")), level: levelLabel(String(p.level ?? "")), when: sessionWhen(String(p.start_at)), count: Number(p.session_count ?? 1),
+        }),
+        link: { to: "/app/classes", label: t("Open my classes") },
+      };
     // Lớp học không đủ số lượng tối thiểu trước 24 giờ: thông báo quản lý vào xem xét mở hay hủy lớp
     case "class_below_minimum":
       return {

@@ -271,6 +271,7 @@ export function Magnet({
   className,
   radius = 130,
   pull = 0.32,
+  speed = 1,
   wrapperClassName,
   off = false,
 }: {
@@ -282,6 +283,8 @@ export function Magnet({
   radius?: number;
   /** Fraction of the pointer offset the child travels. */
   pull?: number;
+  /** Spring speed multiplier: 1 is the house default, below 1 drifts more slowly. */
+  speed?: number;
   wrapperClassName?: string;
 }) {
   // Bước 1: Khởi tạo giá trị tọa độ x, y và bộ lò xo useSpring tạo quán tính đàn hồi mượt mà.
@@ -289,8 +292,10 @@ export function Magnet({
   const reduced = useReducedMotionAfterMount();
   const x = useMotionValue(0);
   const y = useMotionValue(0);
-  const sx = useSpring(x, { stiffness: 220, damping: 18, mass: 0.35 });
-  const sy = useSpring(y, { stiffness: 220, damping: 18, mass: 0.35 });
+  // speed < 1 lowers stiffness and raises mass, so the child follows the pointer more lazily.
+  const spring = { stiffness: 220 * speed, damping: 18, mass: 0.35 / speed };
+  const sx = useSpring(x, spring);
+  const sy = useSpring(y, spring);
 
   // Bước 2: Đăng ký sự kiện pointermove trên window để đón đầu chuyển động trước khi chuột chạm vào phần tử.
   useEffect(() => {

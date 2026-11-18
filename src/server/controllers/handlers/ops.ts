@@ -327,7 +327,7 @@ export async function inviteWaitlist(sql: Sql, classId: string) {
     `select count(*)::int as n
        from waitlist_offers o
        join enrollments e on e.id = o.enrollment_id
-      where e.class_id = $1 and o.status = 'pending' and o.expires_at > now()`,
+      where e.class_id = $1 and e.status = 'waitlisted' and o.status = 'pending' and o.expires_at > now()`,
     [classId],
   );
   const room = open - (pending?.n ?? 0);
