@@ -279,7 +279,11 @@ async function readSportCreateForm(request: Request): Promise<SportCreateForm> {
   const glyphKey = str(requestBody.glyph_key)?.trim().toLowerCase() || "generic";
   const sortOrder = num(requestBody.sort_order) ?? 100;
   const maxPlayers = num(requestBody.max_players) ?? 4;
+  // Mọi slot đặt sân và buổi học dài đúng 1 tiếng, nên môn mới cũng chỉ nhận 60 phút.
   const slotDurationMin = num(requestBody.slot_duration_min) ?? 60;
+  if (slotDurationMin !== 60) {
+    throw new ApiError(422, "VALIDATION", "Every slot lasts exactly one hour (60 minutes).", { field: "slot_duration_min" });
+  }
 
   // Tính toán khung giá mặc định ban đầu: nếu không chỉ định giá ngày thường thì mặc định 100.000 VNĐ,
   // giờ cao điểm nhân hệ số 1.5; cuối tuần nếu không chỉ định thì lấy bằng giá ngày thường.

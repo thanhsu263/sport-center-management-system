@@ -190,16 +190,17 @@ export function elapsedAtLeast(lastAt: number | undefined, now: number, everyMs:
 const ICT_OFFSET_MS = 7 * 3_600_000;
 
 /**
- * Whole court hours a class is allowed to run. Anything else ends off the hour
- * and the hold swallows the next slot (a 90-minute 18:00 class kept the court
- * until 20:00, so the 19:00 class on that coach was never created).
- * `null` means the caller should refuse the value. A missing value is one hour.
+ * Every class session is exactly one court hour, the same as a court booking.
+ * Anything else ends off the hour or holds more than one slot (a 90-minute
+ * 18:00 class kept the court until 20:00, so the 19:00 class on that coach was
+ * never created). `null` means the caller should refuse the value. A missing
+ * value is one hour.
  */
 export function classMinutes(raw: number | null | undefined): number | null {
   // Mặc định thời lượng một buổi lớp học là 60 phút nếu không truyền giá trị.
   const n = raw == null ? 60 : raw;
-  // Quy tắc nghiệp vụ BR-11: Lớp học chỉ được phép kéo dài trọn vẹn 1, 2 hoặc 3 tiếng (60, 120, 180 phút); từ chối (trả null) các số phút lẻ để tránh làm hỏng các ca đặt sân kế tiếp.
-  return n === 60 || n === 120 || n === 180 ? n : null;
+  // Quy tắc nghiệp vụ BR-11: mọi buổi học dài đúng 1 tiếng (60 phút), bằng một slot đặt sân; từ chối (trả null) mọi số phút khác.
+  return n === 60 ? n : null;
 }
 
 /**
