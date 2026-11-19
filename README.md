@@ -19,7 +19,7 @@ Arena3 is an academic team project at FPT University. The interface uses the cen
 
 ## Screenshots
 
-The landing capture was supplied by the project owner. The remaining captures use the running local app with synthetic seed data. Desktop captures are 1440 × 900; mobile captures are 390 × 844. The supplied landing image keeps its original aspect ratio.
+All captures use the running local app with synthetic seed data. Desktop captures are 1440 × 900; mobile captures are 390 × 844.
 
 | Front desk and finance                                                                         | Teaching and member experience                                                                                           |
 | ---------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
@@ -164,7 +164,7 @@ To refresh screenshots, start a local app containing only seed/demo data, then r
 npm run screenshots -- --seed-demo
 ```
 
-Playwright uses bundled Chromium or an installed Chrome/Edge. If needed, install its browser with `npx playwright install chromium`. Screenshots keep the default app theme, reduce motion for stable captures, and are compressed to at most 300 KB each and 3 MB total. Inspect every image before publishing. An owner-supplied landing capture can be retained with `--landing-image /path/to/capture.png`.
+Playwright uses bundled Chromium or an installed Chrome/Edge. If needed, install its browser with `npx playwright install chromium`. Screenshots keep the default app theme. The landing capture waits for its normal intro, visible content and counters to settle; other screens reduce motion. PNGs are compressed to at most 300 KB each and 3 MB total. Inspect every image before publishing. To refresh just the landing page, run `npm run screenshots -- --seed-demo --only 01-landing.png`.
 
 ## Team
 
