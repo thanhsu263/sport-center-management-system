@@ -8,6 +8,8 @@ node_modules/
 *.log
 artifacts/
 screenshots/
+!docs/screenshots/
+!docs/screenshots/*.png
 .grok/
 .pglite/
 .pglite-data/
