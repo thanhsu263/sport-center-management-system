@@ -35,6 +35,12 @@ assert(
   landingIndex < 0 || (landingImage && !landingImage.startsWith("--")),
   "--landing-image requires a screenshot path.",
 );
+const onlyIndex = process.argv.indexOf("--only");
+const onlyNames = onlyIndex < 0 ? null : process.argv[onlyIndex + 1]?.split(",");
+assert(
+  onlyIndex < 0 || onlyNames?.every((name) => /^[a-z0-9-]+\.png$/.test(name)),
+  "--only requires screenshot filenames separated by commas.",
+);
 
 async function launch() {
   const channels = process.env.SCREENSHOT_BROWSER_CHANNEL
@@ -111,14 +117,21 @@ try {
       ],
     },
   ];
+  const knownNames = new Set(sets.flatMap((set) => set.shots.map((shot) => shot.name)));
+  assert(
+    !onlyNames || onlyNames.every((name) => knownNames.has(name)),
+    "Unknown screenshot filename in --only.",
+  );
   for (const set of sets) {
+    const shots = set.shots.filter((shot) => !onlyNames || onlyNames.includes(shot.name));
+    if (!shots.length) continue;
     // Release GPU/video resources between roles, including the mobile captures.
     browser = await launch();
     const viewport = set.mobile ? { width: 390, height: 844 } : { width: 1440, height: 900 };
     const context = await browser.newContext({
       viewport,
       deviceScaleFactor: 1,
-      reducedMotion: "reduce",
+      reducedMotion: shots.some((shot) => shot.route === "/") ? "no-preference" : "reduce",
       timezoneId: "Asia/Ho_Chi_Minh",
     });
     const page = await context.newPage();
@@ -142,7 +155,7 @@ try {
       await page.getByRole("button", { name: set.login }).click();
       await page.waitForURL((url) => url.pathname !== "/login");
     }
-    for (const shot of set.shots) {
+    for (const shot of shots) {
       errors.length = 0;
       warnings.length = 0;
       const response = await page.goto(new URL(shot.route, base).href, {
@@ -161,6 +174,51 @@ try {
       );
       // Let route transitions, data reads and numeric counters finish naturally.
       await page.waitForTimeout(5_000);
+      if (shot.route === "/") {
+        // The boot cover can lift after the first render. Check the final visible
+        // hero, not just the existence of SSR text behind that cover.
+        await page.locator('[aria-busy="true"]').waitFor({ state: "detached" });
+        await page.waitForFunction(() => {
+          const hero = document.querySelector("[data-landing-hero]");
+          if (!hero) return false;
+          const selectors = [
+            "h1",
+            "[data-status]",
+            "[data-sub]",
+            "[data-cta]",
+            "[data-free-big]",
+            "[data-free]",
+          ];
+          return selectors.every((selector) => {
+            const element = hero.querySelector(selector);
+            if (!element || !element.textContent.trim()) return false;
+            const style = getComputedStyle(element);
+            const box = element.getBoundingClientRect();
+            return (
+              style.visibility === "visible" &&
+              Number(style.opacity) > 0.98 &&
+              box.width > 0 &&
+              box.height > 0 &&
+              box.bottom <= innerHeight
+            );
+          });
+        });
+        const hero = page.locator("[data-landing-hero]");
+        let previous = "";
+        let steady = 0;
+        for (let attempt = 0; attempt < 40 && steady < 6; attempt++) {
+          const current = await hero.innerText();
+          steady = current === previous ? steady + 1 : 0;
+          previous = current;
+          await page.waitForTimeout(500);
+        }
+        assert(steady === 6, "Landing content has not finished loading or animating.");
+        await page.waitForFunction(() =>
+          [...document.querySelectorAll("[data-landing-hero] video")].every(
+            (video) => !video.currentSrc || video.readyState >= 2,
+          ),
+        );
+      }
       const availability = page.getByText("Free hours today:", { exact: true });
       if (await availability.count()) {
         // Wait for the actual displayed counter to settle after availability loads.
@@ -228,11 +286,24 @@ try {
     await browser.close();
     browser = null;
   }
-  const total = entries.reduce((sum, entry) => sum + entry.bytes, 0);
+  let captured = entries;
+  if (onlyNames) {
+    const prior = await readFile(path.join(audit, "manifest.json"), "utf8")
+      .then(JSON.parse)
+      .catch(() => ({ entries: [] }));
+    captured = [...prior.entries.filter((entry) => !onlyNames.includes(entry.file)), ...entries];
+  }
+  const total = captured.reduce((sum, entry) => sum + entry.bytes, 0);
   await writeFile(
     path.join(audit, "manifest.json"),
     JSON.stringify(
-      { source: base.origin, data: "local seed/demo only", reducedMotion: true, entries, total },
+      {
+        source: base.origin,
+        data: "local seed/demo only",
+        reducedMotion: "landing uses normal motion; other screens reduce motion",
+        entries: captured,
+        total,
+      },
       null,
       2,
     ) + "\n",
