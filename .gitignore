@@ -18,3 +18,25 @@ dist/
 
 # graft's local graph cache — regenerable, not committed (run `graft build`).
 /graft/
+
+# AI agent files
+CLAUDE.md
+AGENTS.md
+.claude/
+.agents/
+.codex/
+.cursor/
+.mcp.json
+skills-lock.json
+docs/superpowers/
+*-report.md
+*-report.json
+docs/REFACTOR-SIMPLIFY-REPORT.md
+docs/Arena3-Grading-Report.md
+docs/audit/
+docs/grok-assets/
+scripts/auto-grade.mjs
+
+# Local / IDE
+.vscode/*
+!.vscode/extensions.json
