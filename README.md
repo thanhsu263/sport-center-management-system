@@ -168,7 +168,7 @@ Playwright uses bundled Chromium or an installed Chrome/Edge. If needed, install
 
 ## Team
 
-- Nguyễn Trọng Toàn
+- Nguyễn Trọng Toàn - [toan22102006a-collab](https://github.com/toan22102006a-collab)
 - Hiếu — [facingshootingstar](https://github.com/facingshootingstar)
 - Dang Trang Thanh Su — [thanhsu263](https://github.com/thanhsu263)
 - Phúc — [hoangphucio](https://github.com/hoangphucio)
