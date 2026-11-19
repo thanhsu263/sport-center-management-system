@@ -1,5 +1,5 @@
 {
-  "name": "app-builder-workspace",
+  "name": "arena3",
   "private": true,
   "sideEffects": false,
   "type": "module",
@@ -22,7 +22,6 @@
     "check:api": "node scripts/arena3-api-check.mjs",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "grade": "node scripts/auto-grade.mjs",
     "uml:build": "node scripts/uml2-build.mjs",
     "uml:review": "node scripts/uml2-review.mjs",
     "check:integrations": "node scripts/check-integrations.mjs"
